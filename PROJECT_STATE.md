@@ -65,3 +65,7 @@ replacing the "visco" app she currently uses.
 - 2026-09-30 (evening): hit detail merged into one screen (Julie) — hit type + fielder
   position picked together with a live readout ("Singled on a line drive to RF"); Done
   enables only when both are chosen.
+- 2026-09-30 (evening): double plays (Julie) — new "Double Play" outcome with three kinds:
+  ground-ball DP (fielder sequence e.g. 6-4-3, pick the runner out), lined into DP (catch +
+  doubled-off putout), and strike-'em-out-throw-'em-out (swinging/looking + CS fielders).
+  Two outs recorded, correct half-inning rollover, gentle message when no runner is on.
