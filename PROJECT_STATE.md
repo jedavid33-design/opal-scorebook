@@ -39,6 +39,10 @@ replacing the "visco" app she currently uses.
 - Substitutions (2026-09-30) — pinch hitters/runners, pitching changes, defensive subs
   mid-game, tracked in the book like a real scorecard.
 
+## Acceptance test (Julie, 2026-09-30)
+- Once substitutions + play editing + roster/lineup loading land, she'll score a few
+  games with odd plays to shake out what's missing.
+
 ## Later phases
 - Phase 2: MLB Stats API (free) — active rosters, live games, historical "moment in
   time" (full play-by-play + lineups as of a finished game). Reconstruction mode =
