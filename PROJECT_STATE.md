@@ -33,20 +33,18 @@ replacing the "visco" app she currently uses.
 8. Local-first (localStorage) in prototype; sync later.
 
 ## Queued updates (Julie's list)
-- Edit past plays entered incorrectly (2026-09-30) — tap a scored play and correct it,
-  rather than undoing back through everything after it. Note: editing a past play means
-  re-validating runs/outs/everything scored after it.
-- Substitutions (2026-09-30) — pinch hitters/runners, pitching changes, defensive subs
-  mid-game, tracked in the book like a real scorecard.
+(none — both built 2026-09-30, see log)
 
 ## Acceptance test (Julie, 2026-09-30)
 - Once substitutions + play editing + roster/lineup loading land, she'll score a few
   games with odd plays to shake out what's missing.
 
 ## Later phases
-- Phase 2: MLB Stats API (free) — active rosters, live games, historical "moment in
-  time" (full play-by-play + lineups as of a finished game). Reconstruction mode =
-  feed as reference/scaffolding, she still taps every pitch.
+- Phase 2: MLB Stats API (free) — AUTOMATIC ROSTERS ONLY (Julie, 2026-09-30). The feed
+  pulls the active roster as the player pool; Julie fills out the 9-man lineup herself
+  by tapping from it — lineups are never auto-loaded. Also live games + historical
+  "moment in time" (full play-by-play as reference for finished games). Reconstruction
+  mode = feed as reference/scaffolding, she still taps every pitch.
 - Phase 3: record book — cumulative player stats across scored games.
 - Phase 4: WPBL manual-entry polish (no public feed expected); sync iPhone + iPad
   via Cloudflare Worker + D1 (free tier).
@@ -80,3 +78,11 @@ replacing the "visco" app she currently uses.
   ground-ball DP (fielder sequence e.g. 6-4-3, pick the runner out), lined into DP (catch +
   doubled-off putout), and strike-'em-out-throw-'em-out (swinging/looking + CS fielders).
   Two outs recorded, correct half-inning rollover, gentle message when no runner is on.
+- 2026-09-30 (night): substitutions + play editing (Julie, impatience-approved) —
+  ⇄ Subs button on the Score tab: pinch hitter/runner, pitching change, defensive sub,
+  from team bench or typed new (auto-added to bench); sub log + ⇄ markers in the Book.
+  Play-by-play list in the Book with per-play Edit → "rewind & re-enter" (pops snapshots
+  back to before that play; later plays erased). Design fix the harness forced: subs
+  between plays write only to the sub log, never into PA events, so rewinds can't erase
+  an inning-break pitching change. Roster decision (Julie): MLB feed will pull active
+  rosters automatically; she fills out the lineup herself by tapping from the roster.
