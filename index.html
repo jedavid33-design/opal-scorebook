@@ -46,6 +46,8 @@ button:active{transform:scale(.97);}
 .big{min-height:62px; font-size:17px; font-weight:600;}
 .med{min-height:52px; font-size:15px; font-weight:600;}
 .sml{min-height:44px; font-size:14px;}
+.dhrow{display:flex !important; align-items:center; gap:8px; font-size:14px !important; color:var(--dim); margin-top:8px; min-height:44px;}
+.dhrow input{width:auto !important; min-height:20px; accent-color:var(--plum);}
 .pitch{background:rgba(155,111,211,.16); border-color:rgba(155,111,211,.45);}
 .pitch.auto{background:rgba(255,212,121,.13); border-color:rgba(255,212,121,.5);}
 .accent{background:linear-gradient(135deg,var(--plum-deep),#7a4fb5); border:none; font-weight:700;}
@@ -131,8 +133,10 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <p class="sub">New game — lineups. Big taps, no tiny typing marathons.</p>
   <div class="card">
     <div class="grid2">
-      <div><label>Away team</label><input id="awayName" value="Astros" maxlength="24"></div>
-      <div><label>Home team</label><input id="homeName" value="Opponent" maxlength="24"></div>
+      <div><label>Away team</label><input id="awayName" value="Astros" maxlength="24">
+        <label class="dhrow"><input type="checkbox" id="awayDH"> DH — pitcher doesn't bat</label></div>
+      <div><label>Home team</label><input id="homeName" value="Opponent" maxlength="24">
+        <label class="dhrow"><input type="checkbox" id="homeDH"> DH — pitcher doesn't bat</label></div>
     </div>
   </div>
   <div class="card">
@@ -251,7 +255,7 @@ const $=s=>document.querySelector(s);
 let S=null; const undoStack=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
 
-function blankTeam(name){return{name:name,pitcher:'',bench:[],pool:[],poolMeta:null,lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
+function blankTeam(name){return{name:name,pitcher:'',bench:[],pool:[],poolMeta:null,dh:false,lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
 function blank(){return{
   away:blankTeam('Astros'),home:blankTeam('Opponent'),
   bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
@@ -260,6 +264,9 @@ function blank(){return{
 };}
 function ensureShape(){
   ['away','home'].forEach(t=>{const T=S[t];
+    if(T.dh===undefined)T.dh=false;
+    if(T.dh&&T.lineup.length<10)T.lineup.push({name:'',num:'',pos:'1',nb:true});
+    if(!T.dh&&T.lineup.length>9)T.lineup.length=9;
     if(!Array.isArray(T.pool))T.pool=Array.isArray(T.bench)?T.bench.slice():[];
     if(T.pitcher===undefined)T.pitcher='';});
   if(!S.subLog)S.subLog=[];
@@ -284,12 +291,13 @@ function lineupHTML(el,team){
   const tk=team===S.away?'away':'home';
   el.innerHTML=team.lineup.map((p,i)=>{
     const sel=S.selSlot&&S.selSlot.t===tk&&S.selSlot.i===i;
+    const isP=team.dh&&i===9;
     return `<div class="lu-row${sel?' sel':''}" data-slot="${tk}" data-i="${i}">
-      <div><label>#</label><input inputmode="numeric" data-t="${tk}" data-i="${i}" data-f="num" value="${p.num||''}" placeholder="${i+1}"></div>
-      <div><label>Pos</label><select data-t="${tk}" data-i="${i}" data-f="pos">
+      <div><label>#</label><input inputmode="numeric" data-t="${tk}" data-i="${i}" data-f="num" value="${p.num||''}" placeholder="${isP?'P':i+1}"></div>
+      <div><label>Pos</label>${isP?'<div style="padding:10px 8px;color:var(--dim)">P</div>':`<select data-t="${tk}" data-i="${i}" data-f="pos">
         <option value="">–</option>${Object.entries(POS).map(([k,v])=>`<option value="${k}"${String(p.pos)===k?' selected':''}>${v}</option>`).join('')}
-      </select></div>
-      <div><label>${i+1} · Name</label><input data-t="${tk}" data-i="${i}" data-f="name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="Player name"></div>
+      </select>`}</div>
+      <div><label>${isP?"P · doesn't bat":(i+1)+' · Name'}</label><input data-t="${tk}" data-i="${i}" data-f="name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="${isP?'Pitcher name':'Player name'}"></div>
     </div>`;}).join('');
   el.querySelectorAll('input,select').forEach(inp=>{
     inp.addEventListener('change',()=>{
@@ -308,6 +316,7 @@ function lineupHTML(el,team){
 }
 function renderSetup(){
   $('#awayName').value=S.away.name; $('#homeName').value=S.home.name;
+  $('#awayDH').checked=!!S.away.dh; $('#homeDH').checked=!!S.home.dh;
   renderPool('away');renderPool('home');
   lineupHTML($('#awayLU'),S.away); lineupHTML($('#homeLU'),S.home);
   renderSlotBar('away');renderSlotBar('home');
@@ -316,6 +325,7 @@ function demoLineups(){
   const mk=(pre,n)=>Array.from({length:9},(_,i)=>({name:pre+' '+(i+1),num:String(n+i),pos:String([6,4,3,9,5,7,8,2,1][i])}));
   S.away.name='Astros';S.away.lineup=mk('Astro',10);
   S.home.name='Rivals';S.home.lineup=mk('Rival',40);
+  ['away','home'].forEach(t=>{if(S[t].dh&&S[t].lineup.length<10)S[t].lineup.push({name:'',num:'',pos:'1',nb:true});});
   S.selSlot=null;save();renderSetup();
 }
 
@@ -365,7 +375,7 @@ function tapPoolPlayer(team,pi){
   if(T.lineup.some(s=>s.name===p.name)){poolMsg(team,p.name+' is already in the lineup.');return;}
   let i=-1;
   if(S.selSlot&&S.selSlot.t===team)i=S.selSlot.i;
-  else i=T.lineup.findIndex(s=>!s.name);
+  else i=T.lineup.findIndex((s,idx)=>!s.name&&!(T.dh&&idx===9));
   if(i<0){poolMsg(team,'Lineup is full — tap a lineup slot to replace that player.');return;}
   T.lineup[i]={name:p.name,num:p.num||'',pos:p.pos||T.lineup[i].pos||''};
   S.selSlot=null;poolMsg(team,'');save();renderSetup();
@@ -382,10 +392,18 @@ function renderSlotBar(team){
   $('#'+team+'Desel').onclick=()=>{S.selSlot=null;save();renderSetup();};
 }
 function clearLineup(team){
-  if(!S[team].lineup.some(s=>s.name||s.num||s.pos))return;
-  if(!confirm('Clear the whole '+S[team].name+' lineup?'))return;
-  S[team].lineup=Array.from({length:9},()=>({name:'',num:'',pos:''}));
+  const T=S[team];
+  if(!T.lineup.some(s=>s.name||s.num||s.pos))return;
+  if(!confirm('Clear the whole '+T.name+' lineup?'))return;
+  T.lineup=Array.from({length:T.dh?10:9},(_,i)=>i===9?{name:'',num:'',pos:'1',nb:true}:{name:'',num:'',pos:''});
   if(S.selSlot&&S.selSlot.t===team)S.selSlot=null;
+  save();renderSetup();
+}
+function setDH(team,on){
+  const T=S[team];T.dh=!!on;
+  if(T.dh&&T.lineup.length<10)T.lineup.push({name:'',num:'',pos:'1',nb:true});
+  if(!T.dh&&T.lineup.length>9)T.lineup.length=9;
+  if(S.selSlot&&S.selSlot.t===team&&S.selSlot.i>8)S.selSlot=null;
   save();renderSetup();
 }
 
@@ -714,6 +732,12 @@ function applySub(team,type,slot,base,p){
   }else if(type==='P'){
     const old=T.pitcher||'—';
     T.pitcher=p.name+(p.num?' #'+p.num:'');
+    if(T.dh&&T.lineup[9]){
+      const e=T.lineup[9];
+      if(!e.hist)e.hist=[{name:e.name,num:e.num}];
+      e.hist.push({name:p.name,num:p.num});
+      e.name=p.name;e.num=p.num;
+    }
     note('Pitching change: '+T.pitcher+' for '+old);
     S.subLog.push({inn:S.inning,half:S.half,team,slot:null,type:'P',old:old,new:p.name});
   }
@@ -728,7 +752,8 @@ function subModal(){
     const types=[['PH','Pinch hitter'],['PR','Pinch runner'],['P','Pitcher'],['D','Defense']];
     let mid='';
     if(type==='PH'||type==='D'){
-      mid=`<div class="sect">Batting slot</div><div class="grid3">${T().lineup.map((e,i)=>
+      const slots=T().dh?T().lineup.slice(0,9):T().lineup;
+      mid=`<div class="sect">Batting slot</div><div class="grid3">${slots.map((e,i)=>
         `<button class="med${slot===i?' accent':''}" data-slot="${i}">#${i+1}<br><small>${(e.name||'—').slice(0,10)}</small></button>`).join('')}</div>`;
     }else if(type==='PR'){
       const occ=[0,1,2].filter(i=>S.bases[i]);
@@ -951,6 +976,8 @@ function init(){
   $('#homeLoad').onclick=()=>loadRoster('home');
   $('#awayClearLU').onclick=()=>clearLineup('away');
   $('#homeClearLU').onclick=()=>clearLineup('home');
+  $('#awayDH').addEventListener('change',e=>setDH('away',e.target.checked));
+  $('#homeDH').addEventListener('change',e=>setDH('home',e.target.checked));
   ['away','home'].forEach(t=>{
     $('#'+t+'Pool').addEventListener('click',e=>{
       const c=e.target.closest('[data-pool]');if(c)tapPoolPlayer(c.dataset.pool,+c.dataset.pi);
