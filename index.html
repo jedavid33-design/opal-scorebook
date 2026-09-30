@@ -86,6 +86,7 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .events li{padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.07); color:var(--dim);}
 .events li:last-child{color:var(--ink);}
 .sect{font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); margin:12px 0 6px;}
+.sect.lineup-head{display:flex; justify-content:space-between; align-items:center;}
 .tabs{position:fixed; bottom:0; left:0; right:0; display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
   background:rgba(11,7,20,.82); backdrop-filter:blur(16px); border-top:1px solid var(--line); z-index:5;}
 .tabs button{flex:1; min-height:52px; font-size:15px; font-weight:700;}
@@ -145,7 +146,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <div id="awayPool" class="pool"></div>
     <p class="sub" id="awayPoolMsg" style="color:var(--out)"></p>
     <div id="awaySlotBar"></div>
-    <div class="sect">Away lineup</div>
+    <div class="sect lineup-head">Away lineup <button class="sml ghost" id="awayClearLU">Clear</button></div>
     <div id="awayLU"></div>
   </div>
   <div class="card">
@@ -159,7 +160,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <div id="homePool" class="pool"></div>
     <p class="sub" id="homePoolMsg" style="color:var(--out)"></p>
     <div id="homeSlotBar"></div>
-    <div class="sect">Home lineup</div>
+    <div class="sect lineup-head">Home lineup <button class="sml ghost" id="homeClearLU">Clear</button></div>
     <div id="homeLU"></div>
   </div>
   <div class="grid2">
@@ -379,6 +380,13 @@ function renderSlotBar(team){
     <button class="sml ghost" id="${team}Desel">Done</button></div>`;
   const c=$('#'+team+'Clear');if(c)c.onclick=()=>{S[team].lineup[s.i]={name:'',num:'',pos:''};S.selSlot=null;save();renderSetup();};
   $('#'+team+'Desel').onclick=()=>{S.selSlot=null;save();renderSetup();};
+}
+function clearLineup(team){
+  if(!S[team].lineup.some(s=>s.name||s.num||s.pos))return;
+  if(!confirm('Clear the whole '+S[team].name+' lineup?'))return;
+  S[team].lineup=Array.from({length:9},()=>({name:'',num:'',pos:''}));
+  if(S.selSlot&&S.selSlot.t===team)S.selSlot=null;
+  save();renderSetup();
 }
 
 /* ================= score view ================= */
@@ -941,6 +949,8 @@ function init(){
   });
   $('#awayLoad').onclick=()=>loadRoster('away');
   $('#homeLoad').onclick=()=>loadRoster('home');
+  $('#awayClearLU').onclick=()=>clearLineup('away');
+  $('#homeClearLU').onclick=()=>clearLineup('home');
   ['away','home'].forEach(t=>{
     $('#'+t+'Pool').addEventListener('click',e=>{
       const c=e.target.closest('[data-pool]');if(c)tapPoolPlayer(c.dataset.pool,+c.dataset.pi);
