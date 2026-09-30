@@ -268,6 +268,8 @@ function ensureShape(){
     if(T.dh&&T.lineup.length<10)T.lineup.push({name:'',num:'',pos:'1',nb:true});
     if(!T.dh&&T.lineup.length>9)T.lineup.length=9;
     if(!Array.isArray(T.pool))T.pool=Array.isArray(T.bench)?T.bench.slice():[];
+    const inLU2=new Set(T.lineup.map(s=>s.name).filter(Boolean));
+    T.pool=T.pool.filter(p=>!inLU2.has(p.name));
     if(T.pitcher===undefined)T.pitcher='';});
   if(!S.subLog)S.subLog=[];
 }
@@ -338,6 +340,15 @@ function rosterToPool(roster){
     .sort((a,b)=>a.name.split(' ').slice(-1)[0].localeCompare(b.name.split(' ').slice(-1)[0]));
 }
 function poolMsg(team,txt){const el=$('#'+team+'PoolMsg');if(el)el.textContent=txt||'';}
+function poolRemove(T,name){T.pool=T.pool.filter(b=>b.name!==name);}
+function poolAdd(T,p){if(p&&p.name&&!T.pool.some(b=>b.name===p.name))T.pool.push({name:p.name,num:p.num||'',pos:p.pos||''});}
+function clearSlot(team,i){
+  const T=S[team],s=T.lineup[i];if(!s)return;
+  T.lineup[i]=(i===9&&T.dh)?{name:'',num:'',pos:'1',nb:true}:{name:'',num:'',pos:''};
+  poolAdd(T,s);
+  if(S.selSlot&&S.selSlot.t===team)S.selSlot=null;
+  save();renderSetup();
+}
 function rosterQuery(team){
   const id=+$('#'+team+'MLB').value, cy=new Date().getFullYear();
   const dv=($('#'+team+'Date').value||'').trim();
@@ -355,7 +366,9 @@ function loadRoster(team){
   fetch(q.url)
     .then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json();})
     .then(d=>{
-      const T=S[team];T.pool=rosterToPool(d.roster);
+      const T=S[team];
+      const inLU=new Set(T.lineup.map(s=>s.name).filter(Boolean));
+      T.pool=rosterToPool(d.roster).filter(p=>!inLU.has(p.name));
       T.poolMeta={mlbId:id,season:q.season,date:q.date,at:Date.now()};
       const tm=MLB_TEAMS.find(t=>t[0]===id);if(tm)T.name=tm[1];
       S.selSlot=null;save();renderSetup();
@@ -377,7 +390,10 @@ function tapPoolPlayer(team,pi){
   if(S.selSlot&&S.selSlot.t===team)i=S.selSlot.i;
   else i=T.lineup.findIndex((s,idx)=>!s.name&&!(T.dh&&idx===9));
   if(i<0){poolMsg(team,'Lineup is full — tap a lineup slot to replace that player.');return;}
+  const old=T.lineup[i];
   T.lineup[i]={name:p.name,num:p.num||'',pos:p.pos||T.lineup[i].pos||''};
+  poolRemove(T,p.name);
+  poolAdd(T,old);
   S.selSlot=null;poolMsg(team,'');save();renderSetup();
 }
 function renderSlotBar(team){
@@ -388,13 +404,14 @@ function renderSlotBar(team){
   el.innerHTML=`<div class="slotbar">Slot ${s.i+1}${p.name?': '+p.name:''} selected — tap a player above to fill it.
     ${p.name?`<button class="sml" id="${team}Clear">Clear</button>`:''}
     <button class="sml ghost" id="${team}Desel">Done</button></div>`;
-  const c=$('#'+team+'Clear');if(c)c.onclick=()=>{S[team].lineup[s.i]={name:'',num:'',pos:''};S.selSlot=null;save();renderSetup();};
+  const c=$('#'+team+'Clear');if(c)c.onclick=()=>clearSlot(team,s.i);
   $('#'+team+'Desel').onclick=()=>{S.selSlot=null;save();renderSetup();};
 }
 function clearLineup(team){
   const T=S[team];
   if(!T.lineup.some(s=>s.name||s.num||s.pos))return;
   if(!confirm('Clear the whole '+T.name+' lineup?'))return;
+  T.lineup.forEach(s=>poolAdd(T,s));
   T.lineup=Array.from({length:T.dh?10:9},(_,i)=>i===9?{name:'',num:'',pos:'1',nb:true}:{name:'',num:'',pos:''});
   if(S.selSlot&&S.selSlot.t===team)S.selSlot=null;
   save();renderSetup();
@@ -741,7 +758,7 @@ function applySub(team,type,slot,base,p){
     note('Pitching change: '+T.pitcher+' for '+old);
     S.subLog.push({inn:S.inning,half:S.half,team,slot:null,type:'P',old:old,new:p.name});
   }
-  if(!T.pool.some(b=>b.name===p.name))T.pool.push({name:p.name,num:p.num});
+  poolRemove(T,p.name);
   closeModal();save();renderAll();
 }
 function subModal(){
