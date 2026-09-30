@@ -36,6 +36,8 @@ replacing the "visco" app she currently uses.
 - Edit past plays entered incorrectly (2026-09-30) — tap a scored play and correct it,
   rather than undoing back through everything after it. Note: editing a past play means
   re-validating runs/outs/everything scored after it.
+- Substitutions (2026-09-30) — pinch hitters/runners, pitching changes, defensive subs
+  mid-game, tracked in the book like a real scorecard.
 
 ## Later phases
 - Phase 2: MLB Stats API (free) — active rosters, live games, historical "moment in
