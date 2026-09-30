@@ -58,7 +58,16 @@ input,select{
 }
 input::placeholder{color:#8d84a0;}
 label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
-.lu-row{display:grid; grid-template-columns:52px 56px 1fr; gap:6px; margin-bottom:6px; align-items:end;}
+.lu-row{display:grid; grid-template-columns:52px 56px 1fr; gap:6px; margin-bottom:6px; align-items:end;
+  border:1px solid transparent; border-radius:12px; padding:4px;}
+.lu-row.sel{border-color:var(--plum); box-shadow:0 0 0 1px var(--plum); background:rgba(201,160,232,.07);}
+.pool{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0;}
+.chip{background:rgba(255,255,255,.07); border:1px solid var(--line); color:var(--ink);
+  border-radius:999px; padding:9px 13px; font-size:14px; font-family:inherit;}
+.chip small{opacity:.6;}
+.chip:active{background:rgba(201,160,232,.25);}
+.slotbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:rgba(201,160,232,.1);
+  border:1px solid var(--plum); border-radius:10px; padding:8px 10px; margin:6px 0; font-size:14px;}
 .scorehead{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;}
 .scorehead .t{font-size:20px; font-weight:800;}
 .scorehead .s{font-size:15px; color:var(--dim);}
@@ -126,8 +135,30 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     </div>
   </div>
   <div class="card">
-    <div class="sect" style="margin-top:0">Away lineup</div>
+    <div class="sect" style="margin-top:0">Away roster pool</div>
+    <div class="grid3">
+      <div><label>MLB team</label><select id="awayMLB" class="mlbSel" data-team="away"><option value="">—</option></select></div>
+      <div><label>Season</label><input id="awayYr" inputmode="numeric" value="2026" maxlength="4"></div>
+      <div><label>&nbsp;</label><button class="med" id="awayLoad" style="width:100%">Load roster</button></div>
+    </div>
+    <p class="sub" id="awayPoolMeta" style="margin:6px 0 0"></p>
+    <div id="awayPool" class="pool"></div>
+    <p class="sub" id="awayPoolMsg" style="color:var(--out)"></p>
+    <div id="awaySlotBar"></div>
+    <div class="sect">Away lineup</div>
     <div id="awayLU"></div>
+  </div>
+  <div class="card">
+    <div class="sect" style="margin-top:0">Home roster pool</div>
+    <div class="grid3">
+      <div><label>MLB team</label><select id="homeMLB" class="mlbSel" data-team="home"><option value="">—</option></select></div>
+      <div><label>Season</label><input id="homeYr" inputmode="numeric" value="2026" maxlength="4"></div>
+      <div><label>&nbsp;</label><button class="med" id="homeLoad" style="width:100%">Load roster</button></div>
+    </div>
+    <p class="sub" id="homePoolMeta" style="margin:6px 0 0"></p>
+    <div id="homePool" class="pool"></div>
+    <p class="sub" id="homePoolMsg" style="color:var(--out)"></p>
+    <div id="homeSlotBar"></div>
     <div class="sect">Home lineup</div>
     <div id="homeLU"></div>
   </div>
@@ -219,7 +250,7 @@ const $=s=>document.querySelector(s);
 let S=null; const undoStack=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
 
-function blankTeam(name){return{name:name,pitcher:'',bench:[],lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
+function blankTeam(name){return{name:name,pitcher:'',bench:[],pool:[],poolMeta:null,lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
 function blank(){return{
   away:blankTeam('Astros'),home:blankTeam('Opponent'),
   bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
@@ -227,13 +258,17 @@ function blank(){return{
   pa:[],pas:[],runs:{away:[],home:[]},subLog:[],started:false
 };}
 function ensureShape(){
-  ['away','home'].forEach(t=>{if(!S[t].bench)S[t].bench=[];if(S[t].pitcher===undefined)S[t].pitcher='';});
+  ['away','home'].forEach(t=>{const T=S[t];
+    if(!Array.isArray(T.pool))T.pool=Array.isArray(T.bench)?T.bench.slice():[];
+    if(T.pitcher===undefined)T.pitcher='';});
   if(!S.subLog)S.subLog=[];
 }
-function snap(){undoStack.push(JSON.stringify(S));if(undoStack.length>80)undoStack.shift();}
+function snap(){undoStack.push(JSON.stringify(S));if(undoStack.length>80)undoStack.shift();persistUndo();}
+function persistUndo(){try{localStorage.setItem('osb1-undo',JSON.stringify(undoStack));}catch(e){}}
 function save(){try{localStorage.setItem('osb1',JSON.stringify(S));}catch(e){}}
-function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}catch(e){}}
-function undo(){if(!undoStack.length)return;S=JSON.parse(undoStack.pop());save();renderAll();}
+function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}catch(e){}
+  try{const u=localStorage.getItem('osb1-undo');undoStack.length=0;if(u)JSON.parse(u).forEach(s=>undoStack.push(s));}catch(e){}}
+function undo(){if(!undoStack.length)return;S=JSON.parse(undoStack.pop());persistUndo();save();renderAll();}
 
 const batTeam=()=>S[S.bat];
 const curIdx=()=>S.order[S.bat]%9;
@@ -245,30 +280,96 @@ function scoreRun(t){innRuns(t)[S.inning-1]++;}
 
 /* ================= setup view ================= */
 function lineupHTML(el,team){
-  el.innerHTML=team.lineup.map((p,i)=>
-    `<div class="lu-row">
-      <div><label>#</label><input inputmode="numeric" data-t="${team===S.away?'away':'home'}" data-i="${i}" data-f="num" value="${p.num||''}" placeholder="${i+1}"></div>
-      <div><label>Pos</label><select data-t="${team===S.away?'away':'home'}" data-i="${i}" data-f="pos">
+  const tk=team===S.away?'away':'home';
+  el.innerHTML=team.lineup.map((p,i)=>{
+    const sel=S.selSlot&&S.selSlot.t===tk&&S.selSlot.i===i;
+    return `<div class="lu-row${sel?' sel':''}" data-slot="${tk}" data-i="${i}">
+      <div><label>#</label><input inputmode="numeric" data-t="${tk}" data-i="${i}" data-f="num" value="${p.num||''}" placeholder="${i+1}"></div>
+      <div><label>Pos</label><select data-t="${tk}" data-i="${i}" data-f="pos">
         <option value="">–</option>${Object.entries(POS).map(([k,v])=>`<option value="${k}"${String(p.pos)===k?' selected':''}>${v}</option>`).join('')}
       </select></div>
-      <div><label>${i+1} · Name</label><input data-t="${team===S.away?'away':'home'}" data-i="${i}" data-f="name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="Player name"></div>
-    </div>`).join('');
+      <div><label>${i+1} · Name</label><input data-t="${tk}" data-i="${i}" data-f="name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="Player name"></div>
+    </div>`;}).join('');
   el.querySelectorAll('input,select').forEach(inp=>{
     inp.addEventListener('change',()=>{
       const t=inp.dataset.t,i=+inp.dataset.i,f=inp.dataset.f;
       S[t].lineup[i][f]=inp.value;save();
     });
   });
+  el.querySelectorAll('.lu-row').forEach(row=>{
+    row.addEventListener('click',e=>{
+      if(e.target.closest('input,select,button'))return;
+      const t=row.dataset.slot,i=+row.dataset.i;
+      S.selSlot=(S.selSlot&&S.selSlot.t===t&&S.selSlot.i===i)?null:{t,i};
+      save();renderSetup();
+    });
+  });
 }
 function renderSetup(){
   $('#awayName').value=S.away.name; $('#homeName').value=S.home.name;
+  renderPool('away');renderPool('home');
   lineupHTML($('#awayLU'),S.away); lineupHTML($('#homeLU'),S.home);
+  renderSlotBar('away');renderSlotBar('home');
 }
 function demoLineups(){
   const mk=(pre,n)=>Array.from({length:9},(_,i)=>({name:pre+' '+(i+1),num:String(n+i),pos:String([6,4,3,9,5,7,8,2,1][i])}));
   S.away.name='Astros';S.away.lineup=mk('Astro',10);
   S.home.name='Rivals';S.home.lineup=mk('Rival',40);
-  save();renderSetup();
+  S.selSlot=null;save();renderSetup();
+}
+
+/* ================= MLB roster pool ================= */
+const MLB_TEAMS=[[108,'Angels'],[109,'D-backs'],[110,'Orioles'],[111,'Red Sox'],[112,'Cubs'],[113,'Reds'],[114,'Guardians'],[115,'Rockies'],[116,'Tigers'],[117,'Astros'],[118,'Royals'],[119,'Dodgers'],[120,'Nationals'],[121,'Mets'],[133,'Athletics'],[134,'Pirates'],[135,'Padres'],[136,'Mariners'],[137,'Giants'],[138,'Cardinals'],[139,'Rays'],[140,'Rangers'],[141,'Blue Jays'],[142,'Twins'],[143,'Phillies'],[144,'Braves'],[145,'White Sox'],[146,'Marlins'],[147,'Yankees'],[158,'Brewers']];
+const MLB_POS={'P':'1','C':'2','1B':'3','2B':'4','3B':'5','SS':'6','LF':'7','CF':'8','RF':'9','DH':'10'};
+function rosterToPool(roster){
+  return (roster||[]).map(r=>({name:(r.person&&r.person.fullName)||'',num:r.jerseyNumber||'',pos:MLB_POS[(r.position&&r.position.abbreviation)]||''}))
+    .filter(p=>p.name)
+    .sort((a,b)=>a.name.split(' ').slice(-1)[0].localeCompare(b.name.split(' ').slice(-1)[0]));
+}
+function poolMsg(team,txt){const el=$('#'+team+'PoolMsg');if(el)el.textContent=txt||'';}
+function loadRoster(team){
+  const id=+$('#'+team+'MLB').value;
+  if(!id){poolMsg(team,'Pick an MLB team first.');return;}
+  const season=Math.max(2015,Math.min(new Date().getFullYear(),+$('#'+team+'Yr').value||new Date().getFullYear()));
+  const btn=$('#'+team+'Load');btn.disabled=true;btn.textContent='Loading…';
+  fetch('https://statsapi.mlb.com/api/v1/teams/'+id+'/roster?season='+season)
+    .then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json();})
+    .then(d=>{
+      const T=S[team];T.pool=rosterToPool(d.roster);
+      T.poolMeta={mlbId:id,season:season,at:Date.now()};
+      const tm=MLB_TEAMS.find(t=>t[0]===id);if(tm)T.name=tm[1];
+      S.selSlot=null;save();renderSetup();
+    })
+    .catch(()=>{btn.disabled=false;btn.textContent='Load roster';poolMsg(team,'Couldn’t load the roster — check your connection and try again.');});
+}
+function renderPool(team){
+  const T=S[team],el=$('#'+team+'Pool');if(!el)return;
+  el.innerHTML=T.pool.map((p,i)=>
+    `<button class="chip" data-pool="${team}" data-pi="${i}">${p.num?'#'+p.num+' ':''}${p.name}${p.pos?` <small>${POS[p.pos]}</small>`:''}</button>`).join('')
+    ||'<span class="sub">No roster loaded — pick an MLB team above and tap Load roster, or type names into the lineup directly.</span>';
+  const meta=$('#'+team+'PoolMeta');
+  if(meta)meta.textContent=T.pool.length?(T.pool.length+' players'+(T.poolMeta?' · '+T.poolMeta.season+' active roster':'')+' — tap a player to add them'):''; 
+}
+function tapPoolPlayer(team,pi){
+  const T=S[team],p=T.pool[pi];if(!p)return;
+  if(T.lineup.some(s=>s.name===p.name)){poolMsg(team,p.name+' is already in the lineup.');return;}
+  let i=-1;
+  if(S.selSlot&&S.selSlot.t===team)i=S.selSlot.i;
+  else i=T.lineup.findIndex(s=>!s.name);
+  if(i<0){poolMsg(team,'Lineup is full — tap a lineup slot to replace that player.');return;}
+  T.lineup[i]={name:p.name,num:p.num||'',pos:p.pos||T.lineup[i].pos||''};
+  S.selSlot=null;poolMsg(team,'');save();renderSetup();
+}
+function renderSlotBar(team){
+  const el=$('#'+team+'SlotBar');if(!el)return;
+  const s=S.selSlot;
+  if(!s||s.t!==team){el.innerHTML='';return;}
+  const p=S[team].lineup[s.i];
+  el.innerHTML=`<div class="slotbar">Slot ${s.i+1}${p.name?': '+p.name:''} selected — tap a player above to fill it.
+    ${p.name?`<button class="sml" id="${team}Clear">Clear</button>`:''}
+    <button class="sml ghost" id="${team}Desel">Done</button></div>`;
+  const c=$('#'+team+'Clear');if(c)c.onclick=()=>{S[team].lineup[s.i]={name:'',num:'',pos:''};S.selSlot=null;save();renderSetup();};
+  $('#'+team+'Desel').onclick=()=>{S.selSlot=null;save();renderSetup();};
 }
 
 /* ================= score view ================= */
@@ -599,7 +700,7 @@ function applySub(team,type,slot,base,p){
     note('Pitching change: '+T.pitcher+' for '+old);
     S.subLog.push({inn:S.inning,half:S.half,team,slot:null,type:'P',old:old,new:p.name});
   }
-  if(!T.bench.some(b=>b.name===p.name))T.bench.push({name:p.name,num:p.num});
+  if(!T.pool.some(b=>b.name===p.name))T.pool.push({name:p.name,num:p.num});
   closeModal();save();renderAll();
 }
 function subModal(){
@@ -620,7 +721,7 @@ function subModal(){
     }else if(type==='P'){
       mid=`<div class="sect">Current pitcher</div><div class="fread" style="font-size:18px">${T().pitcher||'—'}</div>`;
     }
-    const bench=T().bench;
+    const bench=T().pool;
     const ok=type&&((type==='PH'||type==='D')?slot!==null:type==='PR'?base!==null:true)&&(selBench>=0||(selBench===-2&&newName.trim()));
     $('#sheet').innerHTML=`<h2>Substitution</h2>
       <div class="grid2" style="margin-bottom:4px">
@@ -826,9 +927,19 @@ function init(){
   load();if(!S)S=blank();ensureShape();
   $('#awayName').addEventListener('change',e=>{S.away.name=e.target.value||'Away';save();});
   $('#homeName').addEventListener('change',e=>{S.home.name=e.target.value||'Home';save();});
+  document.querySelectorAll('.mlbSel').forEach(sel=>{
+    MLB_TEAMS.forEach(t=>{const o=document.createElement('option');o.value=t[0];o.textContent=t[1];sel.appendChild(o);});
+  });
+  $('#awayLoad').onclick=()=>loadRoster('away');
+  $('#homeLoad').onclick=()=>loadRoster('home');
+  ['away','home'].forEach(t=>{
+    $('#'+t+'Pool').addEventListener('click',e=>{
+      const c=e.target.closest('[data-pool]');if(c)tapPoolPlayer(c.dataset.pool,+c.dataset.pi);
+    });
+  });
   $('#demoBtn').onclick=demoLineups;
   $('#playBtn').onclick=()=>{S.started=true;save();renderAll();showView('score');};
-  $('#newGameBtn').onclick=()=>{if(confirm('End this game and start over?')){S=blank();undoStack.length=0;save();renderSetup();showView('setup');}};
+  $('#newGameBtn').onclick=()=>{if(confirm('End this game and start over?')){S=blank();undoStack.length=0;persistUndo();save();renderSetup();showView('setup');}};
   document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
   $('#stealBtn').onclick=actSteal;$('#diBtn').onclick=actDI;$('#pickBtn').onclick=actPick;
   $('#wppbBtn').onclick=actWPPB;$('#balkBtn').onclick=actBalk;
