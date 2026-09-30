@@ -382,7 +382,7 @@ function hitMovers(n){
   return mv;
 }
 function holdMovers(){const mv=[];[2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});return mv;}
-function hitDetail(n,kind,verb){
+function hitPicker(verb,cb){
   let ht=null,f=null;
   const cap=h=>h[0].toUpperCase()+h.slice(1);
   const draw=()=>{
@@ -399,10 +399,13 @@ function hitDetail(n,kind,verb){
       <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
     $('#sheet').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{ht=b.dataset.ht;draw();});
     $('#sheet').querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{f=b.dataset.f;draw();});
-    if(ready)$('#hitDone').onclick=()=>{const txt=`${verb} on a ${ht} to ${POS[f]}`;
-      ev('o',txt);placementReview(hitMovers(n),kind,txt);};
+    if(ready)$('#hitDone').onclick=()=>cb(ht,f);
   };
   draw();$('#modal').classList.add('on');
+}
+function hitDetail(n,kind,verb){
+  hitPicker(verb,(ht,f)=>{const txt=`${verb} on a ${ht} to ${POS[f]}`;
+    ev('o',txt);placementReview(hitMovers(n),kind,txt);});
 }
 function dpModal(){
   if(!S.bases.some(Boolean)){
@@ -678,7 +681,7 @@ function renderPbp(){
     const e0=p.events.length?p.events[0].text:'';
     return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div><button class="sml" data-edit="${idx}">Edit</button></div>`;
   }).join('')||'<p class="sub">No plays yet.</p>';
-  el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>confirmEditPA(+b.dataset.edit));
+  el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editPA(+b.dataset.edit));
 }
 function renderSubLog(){
   const el=$('#sublog');if(!el)return;
@@ -691,6 +694,128 @@ function confirmEditPA(idx){
   openModal(`<h2>Edit play</h2><p class="sub">Rewind and re-enter from here? This erases ${what} — the game rewinds to right before it happened, and you score it again.</p>
     <div class="grid2"><button class="med accent" id="ceYes">Rewind &amp; re-enter</button><button class="med ghost" onclick="closeModal()">Keep</button></div>`);
   $('#ceYes').onclick=()=>{let g=500;while((S.pas.length>idx||S.pa.length>0)&&undoStack.length&&g-->0)undo();closeModal();showView('score');};
+}
+
+/* ================= edit past plays ================= */
+function outcomeIdx(pa){for(let i=pa.events.length-1;i>=0;i--)if(pa.events[i].t==='o')return i;return -1;}
+function describePA(pa){return `${pa.half?'B':'T'}${pa.inning} · ${pa.batter||''} · ${pa.result}`;}
+function paKind(r){
+  if(/^(1B|2B|3B)$/.test(r))return r;
+  if(/^F\d/.test(r))return 'FO';
+  if(/^L\d/.test(r))return 'LO';
+  if(/^E\d/.test(r))return 'E';
+  if(r==='FC')return 'FC';
+  if(r==='SAC')return 'SAC';
+  if(r==='SF')return 'SF';
+  if(/^\d/.test(r))return 'GO';
+  return 'TEXT';
+}
+const HITVERB={'1B':'Singled','2B':'Doubled','3B':'Tripled'};
+function applyNotationFix(kind,ht,f){
+  if(kind==='1B'||kind==='2B'||kind==='3B')
+    return{result:kind,text:`${HITVERB[kind]} on a ${ht} to ${POS[f]}`};
+  if(kind==='GO')return{result:f,text:'Grounded out '+f};
+  if(kind==='FO')return{result:'F'+f,text:'Flied out to '+f};
+  if(kind==='LO')return{result:'L'+f,text:'Lined out to '+f};
+  if(kind==='E')return{result:'E'+f,text:'Reached on error E'+f};
+  if(kind==='FC')return{result:'FC',text:"Fielder's choice "+f};
+  if(kind==='SAC')return{result:'SAC',text:'Sac bunt '+f};
+  if(kind==='SF')return{result:'SF',text:'Sac fly F'+f};
+  return null;
+}
+function applyFixNotation(pa,nr,nt){
+  snap();pa.result=nr;const j=outcomeIdx(pa);
+  if(j>=0)pa.events[j]={t:'o',text:nt};else pa.events.push({t:'o',text:nt});
+  save();
+}
+function editPA(idx){
+  const pa=S.pas[idx];
+  openModal(`<h2>Edit play</h2><p class="sub">${describePA(pa)}</p>
+    <button class="med" id="epFix" style="width:100%;margin-bottom:6px">Fix notation — outcome was right, details wrong</button>
+    <button class="med" id="epPitch" style="width:100%;margin-bottom:6px">Add missed pitch — a pitch wasn't entered</button>
+    <button class="med" id="epRescore" style="width:100%;margin-bottom:6px">Re-score play — the outcome itself was wrong</button>
+    <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+  $('#epFix').onclick=()=>fixNotation(idx);
+  $('#epPitch').onclick=()=>addPitchPA(idx);
+  $('#epRescore').onclick=()=>confirmEditPA(idx);
+}
+function fixNotation(idx){
+  const pa=S.pas[idx],kind=paKind(pa.result);
+  const oi=outcomeIdx(pa);
+  let fxR=pa.result,fxT=oi>=0?pa.events[oi].text:'';
+  const esc=s=>String(s).replace(/"/g,'&quot;');
+  const draw=()=>{
+    $('#sheet').innerHTML=`<h2>Fix notation</h2>
+      <p class="sub">Only the bookkeeping changes — outs, runners and score are <b>not</b> touched. If the outcome itself was wrong, use Re-score instead.</p>
+      <label>Result code (diamond)</label><input id="fxResult" value="${esc(fxR)}" maxlength="12">
+      <label>Play text</label><input id="fxText" value="${esc(fxT)}" maxlength="90">
+      ${kind==='1B'||kind==='2B'||kind==='3B'
+        ?'<button class="med" id="fxHit" style="width:100%;margin-top:8px">Re-pick hit type + fielder</button>'
+        :['GO','FO','LO','E','FC','SAC','SF'].includes(kind)
+        ?'<button class="med" id="fxF" style="width:100%;margin-top:8px">Re-pick fielders</button>':''}
+      <button class="med accent" id="fxSave" style="width:100%;margin-top:10px">Save notation</button>
+      <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
+    const rh=$('#fxHit');if(rh)rh.onclick=()=>hitPicker(HITVERB[pa.result],(ht,f)=>{
+      const m=applyNotationFix(kind,ht,f);fxR=m.result;fxT=m.text;draw();});
+    const rf=$('#fxF');if(rf)rf.onclick=()=>fielderPad(f=>{
+      const m=applyNotationFix(kind,null,f);fxR=m.result;fxT=m.text;draw();},'Re-pick fielders');
+    $('#fxSave').onclick=()=>{
+      const nr=$('#fxResult').value.trim()||pa.result,nt=$('#fxText').value.trim();
+      const c0=clsOf(pa.result),c1=clsOf(nr);
+      const nm=c=>c==='hit'?'a hit':c==='out'?'an out':'something else';
+      if(c1!==c0){
+        openModal(`<h2>Heads up</h2><p class="sub">“${pa.result}” is scored as ${nm(c0)}, but “${nr}” reads as ${nm(c1)}. Outs, runners and score will <b>not</b> update — if the outcome was actually wrong, use Re-score instead.</p>
+          <div class="grid2"><button class="med accent" id="fxForce">Save anyway</button><button class="med ghost" onclick="closeModal()">Cancel</button></div>`);
+        $('#fxForce').onclick=()=>{applyFixNotation(pa,nr,nt);closeModal();renderAll();};return;
+      }
+      applyFixNotation(pa,nr,nt);closeModal();renderAll();
+    };
+  };
+  draw();$('#modal').classList.add('on');
+}
+function pitchCounts(pa){
+  let b=0,s=0;
+  for(const e of pa.events){
+    if(e.t!=='p')continue;const t=e.text;
+    if(t==='Ball'||t==='Pitchout (ball)'||t==='Ball (illegal pitch)'||t.indexOf('Automatic ball')===0||t.indexOf('Illegal pitch')===0)b++;
+    else if(t==='Called strike'||t==='Swinging strike'||t.indexOf('Automatic strike')===0)s++;
+  }
+  return{b,s};
+}
+// Returns '' on success, or a plain-English reason the pitch can't be added.
+function tryAddPitch(pa,label){
+  const pc=pitchCounts(pa),isK=/^(K|ꓘ)$/.test(pa.result),isBB=pa.result==='BB';
+  if(label==='Ball'){
+    if(isBB)return 'this PA ended in a walk — 4 balls are already logged.';
+    if(pc.b>=3)return pc.b+' balls already logged — a '+(pc.b+1)+'th would be ball four, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
+  }else if(label!=='Foul ball'){
+    if(isK)return 'this PA ended in a strikeout — 3 strikes are already logged.';
+    if(pc.s>=2)return pc.s+' strikes already logged — another would be strike three, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
+  }
+  snap();
+  const j=outcomeIdx(pa);
+  if(j>=0)pa.events.splice(j,0,{t:'p',text:label});else pa.events.push({t:'p',text:label});
+  save();
+  return '';
+}
+function addPitchPA(idx){
+  const pa=S.pas[idx];
+  const P=['Ball','Called strike','Swinging strike','Foul ball'];
+  const draw=(err)=>{
+    const plist=pa.events.filter(e=>e.t==='p').map(e=>e.text);
+    $('#sheet').innerHTML=`<h2>Add missed pitch</h2>
+      <p class="sub">${describePA(pa)} — tap each pitch that happened but wasn't entered. It goes at the end of the pitch list, right before the outcome.</p>
+      <p class="sub"><b>Pitches logged (${plist.length}):</b> ${plist.length?plist.join(' · '):'none'}</p>
+      ${err?`<p class="sub" style="color:#ff9d9d"><b>Can't add that:</b> ${err}</p>`:''}
+      <div class="grid2">${P.map(p=>`<button class="med" data-ap="${p}">${p}</button>`).join('')}</div>
+      <div style="margin-top:10px"><button class="med accent" id="apDone" style="width:100%">Done</button></div>`;
+    $('#sheet').querySelectorAll('[data-ap]').forEach(b=>b.onclick=()=>{
+      const why=tryAddPitch(pa,b.dataset.ap);
+      draw(why);renderAll();
+    });
+    $('#apDone').onclick=()=>closeModal();
+  };
+  draw('');$('#modal').classList.add('on');
 }
 
 /* ================= nav / init ================= */
