@@ -138,7 +138,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <div class="sect" style="margin-top:0">Away roster pool</div>
     <div class="grid3">
       <div><label>MLB team</label><select id="awayMLB" class="mlbSel" data-team="away"><option value="">—</option></select></div>
-      <div><label>Season</label><input id="awayYr" inputmode="numeric" value="2026" maxlength="4"></div>
+      <div><label>Roster date <span style="opacity:.55">(optional)</span></label><input id="awayDate" type="date"></div>
       <div><label>&nbsp;</label><button class="med" id="awayLoad" style="width:100%">Load roster</button></div>
     </div>
     <p class="sub" id="awayPoolMeta" style="margin:6px 0 0"></p>
@@ -152,7 +152,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <div class="sect" style="margin-top:0">Home roster pool</div>
     <div class="grid3">
       <div><label>MLB team</label><select id="homeMLB" class="mlbSel" data-team="home"><option value="">—</option></select></div>
-      <div><label>Season</label><input id="homeYr" inputmode="numeric" value="2026" maxlength="4"></div>
+      <div><label>Roster date <span style="opacity:.55">(optional)</span></label><input id="homeDate" type="date"></div>
       <div><label>&nbsp;</label><button class="med" id="homeLoad" style="width:100%">Load roster</button></div>
     </div>
     <p class="sub" id="homePoolMeta" style="margin:6px 0 0"></p>
@@ -327,16 +327,25 @@ function rosterToPool(roster){
     .sort((a,b)=>a.name.split(' ').slice(-1)[0].localeCompare(b.name.split(' ').slice(-1)[0]));
 }
 function poolMsg(team,txt){const el=$('#'+team+'PoolMsg');if(el)el.textContent=txt||'';}
+function rosterQuery(team){
+  const id=+$('#'+team+'MLB').value, cy=new Date().getFullYear();
+  const dv=($('#'+team+'Date').value||'').trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(dv)){
+    const yr=+dv.slice(0,4);
+    if(yr>=2015&&yr<=cy)return{url:'https://statsapi.mlb.com/api/v1/teams/'+id+'/roster?season='+yr+'&date='+dv,season:yr,date:dv};
+  }
+  return{url:'https://statsapi.mlb.com/api/v1/teams/'+id+'/roster?season='+cy,season:cy,date:null};
+}
 function loadRoster(team){
   const id=+$('#'+team+'MLB').value;
   if(!id){poolMsg(team,'Pick an MLB team first.');return;}
-  const season=Math.max(2015,Math.min(new Date().getFullYear(),+$('#'+team+'Yr').value||new Date().getFullYear()));
+  const q=rosterQuery(team);
   const btn=$('#'+team+'Load');btn.disabled=true;btn.textContent='Loading…';
-  fetch('https://statsapi.mlb.com/api/v1/teams/'+id+'/roster?season='+season)
+  fetch(q.url)
     .then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json();})
     .then(d=>{
       const T=S[team];T.pool=rosterToPool(d.roster);
-      T.poolMeta={mlbId:id,season:season,at:Date.now()};
+      T.poolMeta={mlbId:id,season:q.season,date:q.date,at:Date.now()};
       const tm=MLB_TEAMS.find(t=>t[0]===id);if(tm)T.name=tm[1];
       S.selSlot=null;save();renderSetup();
     })
@@ -348,7 +357,7 @@ function renderPool(team){
     `<button class="chip" data-pool="${team}" data-pi="${i}">${p.num?'#'+p.num+' ':''}${p.name}${p.pos?` <small>${POS[p.pos]}</small>`:''}</button>`).join('')
     ||'<span class="sub">No roster loaded — pick an MLB team above and tap Load roster, or type names into the lineup directly.</span>';
   const meta=$('#'+team+'PoolMeta');
-  if(meta)meta.textContent=T.pool.length?(T.pool.length+' players'+(T.poolMeta?' · '+T.poolMeta.season+' active roster':'')+' — tap a player to add them'):''; 
+  if(meta)meta.textContent=T.pool.length?(T.pool.length+' players'+(T.poolMeta?(T.poolMeta.date?' · roster for '+T.poolMeta.date:' · '+T.poolMeta.season+' active roster'):'')+' — tap a player to add them'):''; 
 }
 function tapPoolPlayer(team,pi){
   const T=S[team],p=T.pool[pi];if(!p)return;
