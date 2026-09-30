@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Opal Scorebook</title>
+<style>
+:root{
+  --plum:#c9a0e8; --plum-deep:#9b6fd3; --ink:#f4effa; --dim:#b9aec9;
+  --card:rgba(255,255,255,.065); --line:rgba(255,255,255,.13);
+  --good:#7fe0b2; --warn:#ffd479; --out:#ff9d9d;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  background:#0b0714; color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  min-height:100dvh; padding-bottom:96px;
+}
+body::before{
+  content:''; position:fixed; inset:-10%; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(55% 45% at 18% 8%, rgba(155,111,211,.28), transparent 70%),
+    radial-gradient(45% 38% at 86% 22%, rgba(64,190,178,.20), transparent 70%),
+    radial-gradient(60% 50% at 78% 88%, rgba(206,92,160,.20), transparent 70%),
+    radial-gradient(50% 42% at 12% 82%, rgba(110,140,230,.16), transparent 70%);
+  animation:drift 28s ease-in-out infinite alternate;
+}
+@keyframes drift{to{transform:translate(3%,-4%) scale(1.07) rotate(2deg);}}
+.view{display:none; padding:14px 14px 0; max-width:640px; margin:0 auto;}
+.view.on{display:block;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:18px;
+  padding:14px; margin-bottom:12px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);}
+h1{font-size:26px; margin:6px 0 2px;}
+.sub{color:var(--dim); font-size:14px; margin:0 0 12px;}
+.row{display:flex; gap:8px; align-items:center;}
+.grow{flex:1;}
+button{
+  font-family:inherit; color:var(--ink); background:rgba(255,255,255,.09);
+  border:1px solid var(--line); border-radius:14px; cursor:pointer;
+}
+button:active{transform:scale(.97);}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+.grid4{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+.big{min-height:62px; font-size:17px; font-weight:600;}
+.med{min-height:52px; font-size:15px; font-weight:600;}
+.sml{min-height:44px; font-size:14px;}
+.pitch{background:rgba(155,111,211,.16); border-color:rgba(155,111,211,.45);}
+.pitch.auto{background:rgba(255,212,121,.13); border-color:rgba(255,212,121,.5);}
+.accent{background:linear-gradient(135deg,var(--plum-deep),#7a4fb5); border:none; font-weight:700;}
+.ghost{background:transparent;}
+.danger{border-color:rgba(255,120,120,.5); color:var(--out);}
+input,select{
+  font-family:inherit; font-size:16px; color:var(--ink);
+  background:rgba(0,0,0,.35); border:1px solid var(--line); border-radius:10px;
+  padding:10px 8px; width:100%;
+}
+input::placeholder{color:#8d84a0;}
+label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
+.lu-row{display:grid; grid-template-columns:52px 56px 1fr; gap:6px; margin-bottom:6px; align-items:end;}
+.scorehead{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;}
+.scorehead .t{font-size:20px; font-weight:800;}
+.scorehead .s{font-size:15px; color:var(--dim);}
+.countline{display:flex; gap:14px; align-items:center; margin:8px 0;}
+.count{font-size:30px; font-weight:800; letter-spacing:2px;}
+.outs{font-size:15px; color:var(--warn);}
+.baseswrap{display:flex; justify-content:center; padding:6px 0 2px;}
+.diamond{position:relative; width:120px; height:120px;}
+.base{position:absolute; width:34px; height:34px; transform:rotate(45deg);
+  border:2px solid rgba(255,255,255,.35); background:rgba(255,255,255,.05); border-radius:6px;}
+.base.on{background:var(--plum); border-color:#fff; box-shadow:0 0 12px var(--plum);}
+#b2{left:43px; top:6px;} #b1{left:80px; top:43px;} #b3{left:6px; top:43px;}
+.batter{font-size:19px; font-weight:700;}
+.batter small{color:var(--dim); font-weight:400;}
+.events{list-style:none; margin:8px 0 0; padding:0; font-size:14px; max-height:150px; overflow:auto;}
+.events li{padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.07); color:var(--dim);}
+.events li:last-child{color:var(--ink);}
+.sect{font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); margin:12px 0 6px;}
+.tabs{position:fixed; bottom:0; left:0; right:0; display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+  background:rgba(11,7,20,.82); backdrop-filter:blur(16px); border-top:1px solid var(--line); z-index:5;}
+.tabs button{flex:1; min-height:52px; font-size:15px; font-weight:700;}
+.tabs button.on{background:linear-gradient(135deg,var(--plum-deep),#7a4fb5); border:none;}
+.modal{position:fixed; inset:0; z-index:20; display:none; align-items:flex-end; justify-content:center;
+  background:rgba(0,0,0,.55);}
+.modal.on{display:flex;}
+.sheet{background:#171021; border:1px solid var(--line); border-radius:22px 22px 0 0;
+  width:100%; max-width:640px; max-height:88dvh; overflow:auto; padding:18px 16px calc(20px + env(safe-area-inset-bottom));}
+.sheet h2{margin:0 0 10px; font-size:20px;}
+.fpad{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0;}
+.fpad button{min-height:58px; font-size:20px; font-weight:700;}
+.fread{font-size:26px; font-weight:800; text-align:center; min-height:40px; color:var(--plum);}
+.mover{border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px;}
+.mover .nm{font-weight:700; margin-bottom:6px;}
+.mover .dest{display:flex; gap:6px; flex-wrap:wrap;}
+.mover .dest button{flex:1; min-width:60px; min-height:48px; font-weight:700;}
+.mover .dest button.sel{background:linear-gradient(135deg,var(--plum-deep),#7a4fb5); border:none;}
+table.book{border-collapse:collapse; width:100%; font-size:12px;}
+table.book th, table.book td{border:1px solid rgba(255,255,255,.14); padding:2px; text-align:center;}
+table.book th{background:rgba(255,255,255,.06); font-size:11px;}
+.dcell{width:44px; height:44px; margin:2px auto; position:relative;}
+.dcell .d{position:absolute; inset:6px; transform:rotate(45deg); border:1.5px solid rgba(255,255,255,.4); border-radius:4px; background:rgba(255,255,255,.04);}
+.dcell.hit .d{background:rgba(127,224,178,.25); border-color:var(--good);}
+.dcell.out .d{background:rgba(255,157,157,.18); border-color:var(--out);}
+.dcell span{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px;}
+.plname{text-align:left !important; font-size:11px; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ls{font-size:14px; margin-top:10px;}
+.ls td,.ls th{padding:4px 6px;}
+.note{font-size:13px; color:var(--dim); margin-top:8px;}
+</style>
+</head>
+<body>
+
+<div id="v-setup" class="view">
+  <h1>Opal Scorebook</h1>
+  <p class="sub">New game — lineups. Big taps, no tiny typing marathons.</p>
+  <div class="card">
+    <div class="grid2">
+      <div><label>Away team</label><input id="awayName" value="Astros" maxlength="24"></div>
+      <div><label>Home team</label><input id="homeName" value="Opponent" maxlength="24"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="sect" style="margin-top:0">Away lineup</div>
+    <div id="awayLU"></div>
+    <div class="sect">Home lineup</div>
+    <div id="homeLU"></div>
+  </div>
+  <div class="grid2">
+    <button class="med ghost" id="demoBtn">Load demo lineups</button>
+    <button class="med accent" id="playBtn">Start scoring →</button>
+  </div>
+  <p class="note">Game saves on this device as you score. Positions: 1 P · 2 C · 3 1B · 4 2B · 5 3B · 6 SS · 7 LF · 8 CF · 9 RF · DH</p>
+</div>
+
+<div id="v-score" class="view">
+  <div class="card">
+    <div class="scorehead">
+      <div><span class="t" id="hAway">AWY</span> <span class="s" id="sAway">0</span>
+        &nbsp;@&nbsp; <span class="t" id="hHome">HME</span> <span class="s" id="sHome">0</span></div>
+      <div class="s" id="hInn">▲ 1</div>
+    </div>
+    <div class="countline">
+      <div class="count" id="hCount">0-0</div>
+      <div class="outs" id="hOuts"></div>
+      <div class="grow"></div>
+      <button class="sml ghost" id="undoBtn">↩ Undo</button>
+    </div>
+    <div class="baseswrap"><div class="diamond">
+      <div class="base" id="b2"></div><div class="base" id="b1"></div><div class="base" id="b3"></div>
+    </div></div>
+    <div class="batter" id="hBatter">—</div>
+    <ul class="events" id="hEvents"></ul>
+  </div>
+
+  <div class="sect">Pitch</div>
+  <div class="grid4">
+    <button class="big pitch" data-p="ball">Ball</button>
+    <button class="big pitch" data-p="cstr">Called K</button>
+    <button class="big pitch" data-p="sstr">Swing K</button>
+    <button class="big pitch" data-p="foul">Foul</button>
+  </div>
+  <div class="grid3" style="margin-top:8px">
+    <button class="med pitch" data-p="inplay">In Play</button>
+    <button class="med pitch" data-p="pitchout">Pitchout</button>
+    <button class="med pitch" data-p="hbp">Hit Batter</button>
+  </div>
+  <div class="sect">Automatic calls</div>
+  <div class="grid3">
+    <button class="med pitch auto" data-p="autoball">Auto Ball<br><small>⏱ pitcher</small></button>
+    <button class="med pitch auto" data-p="autostrike">Auto Strike<br><small>⏱ batter</small></button>
+    <button class="med pitch auto" data-p="illegal">Illegal<br><small>pitch</small></button>
+  </div>
+  <div class="sect">Runners</div>
+  <div class="grid3">
+    <button class="med" id="stealBtn">Steal</button>
+    <button class="med" id="diBtn">Def. Indiff.</button>
+    <button class="med" id="pickBtn">Pickoff</button>
+  </div>
+  <div class="grid2" style="margin-top:8px">
+    <button class="med" id="wppbBtn">Wild / Passed</button>
+    <button class="med" id="balkBtn">Balk</button>
+  </div>
+</div>
+
+<div id="v-book" class="view">
+  <h1>Scorebook</h1>
+  <p class="sub" id="bookSub"></p>
+  <div class="card" style="overflow-x:auto">
+    <div class="sect" style="margin-top:0" id="bookAwayT"></div>
+    <div id="bookAway"></div>
+    <div class="sect" id="bookHomeT"></div>
+    <div id="bookHome"></div>
+  </div>
+  <div class="card"><div class="sect" style="margin-top:0">Linescore</div><div id="linescore"></div></div>
+  <button class="med danger" id="newGameBtn" style="width:100%">End game / start over</button>
+</div>
+
+<div class="tabs">
+  <button id="tab-setup">Setup</button>
+  <button id="tab-score" class="on">Score</button>
+  <button id="tab-book">Book</button>
+</div>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+
+<script>
+"use strict";
+/* ================= state ================= */
+const $=s=>document.querySelector(s);
+let S=null; const undoStack=[];
+const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
+
+function blankTeam(name){return{name:name,lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
+function blank(){return{
+  away:blankTeam('Astros'),home:blankTeam('Opponent'),
+  bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
+  bases:[null,null,null],order:{away:0,home:0},
+  pa:[],pas:[],runs:{away:[],home:[]},started:false
+};}
+function snap(){undoStack.push(JSON.stringify(S));if(undoStack.length>80)undoStack.shift();}
+function save(){try{localStorage.setItem('osb1',JSON.stringify(S));}catch(e){}}
+function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}catch(e){}}
+function undo(){if(!undoStack.length)return;S=JSON.parse(undoStack.pop());save();renderAll();}
+
+const batTeam=()=>S[S.bat];
+const curIdx=()=>S.order[S.bat]%9;
+const curBatter=()=>batTeam().lineup[curIdx()];
+const pname=p=>{const L=S[p.t].lineup[p.i];return(L.num?('#'+L.num+' '):'')+(L.name||('Batter '+(p.i+1)));};
+function ev(t,x){S.pa.push(Object.assign({t},x||{}));}
+function innRuns(t){let a=S.runs[t];while(a.length<S.inning)a.push(0);return a;}
+function scoreRun(t){innRuns(t)[S.inning-1]++;}
+
+/* ================= setup view ================= */
+function lineupHTML(el,team){
+  el.innerHTML=team.lineup.map((p,i)=>
+    `<div class="lu-row">
+      <div><label>#</label><input inputmode="numeric" data-t="${team===S.away?'away':'home'}" data-i="${i}" data-f="num" value="${p.num||''}" placeholder="${i+1}"></div>
+      <div><label>Pos</label><select data-t="${team===S.away?'away':'home'}" data-i="${i}" data-f="pos">
+        <option value="">–</option>${Object.entries(POS).map(([k,v])=>`<option value="${k}"${String(p.pos)===k?' selected':''}>${v}</option>`).join('')}
+      </select></div>
+      <div><label>${i+1} · Name</label><input data-t="${team===S.away?'away':'home'}" data-i="${i}" data-f="name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="Player name"></div>
+    </div>`).join('');
+  el.querySelectorAll('input,select').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      const t=inp.dataset.t,i=+inp.dataset.i,f=inp.dataset.f;
+      S[t].lineup[i][f]=inp.value;save();
+    });
+  });
+}
+function renderSetup(){
+  $('#awayName').value=S.away.name; $('#homeName').value=S.home.name;
+  lineupHTML($('#awayLU'),S.away); lineupHTML($('#homeLU'),S.home);
+}
+function demoLineups(){
+  const mk=(pre,n)=>Array.from({length:9},(_,i)=>({name:pre+' '+(i+1),num:String(n+i),pos:String([6,4,3,9,5,7,8,2,1][i])}));
+  S.away.name='Astros';S.away.lineup=mk('Astro',10);
+  S.home.name='Rivals';S.home.lineup=mk('Rival',40);
+  save();renderSetup();
+}
+
+/* ================= score view ================= */
+function renderScore(){
+  const a=S.away,h=S.home;
+  $('#hAway').textContent=a.name.toUpperCase().slice(0,4)||'AWY';
+  $('#hHome').textContent=h.name.toUpperCase().slice(0,4)||'HME';
+  $('#sAway').textContent=innRuns('away').reduce((x,y)=>x+y,0);
+  $('#sHome').textContent=innRuns('home').reduce((x,y)=>x+y,0);
+  $('#hInn').textContent=(S.half===0?'▲ ':'▼ ')+S.inning;
+  $('#hCount').textContent=S.balls+'-'+S.strikes;
+  $('#hOuts').textContent='● '.repeat(S.outs)+'○ '.repeat(Math.max(0,3-S.outs));
+  $('#b1').classList.toggle('on',!!S.bases[0]);
+  $('#b2').classList.toggle('on',!!S.bases[1]);
+  $('#b3').classList.toggle('on',!!S.bases[2]);
+  const b=curBatter();
+  $('#hBatter').innerHTML=`${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
+  $('#hEvents').innerHTML=S.pa.map(e=>`<li>${e.text}</li>`).join('')||'<li style="opacity:.5">No pitches yet this PA</li>';
+  const sc=$('#v-score');
+}
+/* ================= modal helpers ================= */
+function openModal(html){$('#sheet').innerHTML=html;$('#modal').classList.add('on');}
+function closeModal(){$('#modal').classList.remove('on');}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+const baseName=n=>({1:'1st',2:'2nd',3:'3rd',4:'home'}[n]);
+
+function fielderPad(cb,title){
+  let f='';
+  const draw=()=>{ $('#fread').textContent=f||'–'; };
+  openModal(`<h2>${title||'Fielders (tap in order)'}</h2><div class="fread" id="fread">–</div>
+    <div class="fpad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-n="${n}">${n}</button>`).join('')}</div>
+    <div class="grid3"><button class="med" id="fback">⌫</button><button class="med" id="fclr">Clear</button>
+    <button class="med accent" id="fok">OK</button></div>`);
+  $('#sheet').querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{f+= (f?'-':'')+b.dataset.n;draw();});
+  $('#fback').onclick=()=>{const p=f.split('-');p.pop();f=p.filter(Boolean).join('-');draw();};
+  $('#fclr').onclick=()=>{f='';draw();};
+  $('#fok').onclick=()=>{if(!f)return;closeModal();cb(f);};
+}
+function pickRunner(cb,title){
+  const occ=[0,1,2].filter(i=>S.bases[i]);
+  if(!occ.length){return;}
+  openModal(`<h2>${title||'Which runner?'}</h2><div class="grid3">`+
+    occ.map(i=>`<button class="med" data-b="${i}">${pname(S.bases[i])}<br><small>on ${baseName(i+1)}</small></button>`).join('')+
+    `</div><div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+  $('#sheet').querySelectorAll('[data-b]').forEach(b=>b.onclick=()=>{closeModal();cb(+b.dataset.b,S.bases[+b.dataset.b]);});
+}
+function endHalfCheck(){
+  if(S.outs<3)return;
+  S.bases=[null,null,null];S.outs=0;S.balls=0;S.strikes=0;
+  if(S.half===1){S.half=0;S.inning++;S.bat='away';}
+  else{S.half=1;S.bat='home';}
+}
+function commitPA(result){
+  S.pas.push({team:S.bat,b:curIdx(),inning:S.inning,half:S.half,result,events:S.pa.slice()});
+  S.pa=[];
+}
+
+/* ================= pitches ================= */
+function addCountBall(txt){ev('p',txt||'Ball');S.balls++;
+  if(S.balls>=4){doWalk('BB','Walk');}}
+function addCountStrike(txt,looking){ev('p',txt);S.strikes++;
+  if(S.strikes>=3){ev('o',looking?'Struck out looking':'Struck out swinging');
+    S.outs++;commitPA(looking?'ꓘ':'K');S.order[S.bat]++;S.balls=0;S.strikes=0;
+    save();renderAll();endHalfCheck();save();renderAll();}}
+function doPitch(kind){
+  if(!S.started)return;
+  snap();
+  if(kind==='ball')addCountBall();
+  else if(kind==='cstr')addCountStrike('Called strike',true);
+  else if(kind==='sstr')addCountStrike('Swinging strike',false);
+  else if(kind==='foul'){ev('p','Foul ball');if(S.strikes<2)S.strikes++;}
+  else if(kind==='pitchout'){ev('p','Pitchout');addCountBall('Pitchout (ball)');}
+  else if(kind==='hbp'){doWalk('HBP','Hit by pitch');}
+  else if(kind==='autoball'){ev('p','Automatic ball — pitch timer violation');addCountBall('Automatic ball');}
+  else if(kind==='autostrike'){addCountStrike('Automatic strike — batter timer violation',true);}
+  else if(kind==='illegal'){ev('p','Illegal pitch — automatic ball');
+    if(S.bases.some(Boolean)){ev('r','Illegal pitch with runners on — balk, all advance');advanceAll(1);}
+    addCountBall('Ball (illegal pitch)');}
+  else if(kind==='inplay'){outcomeModal();return;}
+  save();renderAll();
+}
+function doWalk(code,text){
+  ev('o',text);
+  const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
+  [2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});
+  const at=b=>mv.find(m=>m.who==='R'&&m.from===b);
+  const r1=at(1);
+  if(r1){r1.to=2;const r2=at(2);if(r2){r2.to=3;const r3=at(3);if(r3)r3.to=4;}}
+  placementReview(mv,code,text);
+}
+
+/* ================= in-play outcomes ================= */
+function outcomeModal(){
+  openModal(`<h2>In play — outcome</h2><div class="grid2">
+    <button class="med" data-o="1B">Single</button><button class="med" data-o="2B">Double</button>
+    <button class="med" data-o="3B">Triple</button><button class="med" data-o="HR">Home run</button>
+    <button class="med" data-o="GO">Groundout</button><button class="med" data-o="FO">Flyout</button>
+    <button class="med" data-o="LO">Lineout</button><button class="med" data-o="E">Error</button>
+    <button class="med" data-o="FC">Fielder's choice</button><button class="med" data-o="SAC">Sacrifice</button>
+    </div><div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+  $('#sheet').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>handleOutcome(b.dataset.o));
+}
+function hitMovers(n){
+  const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:n,out:null}];
+  [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+1+n;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
+  return mv;
+}
+function holdMovers(){const mv=[];[2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});return mv;}
+function handleOutcome(kind){
+  const HN={ '1B':1,'2B':2,'3B':3,'HR':4};
+  if(HN[kind]){const n=HN[kind];const lbl={1:'Single',2:'Double',3:'Triple',4:'Home run'}[n];
+    ev('o',lbl);placementReview(hitMovers(n),kind,lbl);return;}
+  if(kind==='GO'){fielderPad(f=>{ev('o','Grounded out '+f);
+    placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],f,'Grounded out '+f);},'Groundout — fielders');return;}
+  if(kind==='FO'){fielderPad(f=>{ev('o','Flied out to '+f);
+    placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'F'+f,'Flied out F'+f);},'Flyout — fielder');return;}
+  if(kind==='LO'){fielderPad(f=>{ev('o','Lined out to '+f);
+    placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'L'+f,'Lined out L'+f);},'Lineout — fielder');return;}
+  if(kind==='E'){fielderPad(f=>{ev('o','Reached on error E'+f);
+    const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
+    [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+2;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
+    placementReview(mv,'E'+f,'Reached on E'+f);},'Error — fielder');return;}
+  if(kind==='FC'){fielderPad(f=>{pickRunner((bi,r)=>{ev('o',"Fielder's choice "+f);
+    const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
+    [2,1,0].forEach(i=>{if(S.bases[i]){const isOut=i===bi;
+      mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:isOut?{f}:null});}});
+    placementReview(mv,'FC',"Fielder's choice "+f);},"Fielder's choice — runner out");},'FC — fielders');return;}
+  if(kind==='SAC'){openModal(`<h2>Sacrifice</h2><div class="grid2">
+    <button class="med" id="sacB">Sac bunt</button><button class="med" id="sacF">Sac fly</button></div>
+    <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+    $('#sacB').onclick=()=>fielderPad(f=>{ev('o','Sac bunt '+f);
+      const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}}];
+      [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+2;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
+      placementReview(mv,'SAC','Sac bunt '+f);},'Sac bunt — fielders');
+    $('#sacF').onclick=()=>fielderPad(f=>{ev('o','Sac fly F'+f);
+      const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}}];
+      [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+2;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
+      placementReview(mv,'SF','Sac fly F'+f);},'Sac fly — fielder');
+    return;}
+}
+
+/* ================= runner placement ================= */
+function placementReview(movers,code,text){
+  const draw=()=>{
+    $('#sheet').innerHTML=`<h2>${text}</h2><p class="sub">Confirm where everyone ends up.</p>`+
+      movers.map((m,i)=>`<div class="mover"><div class="nm">${m.label}${m.out?' — <span style="color:var(--out)">OUT ('+m.out.f+')</span>':''}</div>
+        ${m.out?'':`<div class="dest">${[1,2,3,4].map(b=>`<button data-m="${i}" data-b="${b}" class="${m.to===b?'sel':''}">${baseName(b)}</button>`).join('')}
+        <button data-m="${i}" data-b="out">Out</button></div>`}</div>`).join('')+
+      `<button class="med accent" id="plDone" style="width:100%;margin-top:6px">Done</button>`;
+    $('#sheet').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{
+      const m=movers[+b.dataset.m],v=b.dataset.b;
+      if(v==='out'){fielderPad(f=>{m.out={f};m.to=0;draw();},'Out — fielders');}
+      else{m.to=+v;m.out=null;draw();}
+    });
+    $('#plDone').onclick=applyPlacement;
+  };
+  const applyPlacement=()=>{
+    snap();
+    const nb=[null,null,null];
+    movers.forEach(m=>{
+      if(m.out){ev('o',(m.who==='BR'?'Batter out ':'Runner out ')+m.out.f);S.outs++;return;}
+      if(m.who==='BR'){const R={t:S.bat,i:curIdx()};
+        if(m.to>=4){scoreRun(S.bat);ev('r',m.label+' scores');}
+        else nb[m.to-1]=R;}
+      else{if(m.from!==m.to)ev('r',`${m.label}: ${baseName(m.from)} → ${baseName(m.to)}`);
+        if(m.to>=4){scoreRun(S.bat);ev('r',m.label+' scores');}
+        else nb[m.to-1]=m.r;}
+    });
+    S.bases=nb;closeModal();
+    commitPA(code);S.order[S.bat]++;S.balls=0;S.strikes=0;
+    save();renderAll();endHalfCheck();save();renderAll();
+  };
+  draw();$('#modal').classList.add('on');
+}
+function advanceAll(n){
+  const nb=[null,null,null];
+  [2,1,0].forEach(i=>{const r=S.bases[i];if(!r)return;const d=i+1+n;
+    if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' scores');}else nb[d-1]=r;});
+  S.bases=nb;
+}
+
+/* ================= runner actions ================= */
+function actSteal(){if(!S.bases.some(Boolean))return;snap();
+  pickRunner((bi,r)=>{openModal(`<h2>Steal — ${pname(r)}</h2><div class="grid2">
+    <button class="med accent" id="stSafe">Safe</button><button class="med" id="stOut">Out</button></div>
+    <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+    $('#stSafe').onclick=()=>{closeModal();
+      const dests=[2,3,4].filter(d=>d>bi+1);
+      openModal(`<h2>Safe — to which base?</h2><div class="grid3">`+
+        dests.map(d=>`<button class="med" data-d="${d}">${baseName(d)}</button>`).join('')+`</div>`);
+      $('#sheet').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{const d=+b.dataset.d;
+        snap();S.bases[bi]=null;
+        if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' steals home! Scores');}
+        else{S.bases[d-1]=r;ev('r',pname(r)+' steals '+baseName(d));}
+        closeModal();save();renderAll();});};
+    $('#stOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;S.outs++;
+      ev('o','Caught stealing '+f+' — '+pname(r));save();renderAll();endHalfCheck();save();renderAll();},'CS — fielders (e.g. 2-6)');
+  },'Steal — which runner?');}
+function actDI(){if(!S.bases.some(Boolean))return;snap();
+  pickRunner((bi,r)=>{snap();S.bases[bi]=null;const d=Math.min(4,bi+2);
+    if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' scores on defensive indifference');}
+    else{S.bases[d-1]=r;ev('r','Defensive indifference — '+pname(r)+' takes '+baseName(d));}
+    save();renderAll();},'Defensive indifference — runner');}
+function actPick(){if(!S.bases.some(Boolean))return;snap();
+  pickRunner((bi,r)=>{openModal(`<h2>Pickoff — ${pname(r)}</h2><div class="grid2">
+    <button class="med" id="pkOut">Out</button><button class="med accent" id="pkSafe">Safe</button></div>
+    <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+    $('#pkOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;S.outs++;
+      ev('o','Picked off '+f+' — '+pname(r));closeModal();save();renderAll();endHalfCheck();save();renderAll();},'Pickoff — fielders');
+    $('#pkSafe').onclick=()=>{snap();ev('r','Pickoff attempt — '+pname(r)+' back safely');closeModal();save();renderAll();};
+  },'Pickoff — which runner?');}
+function actWPPB(){if(!S.bases.some(Boolean))return;
+  openModal(`<h2>Wild pitch / passed ball</h2><div class="grid2">
+    <button class="med" id="wpB">Wild pitch</button><button class="med" id="pbB">Passed ball</button></div>
+    <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+  const go=lbl=>{snap();ev('p',lbl);
+    const adv=new Set();
+    openModal(`<h2>${lbl} — who advances?</h2><p class="sub">Tap each runner that moves up one.</p>`+
+      [2,1,0].filter(i=>S.bases[i]).map(i=>`<button class="med" data-a="${i}" style="width:100%;margin-bottom:6px">${pname(S.bases[i])} <small>on ${baseName(i+1)}</small></button>`).join('')+
+      `<button class="med accent" id="wpDone" style="width:100%;margin-top:6px">Done</button>`);
+    $('#sheet').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const i=+b.dataset.a;
+      if(adv.has(i)){adv.delete(i);b.classList.remove('accent');}else{adv.add(i);b.classList.add('accent');}});
+    $('#wpDone').onclick=()=>{snap();
+      [...adv].sort((a,b)=>b-a).forEach(i=>{const r=S.bases[i];S.bases[i]=null;const d=i+2;
+        if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' scores on '+lbl.toLowerCase());}
+        else{S.bases[d-1]=r;ev('r',pname(r)+' advances on '+lbl.toLowerCase());}});
+      closeModal();save();renderAll();};};
+  $('#wpB').onclick=()=>go('Wild pitch');$('#pbB').onclick=()=>go('Passed ball');}
+function actBalk(){if(!S.bases.some(Boolean))return;snap();ev('r','Balk — all runners advance');advanceAll(1);save();renderAll();}
+
+/* ================= book view ================= */
+function paAt(t,i,n){const half=t==='away'?0:1;return S.pas.find(p=>p.team===t&&p.b===i&&p.inning===n&&p.half===half);}
+function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
+  if(/^(K|ꓘ)$/.test(r)||/[-FLE]/.test(r[0])||/^\d/.test(r))return'out';return'';}
+function bookTable(t){
+  const team=S[t],nInn=Math.max(9,S.inning);
+  let h=`<table class="book"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}</tr>`;
+  team.lineup.forEach((p,i)=>{
+    h+=`<tr><td class="plname">${p.num?'#'+p.num+' ':''}${p.name||'—'}</td>`;
+    for(let n=1;n<=nInn;n++){const pa=paAt(t,i,n);
+      h+=`<td>${pa?`<div class="dcell ${clsOf(pa.result)}"><div class="d"></div><span>${pa.result}</span></div>`:''}</td>`;}
+    h+=`</tr>`;});
+  return h+'</table>';
+}
+function renderBook(){
+  $('#bookSub').textContent=`${S.away.name} @ ${S.home.name}`;
+  $('#bookAwayT').textContent=S.away.name+' — away';$('#bookHomeT').textContent=S.home.name+' — home';
+  $('#bookAway').innerHTML=bookTable('away');$('#bookHome').innerHTML=bookTable('home');
+  const nInn=Math.max(9,S.inning);
+  const H=t=>S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;
+  const E=t=>S.pas.filter(p=>p.team===t&&/^E/.test(p.result)).length;
+  const row=t=>{const R=innRuns(t);
+    return `<tr><td style="text-align:left">${S[t].name}</td>${Array.from({length:nInn},(_,i)=>`<td>${R[i]||0}</td>`).join('')}
+    <td><b>${R.reduce((a,b)=>a+b,0)}</b></td><td>${H(t)}</td><td>${E(t)}</td></tr>`;};
+  $('#linescore').innerHTML=`<table class="book ls"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}<th>R</th><th>H</th><th>E</th></tr>${row('away')}${row('home')}</table>`;
+}
+
+/* ================= nav / init ================= */
+function renderAll(){renderScore();renderBook();}
+function showView(v){['setup','score','book'].forEach(x=>{
+  $('#v-'+x).classList.toggle('on',x===v);$('#tab-'+x).classList.toggle('on',x===v);});}
+function init(){
+  load();if(!S)S=blank();
+  $('#awayName').addEventListener('change',e=>{S.away.name=e.target.value||'Away';save();});
+  $('#homeName').addEventListener('change',e=>{S.home.name=e.target.value||'Home';save();});
+  $('#demoBtn').onclick=demoLineups;
+  $('#playBtn').onclick=()=>{S.started=true;save();renderAll();showView('score');};
+  $('#newGameBtn').onclick=()=>{if(confirm('End this game and start over?')){S=blank();undoStack.length=0;save();renderSetup();showView('setup');}};
+  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
+  $('#stealBtn').onclick=actSteal;$('#diBtn').onclick=actDI;$('#pickBtn').onclick=actPick;
+  $('#wppbBtn').onclick=actWPPB;$('#balkBtn').onclick=actBalk;
+  $('#undoBtn').onclick=undo;
+  $('#tab-setup').onclick=()=>showView('setup');$('#tab-score').onclick=()=>showView('score');$('#tab-book').onclick=()=>showView('book');
+  renderSetup();renderAll();showView(S.started?'score':'setup');
+}
+init();
+</script>
+</body>
+</html>
