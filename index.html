@@ -227,7 +227,7 @@ const batTeam=()=>S[S.bat];
 const curIdx=()=>S.order[S.bat]%9;
 const curBatter=()=>batTeam().lineup[curIdx()];
 const pname=p=>{const L=S[p.t].lineup[p.i];return(L.num?('#'+L.num+' '):'')+(L.name||('Batter '+(p.i+1)));};
-function ev(t,x){S.pa.push(Object.assign({t},x||{}));}
+function ev(t,x){S.pa.push(typeof x==='string'?{t,text:x}:Object.assign({t},x));}
 function innRuns(t){let a=S.runs[t];while(a.length<S.inning)a.push(0);return a;}
 function scoreRun(t){innRuns(t)[S.inning-1]++;}
 
@@ -285,12 +285,15 @@ const baseName=n=>({1:'1st',2:'2nd',3:'3rd',4:'home'}[n]);
 
 function fielderPad(cb,title){
   let f='';
-  const draw=()=>{ $('#fread').textContent=f||'–'; };
+  const posName=n=>POS[n]||n;
+  const draw=()=>{ $('#fread').textContent=f||'–';
+    $('#freadPos').textContent=f?f.split('-').map(posName).join(' → '):''; };
   openModal(`<h2>${title||'Fielders (tap in order)'}</h2><div class="fread" id="fread">–</div>
-    <div class="fpad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-n="${n}">${n}</button>`).join('')}</div>
+    <div class="fread" id="freadPos" style="font-size:15px;color:var(--dim);min-height:22px"></div>
+    <div class="fpad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-n="${n}">${POS[n]}<br><small style="opacity:.55">${n}</small></button>`).join('')}</div>
     <div class="grid3"><button class="med" id="fback">⌫</button><button class="med" id="fclr">Clear</button>
     <button class="med accent" id="fok">OK</button></div>`);
-  $('#sheet').querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{f+= (f?'-':'')+b.dataset.n;draw();});
+  $('#sheet').querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{f+=(f?'-':'')+b.dataset.n;draw();});
   $('#fback').onclick=()=>{const p=f.split('-');p.pop();f=p.filter(Boolean).join('-');draw();};
   $('#fclr').onclick=()=>{f='';draw();};
   $('#fok').onclick=()=>{if(!f)return;closeModal();cb(f);};
@@ -365,10 +368,24 @@ function hitMovers(n){
   return mv;
 }
 function holdMovers(){const mv=[];[2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});return mv;}
+function hitDetail(n,kind,verb){
+  openModal(`<h2>${verb} — how?</h2><div class="grid2">
+    <button class="med" data-ht="line drive">Line drive</button>
+    <button class="med" data-ht="ground ball">Ground ball</button>
+    <button class="med" data-ht="fly ball">Fly ball</button>
+    <button class="med" data-ht="bunt">Bunt</button></div>
+    <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+  $('#sheet').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{
+    const ht=b.dataset.ht;
+    fielderPad(f=>{const who=POS[f]||('F'+f);
+      const txt=`${verb} on a ${ht} to ${who}`;
+      ev('o',txt);placementReview(hitMovers(n),kind,txt);},'Who played it?');
+  });
+}
 function handleOutcome(kind){
-  const HN={ '1B':1,'2B':2,'3B':3,'HR':4};
-  if(HN[kind]){const n=HN[kind];const lbl={1:'Single',2:'Double',3:'Triple',4:'Home run'}[n];
-    ev('o',lbl);placementReview(hitMovers(n),kind,lbl);return;}
+  const HN={'1B':1,'2B':2,'3B':3,'HR':4};
+  if(kind==='HR'){ev('o','Home run');placementReview(hitMovers(4),'HR','Home run');return;}
+  if(HN[kind]){hitDetail(HN[kind],kind,{1:'Singled',2:'Doubled',3:'Tripled'}[HN[kind]]);return;}
   if(kind==='GO'){fielderPad(f=>{ev('o','Grounded out '+f);
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],f,'Grounded out '+f);},'Groundout — fielders');return;}
   if(kind==='FO'){fielderPad(f=>{ev('o','Flied out to '+f);
