@@ -388,6 +388,7 @@ function tapPoolPlayer(team,pi){
   if(T.lineup.some(s=>s.name===p.name)){poolMsg(team,p.name+' is already in the lineup.');return;}
   let i=-1;
   if(S.selSlot&&S.selSlot.t===team)i=S.selSlot.i;
+  else if(T.dh&&p.pos==='1')i=9;
   else i=T.lineup.findIndex((s,idx)=>!s.name&&!(T.dh&&idx===9));
   if(i<0){poolMsg(team,'Lineup is full — tap a lineup slot to replace that player.');return;}
   const old=T.lineup[i];
