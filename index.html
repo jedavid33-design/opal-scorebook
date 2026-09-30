@@ -107,6 +107,11 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 .ls{font-size:14px; margin-top:10px;}
 .ls td,.ls th{padding:4px 6px;}
 .note{font-size:13px; color:var(--dim); margin-top:8px;}
+.pbpRow{display:flex; justify-content:space-between; align-items:center; gap:8px;
+  padding:8px 10px; border:1px solid var(--line); border-radius:12px; margin-bottom:6px;
+  background:rgba(255,255,255,.03); font-size:13px;}
+.pbpRow small{font-size:11px;}
+.subRow{font-size:12.5px; color:var(--dim); padding:4px 0; border-bottom:1px solid rgba(255,255,255,.05);}
 </style>
 </head>
 <body>
@@ -144,6 +149,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
       <div class="count" id="hCount">0-0</div>
       <div class="outs" id="hOuts"></div>
       <div class="grow"></div>
+      <button class="sml ghost" id="subBtn">⇄ Subs</button>
       <button class="sml ghost" id="undoBtn">↩ Undo</button>
     </div>
     <div class="baseswrap"><div class="diamond">
@@ -193,6 +199,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <div id="bookHome"></div>
   </div>
   <div class="card"><div class="sect" style="margin-top:0">Linescore</div><div id="linescore"></div></div>
+  <div class="card"><div class="sect" style="margin-top:0">Play by play</div><div id="pbp"></div></div>
+  <div class="card"><div class="sect" style="margin-top:0">Substitutions</div><div id="sublog"></div></div>
   <button class="med danger" id="newGameBtn" style="width:100%">End game / start over</button>
 </div>
 
@@ -211,13 +219,17 @@ const $=s=>document.querySelector(s);
 let S=null; const undoStack=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
 
-function blankTeam(name){return{name:name,lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
+function blankTeam(name){return{name:name,pitcher:'',bench:[],lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
 function blank(){return{
   away:blankTeam('Astros'),home:blankTeam('Opponent'),
   bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
   bases:[null,null,null],order:{away:0,home:0},
-  pa:[],pas:[],runs:{away:[],home:[]},started:false
+  pa:[],pas:[],runs:{away:[],home:[]},subLog:[],started:false
 };}
+function ensureShape(){
+  ['away','home'].forEach(t=>{if(!S[t].bench)S[t].bench=[];if(S[t].pitcher===undefined)S[t].pitcher='';});
+  if(!S.subLog)S.subLog=[];
+}
 function snap(){undoStack.push(JSON.stringify(S));if(undoStack.length>80)undoStack.shift();}
 function save(){try{localStorage.setItem('osb1',JSON.stringify(S));}catch(e){}}
 function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}catch(e){}}
@@ -226,7 +238,7 @@ function undo(){if(!undoStack.length)return;S=JSON.parse(undoStack.pop());save()
 const batTeam=()=>S[S.bat];
 const curIdx=()=>S.order[S.bat]%9;
 const curBatter=()=>batTeam().lineup[curIdx()];
-const pname=p=>{const L=S[p.t].lineup[p.i];return(L.num?('#'+L.num+' '):'')+(L.name||('Batter '+(p.i+1)));};
+const pname=p=>{const L=(S[p.t].lineup[p.i])||{};const nm=p.name||L.name||('Batter '+((p.i||0)+1));return((p.num||L.num)?('#'+(p.num||L.num)+' '):'')+nm;};
 function ev(t,x){S.pa.push(typeof x==='string'?{t,text:x}:Object.assign({t},x));}
 function innRuns(t){let a=S.runs[t];while(a.length<S.inning)a.push(0);return a;}
 function scoreRun(t){innRuns(t)[S.inning-1]++;}
@@ -313,7 +325,8 @@ function endHalfCheck(){
   else{S.half=1;S.bat='home';}
 }
 function commitPA(result){
-  S.pas.push({team:S.bat,b:curIdx(),inning:S.inning,half:S.half,result,events:S.pa.slice()});
+  S.pas.push({team:S.bat,b:curIdx(),inning:S.inning,half:S.half,result,
+    batter:pname({t:S.bat,i:curIdx()}),events:S.pa.slice()});
   S.pa=[];
 }
 
@@ -555,6 +568,83 @@ function actWPPB(){if(!S.bases.some(Boolean))return;
   $('#wpB').onclick=()=>go('Wild pitch');$('#pbB').onclick=()=>go('Passed ball');}
 function actBalk(){if(!S.bases.some(Boolean))return;snap();ev('r','Balk — all runners advance');advanceAll(1);save();renderAll();}
 
+/* ================= substitutions ================= */
+function applySub(team,type,slot,base,p){
+  snap();
+  const T=S[team];
+  const tag={PH:'PH',PR:'PR',P:'P',D:'DEF'}[type];
+  // Note: sub text goes into the current PA's events only if a PA is in progress.
+  // Between plays it lives in the sub log, so play-edit rewinds can't erase it.
+  const note=t=>{if(S.pa.length)ev('o',t);};
+  if(type==='PH'||type==='D'){
+    const e=T.lineup[slot];
+    if(!e.hist)e.hist=[{name:e.name,num:e.num}];
+    const old=e.name||('Batter '+(slot+1));
+    e.hist.push({name:p.name,num:p.num});
+    e.name=p.name;e.num=p.num;
+    note(tag+' '+p.name+(p.num?' #'+p.num:'')+' for '+old);
+    S.subLog.push({inn:S.inning,half:S.half,team,slot,type:tag,old:old,new:p.name});
+  }else if(type==='PR'){
+    const r=S.bases[base];
+    const old=pname(r);
+    S.bases[base]={t:team,i:-1,name:p.name,num:p.num};
+    note('PR '+p.name+(p.num?' #'+p.num:'')+' for '+old);
+    S.subLog.push({inn:S.inning,half:S.half,team,slot:null,type:'PR',old:old,new:p.name,base:base+1});
+  }else if(type==='P'){
+    const old=T.pitcher||'—';
+    T.pitcher=p.name+(p.num?' #'+p.num:'');
+    note('Pitching change: '+T.pitcher+' for '+old);
+    S.subLog.push({inn:S.inning,half:S.half,team,slot:null,type:'P',old:old,new:p.name});
+  }
+  if(!T.bench.some(b=>b.name===p.name))T.bench.push({name:p.name,num:p.num});
+  closeModal();save();renderAll();
+}
+function subModal(){
+  let team='away',type=null,slot=null,base=null,selBench=-1,newName='',newNum='';
+  const T=()=>S[team];
+  const draw=()=>{
+    const nn=$('#subName');if(nn){newName=nn.value;newNum=$('#subNum').value;}
+    const types=[['PH','Pinch hitter'],['PR','Pinch runner'],['P','Pitcher'],['D','Defense']];
+    let mid='';
+    if(type==='PH'||type==='D'){
+      mid=`<div class="sect">Batting slot</div><div class="grid3">${T().lineup.map((e,i)=>
+        `<button class="med${slot===i?' accent':''}" data-slot="${i}">#${i+1}<br><small>${(e.name||'—').slice(0,10)}</small></button>`).join('')}</div>`;
+    }else if(type==='PR'){
+      const occ=[0,1,2].filter(i=>S.bases[i]);
+      mid=occ.length?`<div class="sect">Runner</div><div class="grid3">${occ.map(i=>
+        `<button class="med${base===i?' accent':''}" data-base="${i}">${['1st','2nd','3rd'][i]}<br><small>${pname(S.bases[i]).slice(0,12)}</small></button>`).join('')}</div>`
+        :`<p class="sub">No runners on base.</p>`;
+    }else if(type==='P'){
+      mid=`<div class="sect">Current pitcher</div><div class="fread" style="font-size:18px">${T().pitcher||'—'}</div>`;
+    }
+    const bench=T().bench;
+    const ok=type&&((type==='PH'||type==='D')?slot!==null:type==='PR'?base!==null:true)&&(selBench>=0||(selBench===-2&&newName.trim()));
+    $('#sheet').innerHTML=`<h2>Substitution</h2>
+      <div class="grid2" style="margin-bottom:4px">
+        <button class="med${team==='away'?' accent':''}" data-team="away">${(S.away.name||'Away').slice(0,12)}</button>
+        <button class="med${team==='home'?' accent':''}" data-team="home">${(S.home.name||'Home').slice(0,12)}</button></div>
+      <div class="sect">Type</div>
+      <div class="grid2">${types.map(t=>`<button class="med${type===t[0]?' accent':''}" data-type="${t[0]}">${t[1]}</button>`).join('')}</div>
+      ${mid}
+      ${type?`<div class="sect">Player</div><div class="grid3">${bench.map((b,i)=>
+        `<button class="med${selBench===i?' accent':''}" data-b="${i}">${b.name.slice(0,10)}<br><small>#${b.num||'–'}</small></button>`).join('')}
+        <button class="med${selBench===-2?' accent':''}" data-b="-2">New<br><small>type it</small></button></div>
+        ${selBench===-2?`<div class="grid2" style="margin-top:8px"><input id="subName" placeholder="Name" value="${newName.replace(/"/g,'&quot;')}" maxlength="24"><input id="subNum" placeholder="#" inputmode="numeric" value="${newNum.replace(/"/g,'&quot;')}" maxlength="6"></div>`:''}`:''}
+      ${type?`<button class="med${ok?' accent':''}" id="subGo" style="width:100%;margin-top:10px"${ok?'':' disabled'}>Sub in</button>`:''}
+      <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
+    $('#sheet').querySelectorAll('[data-team]').forEach(b=>b.onclick=()=>{team=b.dataset.team;slot=null;base=null;selBench=-1;draw();});
+    $('#sheet').querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{type=b.dataset.type;slot=null;base=null;selBench=-1;
+      team=(type==='PH'||type==='PR')?S.bat:(S.bat==='away'?'home':'away');draw();});
+    $('#sheet').querySelectorAll('[data-slot]').forEach(b=>b.onclick=()=>{slot=+b.dataset.slot;draw();});
+    $('#sheet').querySelectorAll('[data-base]').forEach(b=>b.onclick=()=>{base=+b.dataset.base;draw();});
+    $('#sheet').querySelectorAll('[data-b]').forEach(b=>b.onclick=()=>{selBench=+b.dataset.b;draw();});
+    if(ok)$('#subGo').onclick=()=>{
+      const p=selBench>=0?{name:bench[selBench].name,num:bench[selBench].num}:{name:newName.trim(),num:newNum.trim()};
+      applySub(team,type,slot,base,p);};
+  };
+  draw();$('#modal').classList.add('on');
+}
+
 /* ================= book view ================= */
 function paAt(t,i,n){const half=t==='away'?0:1;return S.pas.find(p=>p.team===t&&p.b===i&&p.inning===n&&p.half===half);}
 function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
@@ -563,7 +653,7 @@ function bookTable(t){
   const team=S[t],nInn=Math.max(9,S.inning);
   let h=`<table class="book"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}</tr>`;
   team.lineup.forEach((p,i)=>{
-    h+=`<tr><td class="plname">${p.num?'#'+p.num+' ':''}${p.name||'—'}</td>`;
+    h+=`<tr><td class="plname">${p.num?'#'+p.num+' ':''}${p.name||'—'}${p.hist&&p.hist.length>1?' ⇄':''}</td>`;
     for(let n=1;n<=nInn;n++){const pa=paAt(t,i,n);
       h+=`<td>${pa?`<div class="dcell ${clsOf(pa.result)}"><div class="d"></div><span>${pa.result}</span></div>`:''}</td>`;}
     h+=`</tr>`;});
@@ -580,6 +670,27 @@ function renderBook(){
     return `<tr><td style="text-align:left">${S[t].name}</td>${Array.from({length:nInn},(_,i)=>`<td>${R[i]||0}</td>`).join('')}
     <td><b>${R.reduce((a,b)=>a+b,0)}</b></td><td>${H(t)}</td><td>${E(t)}</td></tr>`;};
   $('#linescore').innerHTML=`<table class="book ls"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}<th>R</th><th>H</th><th>E</th></tr>${row('away')}${row('home')}</table>`;
+  renderPbp();renderSubLog();
+}
+function renderPbp(){
+  const el=$('#pbp');if(!el)return;
+  el.innerHTML=S.pas.map((p,idx)=>{
+    const e0=p.events.length?p.events[0].text:'';
+    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div><button class="sml" data-edit="${idx}">Edit</button></div>`;
+  }).join('')||'<p class="sub">No plays yet.</p>';
+  el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>confirmEditPA(+b.dataset.edit));
+}
+function renderSubLog(){
+  const el=$('#sublog');if(!el)return;
+  const nm=t=>t==='away'?S.away.name:S.home.name;
+  el.innerHTML=S.subLog.map(s=>`<div class="subRow">${s.half?'B':'T'}${s.inn} ${nm(s.team)}: <b>${s.type}</b> ${s.new} for ${s.old}${s.slot!=null?' (slot '+(s.slot+1)+')':''}${s.base?' ('+['1st','2nd','3rd'][s.base-1]+')':''}</div>`).join('')||'<p class="sub">No substitutions.</p>';
+}
+function confirmEditPA(idx){
+  const n=S.pas.length-idx;
+  const what=n===1?'just this play':'this play and the '+(n-1)+' after it';
+  openModal(`<h2>Edit play</h2><p class="sub">Rewind and re-enter from here? This erases ${what} — the game rewinds to right before it happened, and you score it again.</p>
+    <div class="grid2"><button class="med accent" id="ceYes">Rewind &amp; re-enter</button><button class="med ghost" onclick="closeModal()">Keep</button></div>`);
+  $('#ceYes').onclick=()=>{let g=500;while((S.pas.length>idx||S.pa.length>0)&&undoStack.length&&g-->0)undo();closeModal();showView('score');};
 }
 
 /* ================= nav / init ================= */
@@ -587,7 +698,7 @@ function renderAll(){renderScore();renderBook();}
 function showView(v){['setup','score','book'].forEach(x=>{
   $('#v-'+x).classList.toggle('on',x===v);$('#tab-'+x).classList.toggle('on',x===v);});}
 function init(){
-  load();if(!S)S=blank();
+  load();if(!S)S=blank();ensureShape();
   $('#awayName').addEventListener('change',e=>{S.away.name=e.target.value||'Away';save();});
   $('#homeName').addEventListener('change',e=>{S.home.name=e.target.value||'Home';save();});
   $('#demoBtn').onclick=demoLineups;
@@ -597,6 +708,7 @@ function init(){
   $('#stealBtn').onclick=actSteal;$('#diBtn').onclick=actDI;$('#pickBtn').onclick=actPick;
   $('#wppbBtn').onclick=actWPPB;$('#balkBtn').onclick=actBalk;
   $('#undoBtn').onclick=undo;
+  $('#subBtn').onclick=subModal;
   $('#tab-setup').onclick=()=>showView('setup');$('#tab-score').onclick=()=>showView('score');$('#tab-book').onclick=()=>showView('book');
   renderSetup();renderAll();showView(S.started?'score':'setup');
 }
