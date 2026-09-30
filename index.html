@@ -359,6 +359,7 @@ function outcomeModal(){
     <button class="med" data-o="GO">Groundout</button><button class="med" data-o="FO">Flyout</button>
     <button class="med" data-o="LO">Lineout</button><button class="med" data-o="E">Error</button>
     <button class="med" data-o="FC">Fielder's choice</button><button class="med" data-o="SAC">Sacrifice</button>
+    <button class="med" data-o="DP">Double Play</button>
     </div><div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
   $('#sheet').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>handleOutcome(b.dataset.o));
 }
@@ -390,8 +391,50 @@ function hitDetail(n,kind,verb){
   };
   draw();$('#modal').classList.add('on');
 }
+function dpModal(){
+  if(!S.bases.some(Boolean)){
+    openModal(`<h2>Double play</h2><p class="sub">Needs a runner on base.</p><div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">OK</button></div>`);
+    return;}
+  openModal(`<h2>Double play — what kind?</h2><div class="grid2">
+    <button class="med" id="dpG">Ground ball<br><small>e.g. 6-4-3</small></button>
+    <button class="med" id="dpL">Line drive<br><small>runner doubled off</small></button>
+    <button class="med" id="dpK">Strikeout +<br><small>throw 'em out</small></button>
+    <button class="med ghost" onclick="closeModal()">Cancel</button></div>`);
+  const brLabel=pname({t:S.bat,i:curIdx()})+' (batter)';
+  const othersOut=bi=>{const mv=[];[2,1,0].forEach(i=>{if(S.bases[i]&&i!==bi)
+    mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});return mv;};
+  $('#dpG').onclick=()=>fielderPad(f=>{
+    ev('o','Grounded into double play '+f);
+    pickRunner((bi,r)=>{
+      placementReview([{who:'BR',label:brLabel,from:0,to:0,out:{f}},
+        {who:'R',r,label:pname(r),from:bi+1,to:0,out:{f}},...othersOut(bi)],'DP','Grounded into DP '+f);
+    },'DP — which runner was out?');
+  },'DP — fielders in order');
+  $('#dpL').onclick=()=>fielderPad(f1=>{
+    pickRunner((bi,r)=>{fielderPad(f2=>{
+      ev('o','Lined to '+POS[f1]+' (L'+f1+'), '+pname(r)+' doubled off ('+f2+') — double play');
+      placementReview([{who:'BR',label:brLabel,from:0,to:0,out:{f:'L'+f1}},
+        {who:'R',r,label:pname(r),from:bi+1,to:0,out:{f:f2}},...othersOut(bi)],'DP','Lined into DP');
+    },'Doubled off — putout by');},'Doubled off — which runner?');
+  },'Lineout — caught by');
+  $('#dpK').onclick=()=>{
+    openModal(`<h2>Strikeout — how?</h2><div class="grid2">
+      <button class="med" id="dpKS">Swinging</button><button class="med" id="dpKL">Looking</button></div>
+      <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+    const go=looking=>{
+      pickRunner((bi,r)=>{fielderPad(f=>{
+        ev('o',(looking?'Struck out looking':'Struck out swinging')+', caught stealing '+f+' — double play');
+        placementReview([{who:'BR',label:brLabel,from:0,to:0,out:{f:looking?'ꓘ':'K'}},
+          {who:'R',r,label:pname(r),from:bi+1,to:0,out:{f}},...othersOut(bi)],'DP',"Strike 'em out, throw 'em out");
+      },'Throw out — fielders (e.g. 2-6)');},'Throw out — which runner?');
+    };
+    $('#dpKS').onclick=()=>go(false);
+    $('#dpKL').onclick=()=>go(true);
+  };
+}
 function handleOutcome(kind){
   const HN={'1B':1,'2B':2,'3B':3,'HR':4};
+  if(kind==='DP'){dpModal();return;}
   if(kind==='HR'){ev('o','Home run');placementReview(hitMovers(4),'HR','Home run');return;}
   if(HN[kind]){hitDetail(HN[kind],kind,{1:'Singled',2:'Doubled',3:'Tripled'}[HN[kind]]);return;}
   if(kind==='GO'){fielderPad(f=>{ev('o','Grounded out '+f);
