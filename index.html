@@ -369,18 +369,26 @@ function hitMovers(n){
 }
 function holdMovers(){const mv=[];[2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});return mv;}
 function hitDetail(n,kind,verb){
-  openModal(`<h2>${verb} — how?</h2><div class="grid2">
-    <button class="med" data-ht="line drive">Line drive</button>
-    <button class="med" data-ht="ground ball">Ground ball</button>
-    <button class="med" data-ht="fly ball">Fly ball</button>
-    <button class="med" data-ht="bunt">Bunt</button></div>
-    <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
-  $('#sheet').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{
-    const ht=b.dataset.ht;
-    fielderPad(f=>{const who=POS[f]||('F'+f);
-      const txt=`${verb} on a ${ht} to ${who}`;
-      ev('o',txt);placementReview(hitMovers(n),kind,txt);},'Who played it?');
-  });
+  let ht=null,f=null;
+  const cap=h=>h[0].toUpperCase()+h.slice(1);
+  const draw=()=>{
+    const ready=ht&&f;
+    $('#sheet').innerHTML=`<h2>${verb} — how, and who played it?</h2>
+      <div class="sect" style="margin-top:0">Hit type</div>
+      <div class="grid2">${['line drive','ground ball','fly ball','bunt'].map(h=>
+        `<button class="med${ht===h?' accent':''}" data-ht="${h}">${cap(h)}</button>`).join('')}</div>
+      <div class="sect">Played by</div>
+      <div class="grid3">${[1,2,3,4,5,6,7,8,9].map(p=>
+        `<button class="med${f===String(p)?' accent':''}" data-f="${p}">${POS[p]}<br><small style="opacity:.55">${p}</small></button>`).join('')}</div>
+      <div class="fread" style="font-size:16px;min-height:30px">${ready?`${verb} on a ${ht} to ${POS[f]}`:'Pick a hit type and a fielder'}</div>
+      <button class="med${ready?' accent':''}" id="hitDone" style="width:100%;margin-top:8px"${ready?'':' disabled'}>Done</button>
+      <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
+    $('#sheet').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{ht=b.dataset.ht;draw();});
+    $('#sheet').querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{f=b.dataset.f;draw();});
+    if(ready)$('#hitDone').onclick=()=>{const txt=`${verb} on a ${ht} to ${POS[f]}`;
+      ev('o',txt);placementReview(hitMovers(n),kind,txt);};
+  };
+  draw();$('#modal').classList.add('on');
 }
 function handleOutcome(kind){
   const HN={'1B':1,'2B':2,'3B':3,'HR':4};
