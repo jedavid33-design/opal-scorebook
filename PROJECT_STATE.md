@@ -32,6 +32,11 @@ replacing the "visco" app she currently uses.
 7. Book view: classic scorebook grid (batters × innings, diamond per PA) + linescore.
 8. Local-first (localStorage) in prototype; sync later.
 
+## Queued updates (Julie's list)
+- Edit past plays entered incorrectly (2026-09-30) — tap a scored play and correct it,
+  rather than undoing back through everything after it. Note: editing a past play means
+  re-validating runs/outs/everything scored after it.
+
 ## Later phases
 - Phase 2: MLB Stats API (free) — active rosters, live games, historical "moment in
   time" (full play-by-play + lineups as of a finished game). Reconstruction mode =
