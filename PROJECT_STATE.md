@@ -62,3 +62,6 @@ replacing the "visco" app she currently uses.
   fly/bunt) + which fielder played it, logged as "Singled on a line drive to RF". Fielder pads
   now show positions (P/C/1B/…) with numbers as sublabels instead of 1-9. Fixed real bug the
   harness caught: ev() dropped all event text (log showed "undefined").
+- 2026-09-30 (evening): hit detail merged into one screen (Julie) — hit type + fielder
+  position picked together with a live readout ("Singled on a line drive to RF"); Done
+  enables only when both are chosen.
