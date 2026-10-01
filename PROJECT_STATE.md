@@ -244,3 +244,13 @@ replacing the "visco" app she currently uses.
   refs, 10-assertion harness (POP skip/show paths, showView without
   tab-setup, pitch numbering, GO third-out regression). Commit 09023c6.
   Live on Pages (verified markers).
+
+- 2026-10-01: Julie asked "how to do a foul out" — added a real "Foul out"
+  in-play option instead of a workaround: standard F-notation (F2), batter
+  out, runners hold but can tag up in placement review, honors the
+  third-out auto-skip. Also fixed POP bookkeeping gaps from the earlier
+  change: P-codes now classify as outs (red diamond styling via clsOf) and
+  "Re-pick fielders" in the notation editor works for pop flies; the editor
+  preserves "Fouled out" wording instead of rewriting it as a flyout.
+  Verified: node --check, 11-assertion harness (FL skip/show paths, POP/FL
+  classification, notation preservation). Commit 4b9091b. Live on Pages.
