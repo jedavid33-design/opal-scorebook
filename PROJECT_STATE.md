@@ -166,3 +166,11 @@ replacing the "visco" app she currently uses.
   FIELDING team (was wrongly charging the batting team) and count each distinct
   error in a PA (E5 + E8 = 2 Es). 124 harness checks passing. Commit 9f59401,
   live on Pages (verified).
+
+- 2026-10-01: per-player error charges (Julie: "they should also count on the
+  player too"). Every PA with an error now stores errBy — the player names at
+  the error positions, resolved from the fielding team's lineup at commit time,
+  so a later defensive sub can't move the blame. Fix notation re-resolves the
+  charge when the error fielder changes. New Fielding card in the Book view
+  lists each team's players with their E counts. 130 harness checks passing.
+  Commit 93ba4b9, live on Pages (verified).
