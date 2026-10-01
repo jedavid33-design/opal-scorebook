@@ -688,7 +688,8 @@ function outcomeModal(){
     <button class="med" data-o="3B">Triple</button><button class="med" data-o="HR">Home run</button>
     <button class="med" data-o="GO">Groundout</button><button class="med" data-o="FO">Flyout</button>
     <button class="med" data-o="POP">Pop fly</button><button class="med" data-o="LO">Lineout</button>
-    <button class="med" data-o="E">Error</button><button class="med" data-o="FC">Fielder's choice</button><button class="med" data-o="SAC">Sacrifice</button>
+    <button class="med" data-o="FL">Foul out</button><button class="med" data-o="E">Error</button>
+    <button class="med" data-o="FC">Fielder's choice</button><button class="med" data-o="SAC">Sacrifice</button>
     <button class="med" data-o="DP">Double Play</button>
     </div><div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
   $('#sheet').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>handleOutcome(b.dataset.o));
@@ -777,6 +778,8 @@ function handleOutcome(kind){
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f:'P'+f}},...holdMovers()],'P'+f,'Popped out P'+f);},'Pop fly — fielder');return;}
   if(kind==='LO'){fielderPad(f=>{ev('o','Lined out to '+f);
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'L'+f,'Lined out L'+f);},'Lineout — fielder');return;}
+  if(kind==='FL'){fielderPad(f=>{ev('o','Fouled out F'+f);
+    placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'F'+f,'Fouled out F'+f);},'Foul out — fielder');return;}
   if(kind==='E'){fielderPad(f=>{ev('o','Reached on error E'+f);
     const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
     [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+2;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
@@ -1000,7 +1003,7 @@ function subModal(){
 /* ================= book view ================= */
 function paAt(t,i,n){const half=t==='away'?0:1;return S.pas.find(p=>p.team===t&&p.b===i&&p.inning===n&&p.half===half);}
 function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
-  if(/^(K|ꓘ)$/.test(r)||/[-FLE]/.test(r[0])||/^\d/.test(r))return'out';return'';}
+  if(/^(K|ꓘ)$/.test(r)||/[-FLEP]/.test(r[0])||/^\d/.test(r))return'out';return'';}
 function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;}
 /* Errors belong to the fielding team — the opponent of the batting team in p.team.
    Counts distinct fielder errors per PA: an E-type outcome plus any extra tags. */
@@ -1079,6 +1082,7 @@ function paKind(r){
   if(/^(1B|2B|3B)$/.test(r))return r;
   if(/^F\d/.test(r))return 'FO';
   if(/^L\d/.test(r))return 'LO';
+  if(/^P\d/.test(r))return 'POP';
   if(/^E\d/.test(r))return 'E';
   if(r==='FC')return 'FC';
   if(r==='SAC')return 'SAC';
@@ -1087,11 +1091,12 @@ function paKind(r){
   return 'TEXT';
 }
 const HITVERB={'1B':'Singled','2B':'Doubled','3B':'Tripled'};
-function applyNotationFix(kind,ht,f){
+function applyNotationFix(kind,ht,f,wasFoul){
   if(kind==='1B'||kind==='2B'||kind==='3B')
     return{result:kind,text:`${HITVERB[kind]} on a ${ht} to ${POS[f]}`};
   if(kind==='GO')return{result:f,text:'Grounded out '+f};
-  if(kind==='FO')return{result:'F'+f,text:'Flied out to '+f};
+  if(kind==='FO')return wasFoul?{result:'F'+f,text:'Fouled out F'+f}:{result:'F'+f,text:'Flied out to '+f};
+  if(kind==='POP')return{result:'P'+f,text:'Popped out P'+f};
   if(kind==='LO')return{result:'L'+f,text:'Lined out to '+f};
   if(kind==='E')return{result:'E'+f,text:'Reached on error E'+f};
   if(kind==='FC')return{result:'FC',text:"Fielder's choice "+f};
@@ -1134,14 +1139,14 @@ function fixNotation(idx){
       <label>Play text</label><input id="fxText" value="${esc(fxT)}" maxlength="90">
       ${kind==='1B'||kind==='2B'||kind==='3B'
         ?'<button class="med" id="fxHit" style="width:100%;margin-top:8px">Re-pick hit type + fielder</button>'
-        :['GO','FO','LO','E','FC','SAC','SF'].includes(kind)
+        :['GO','FO','POP','LO','E','FC','SAC','SF'].includes(kind)
         ?'<button class="med" id="fxF" style="width:100%;margin-top:8px">Re-pick fielders</button>':''}
       <button class="med accent" id="fxSave" style="width:100%;margin-top:10px">Save notation</button>
       <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
     const rh=$('#fxHit');if(rh)rh.onclick=()=>hitPicker(HITVERB[pa.result],(ht,f)=>{
       const m=applyNotationFix(kind,ht,f);fxR=m.result;fxT=m.text;draw();});
     const rf=$('#fxF');if(rf)rf.onclick=()=>fielderPad(f=>{
-      const m=applyNotationFix(kind,null,f);fxR=m.result;fxT=m.text;draw();},'Re-pick fielders');
+      const m=applyNotationFix(kind,null,f,/^Fouled out/.test(fxT));fxR=m.result;fxT=m.text;draw();},'Re-pick fielders');
     $('#fxSave').onclick=()=>{
       const nr=$('#fxResult').value.trim()||pa.result,nt=$('#fxText').value.trim();
       const c0=clsOf(pa.result),c1=clsOf(nr);
