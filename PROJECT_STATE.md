@@ -259,3 +259,25 @@ replacing the "visco" app she currently uses.
   fly outs (F8), so the diamond tells them apart. paKind/clsOf updated;
   notation editor preserves the lowercase form on fielder re-pick.
   Verified: node --check, 8-assertion harness. Commit 1bfa6eb. Live.
+
+- 2026-10-01: Julie: "can't decide if I want to make some notation for abs
+  challenges" → chose the whole thing, discreet. Added ABS challenge
+  tracking: (a) per-team remaining counter ("CH 2·2") in the score header,
+  tap to open a stepper (manual adjust, e.g. a challenge burned on a
+  conference); (b) a dashed "C" button appears by the count whenever the
+  last pitch was a called ball/strike, opening a challenge sheet (who
+  challenged defaults to fielding team on balls / batting team on strikes,
+  result upheld/overturned); (c) challenged pitches get a tiny C badge
+  (C↺ if overturned) in the pitch list. Rules: 2 challenges per team, kept
+  when overturned (upheld decrements, floor 0); only called balls/strikes
+  are challengeable; overturning flips the call and recounts — strikeout
+  triggers a K, ball four triggers a walk; a committed strikeout is
+  un-done cleanly (outs/order restored, count flipped); a committed walk
+  or any PA that already moved on (incl. a K that ended the half-inning)
+  is notation-only with a toast explaining why; extra innings grant +1
+  per team (only if at 0), per MLB's 2026 ABS rules. Past-game mode is
+  read-only (no C button, header not tappable). Verified: node --check,
+  21-assertion harness (eligibility, upheld decrement/floor, overturn
+  flips incl. foul-ball recount edge, K/BB forward-commit, un-K,
+  third-out-K/BB/closed-PA notation-only paths, extra-inning grant).
+  Commit ad3cf3f566e9. Live on Pages (verified markers).
