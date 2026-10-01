@@ -38,6 +38,7 @@ h1{font-size:26px; margin:6px 0 2px;}
 button{
   font-family:inherit; color:var(--ink); background:rgba(255,255,255,.09);
   border:1px solid var(--line); border-radius:14px; cursor:pointer;
+  touch-action:manipulation;
 }
 button:active{transform:scale(.97);}
 .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
@@ -120,7 +121,7 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .mover{border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px;}
 .mover .nm{font-weight:700; margin-bottom:6px;}
 .mover .dest{display:flex; gap:6px; flex-wrap:wrap;}
-.mover .dest button{flex:1; min-width:60px; min-height:48px; font-weight:700;}
+.mover .dest button{flex:1; min-width:60px; min-height:56px; font-weight:700;}
 .mover .dest button.sel{background:linear-gradient(135deg,var(--plum-deep),#7a4fb5); border:none;}
 table.book{border-collapse:collapse; width:100%; font-size:12px;}
 table.book th, table.book td{border:1px solid rgba(255,255,255,.14); padding:2px; text-align:center;}
@@ -139,6 +140,33 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   background:rgba(255,255,255,.03); font-size:13px;}
 .pbpRow small{font-size:11px;}
 .subRow{font-size:12.5px; color:var(--dim); padding:4px 0; border-bottom:1px solid rgba(255,255,255,.05);}
+/* Runner buttons: 3-col on wide screens, regridded on small phones. */
+.rgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+/* Small phones: bigger tap targets, compact header, less scrolling. */
+@media (max-width:480px){
+  .view{padding:10px 10px 0;}
+  .card{padding:10px; border-radius:15px;}
+  .diamond{width:88px; height:88px;}
+  .base{width:25px; height:25px; border-radius:5px;}
+  #b2{left:31px; top:4px;} #b1{left:58px; top:31px;} #b3{left:4px; top:31px;}
+  .count{font-size:26px;}
+  .events{max-height:92px;}
+  .sect{margin:10px 0 6px;}
+  .pgrid{grid-template-columns:1fr 1fr;}
+  .pgrid .big{min-height:66px; font-size:18px;}
+  .pgrid2{grid-template-columns:1fr 1fr;}
+  .pgrid2 .med{min-height:62px; font-size:16px;}
+  .pgrid2 [data-p="inplay"]{grid-column:1/-1;}
+  .agrid .med{min-height:60px;}
+  .rgrid{grid-template-columns:1fr 1fr;}
+  .rgrid .med{min-height:60px; font-size:16px;}
+  #balkBtn{grid-column:1/-1;}
+  .mover .dest button{min-height:60px; min-width:64px;}
+  .fpad button{min-height:64px;}
+  .sheet .med{min-height:56px;}
+  .sheet .sml{min-height:48px;}
+  .tabs button{min-height:56px;}
+}
 </style>
 </head>
 <body>
@@ -211,30 +239,28 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   </div>
 
   <div class="sect">Pitch</div>
-  <div class="grid4">
+  <div class="grid4 pgrid">
     <button class="big pitch" data-p="ball">Ball</button>
     <button class="big pitch" data-p="cstr">Called K</button>
     <button class="big pitch" data-p="sstr">Swing K</button>
     <button class="big pitch" data-p="foul">Foul</button>
   </div>
-  <div class="grid3" style="margin-top:8px">
+  <div class="grid3 pgrid2" style="margin-top:8px">
     <button class="med pitch" data-p="inplay">In Play</button>
     <button class="med pitch" data-p="pitchout">Pitchout</button>
     <button class="med pitch" data-p="hbp">Hit Batter</button>
   </div>
   <div class="sect">Automatic calls</div>
-  <div class="grid3">
+  <div class="grid3 agrid">
     <button class="med pitch auto" data-p="autoball">Auto Ball<br><small>⏱ pitcher</small></button>
     <button class="med pitch auto" data-p="autostrike">Auto Strike<br><small>⏱ batter</small></button>
     <button class="med pitch auto" data-p="illegal">Illegal<br><small>pitch</small></button>
   </div>
   <div class="sect">Runners</div>
-  <div class="grid3">
+  <div class="rgrid">
     <button class="med" id="stealBtn">Steal</button>
     <button class="med" id="diBtn">Def. Indiff.</button>
     <button class="med" id="pickBtn">Pickoff</button>
-  </div>
-  <div class="grid2" style="margin-top:8px">
     <button class="med" id="wppbBtn">Wild / Passed</button>
     <button class="med" id="balkBtn">Balk</button>
   </div>
