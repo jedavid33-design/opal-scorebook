@@ -72,6 +72,9 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .slotbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:rgba(201,160,232,.1);
   border:1px solid var(--plum); border-radius:10px; padding:8px 10px; margin:6px 0; font-size:14px;}
 .scorehead{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;}
+#scorehead{cursor:pointer; border-radius:10px; margin:-4px -6px 0; padding:4px 6px;}
+#scorehead:active{background:rgba(255,255,255,.06);}
+.luhint{opacity:.45; font-size:12px;}
 .scorehead .t{font-size:20px; font-weight:800;}
 .scorehead .s{font-size:15px; color:var(--dim);}
 .countline{display:flex; gap:14px; align-items:center; margin:8px 0;}
@@ -88,6 +91,10 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .events{list-style:none; margin:8px 0 0; padding:0; font-size:14px; max-height:150px; overflow:auto;}
 .events li{padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.07); color:var(--dim);}
 .events li:last-child{color:var(--ink);}
+.pnum{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
+  border-radius:50%; border:1px solid var(--line); font-size:11px; font-weight:700;
+  color:var(--dim); margin-right:8px; flex:0 0 auto;}
+.events li{display:flex; align-items:center;}
 .sect{font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); margin:12px 0 6px;}
 .sect.lineup-head{display:flex; justify-content:space-between; align-items:center;}
 .tabs{position:fixed; bottom:0; left:0; right:0; display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
@@ -166,6 +173,10 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   .sheet .med{min-height:56px;}
   .sheet .sml{min-height:48px;}
   .tabs button{min-height:56px;}
+  /* Roster-load row: team + date side by side, Load button full-width below. */
+  .rload{grid-template-columns:1fr 1fr;}
+  .rload .loadcell{grid-column:1/-1;}
+  .rload .loadcell label{display:none;}
   /* iPad narrow windows (Slide Over / Split View): book + linescore scroll
      sideways with a sticky name column instead of crushing the diamonds. */
   #linescore{overflow-x:auto; -webkit-overflow-scrolling:touch;}
@@ -205,8 +216,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <body>
 
 <div id="v-setup" class="view">
-  <h1>Opal Scorebook</h1>
-  <p class="sub">New game — lineups. Big taps, no tiny typing marathons.</p>
+  <h1>Lineup</h1>
+  <p class="sub">Set teams &amp; lineups. Big taps, no tiny typing marathons. (Tap the score line on the Score tab to come back here.)</p>
   <div class="card">
     <div class="grid2">
       <div><label>Away team</label><input id="awayName" value="Astros" maxlength="24">
@@ -217,10 +228,10 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   </div>
   <div class="card">
     <div class="sect" style="margin-top:0">Away roster pool</div>
-    <div class="grid3">
+    <div class="grid3 rload">
       <div><label>MLB team</label><select id="awayMLB" class="mlbSel" data-team="away"><option value="">—</option></select></div>
       <div><label>Roster date <span style="opacity:.55">(optional)</span></label><input id="awayDate" type="date"></div>
-      <div><label>&nbsp;</label><button class="med" id="awayLoad" style="width:100%">Load roster</button></div>
+      <div class="loadcell"><label>&nbsp;</label><button class="med" id="awayLoad" style="width:100%">Load roster</button></div>
     </div>
     <p class="sub" id="awayPoolMeta" style="margin:6px 0 0"></p>
     <div id="awayPool" class="pool"></div>
@@ -231,10 +242,10 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   </div>
   <div class="card">
     <div class="sect" style="margin-top:0">Home roster pool</div>
-    <div class="grid3">
+    <div class="grid3 rload">
       <div><label>MLB team</label><select id="homeMLB" class="mlbSel" data-team="home"><option value="">—</option></select></div>
       <div><label>Roster date <span style="opacity:.55">(optional)</span></label><input id="homeDate" type="date"></div>
-      <div><label>&nbsp;</label><button class="med" id="homeLoad" style="width:100%">Load roster</button></div>
+      <div class="loadcell"><label>&nbsp;</label><button class="med" id="homeLoad" style="width:100%">Load roster</button></div>
     </div>
     <p class="sub" id="homePoolMeta" style="margin:6px 0 0"></p>
     <div id="homePool" class="pool"></div>
@@ -253,7 +264,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <div id="v-score" class="view">
   <div id="scoreBanner" class="viewbanner" hidden></div>
   <div class="card">
-    <div class="scorehead">
+    <div class="scorehead" id="scorehead" role="button" tabindex="0" title="Set lineups" aria-label="Set lineups">
       <div><span class="t" id="hAway">AWY</span> <span class="s" id="sAway">0</span>
         &nbsp;@&nbsp; <span class="t" id="hHome">HME</span> <span class="s" id="sHome">0</span></div>
       <div class="s" id="hInn">▲ 1</div>
@@ -274,9 +285,9 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 
   <div class="sect">Pitch</div>
   <div class="grid4 pgrid">
-    <button class="big pitch" data-p="ball">Ball</button>
     <button class="big pitch" data-p="cstr">Called K</button>
     <button class="big pitch" data-p="sstr">Swing K</button>
+    <button class="big pitch" data-p="ball">Ball</button>
     <button class="big pitch" data-p="foul">Foul</button>
   </div>
   <div class="grid3 pgrid2" style="margin-top:8px">
@@ -327,7 +338,6 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 </div>
 
 <div class="tabs">
-  <button id="tab-setup">Setup</button>
   <button id="tab-score" class="on">Score</button>
   <button id="tab-book">Book</button>
   <button id="tab-games">Games</button>
@@ -531,7 +541,7 @@ function renderScore(){
   $('#hHome').textContent=h.name.toUpperCase().slice(0,4)||'HME';
   $('#sAway').textContent=innRuns('away').reduce((x,y)=>x+y,0);
   $('#sHome').textContent=innRuns('home').reduce((x,y)=>x+y,0);
-  $('#hInn').textContent=(S.half===0?'▲ ':'▼ ')+S.inning;
+  $('#hInn').innerHTML=(S.half===0?'▲ ':'▼ ')+S.inning+' <span class="luhint">✎</span>';
   $('#hCount').textContent=S.balls+'-'+S.strikes;
   $('#hOuts').textContent='● '.repeat(S.outs)+'○ '.repeat(Math.max(0,3-S.outs));
   $('#b1').classList.toggle('on',!!S.bases[0]);
@@ -539,7 +549,8 @@ function renderScore(){
   $('#b3').classList.toggle('on',!!S.bases[2]);
   const b=curBatter();
   $('#hBatter').innerHTML=`${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
-  $('#hEvents').innerHTML=S.pa.map(e=>`<li>${e.text}</li>`).join('')||'<li style="opacity:.5">No pitches yet this PA</li>';
+  $('#hEvents').innerHTML=S.pa.map((e,i)=>`<li><span class="pnum">${i+1}</span>${e.text}</li>`).join('')||'<li style="opacity:.5">No pitches yet this PA</li>';
+  $('#hEvents').scrollTop=$('#hEvents').scrollHeight;
   const sc=$('#v-score');
   const bn=$('#scoreBanner');
   if(viewing){
@@ -676,8 +687,8 @@ function outcomeModal(){
     <button class="med" data-o="1B">Single</button><button class="med" data-o="2B">Double</button>
     <button class="med" data-o="3B">Triple</button><button class="med" data-o="HR">Home run</button>
     <button class="med" data-o="GO">Groundout</button><button class="med" data-o="FO">Flyout</button>
-    <button class="med" data-o="LO">Lineout</button><button class="med" data-o="E">Error</button>
-    <button class="med" data-o="FC">Fielder's choice</button><button class="med" data-o="SAC">Sacrifice</button>
+    <button class="med" data-o="POP">Pop fly</button><button class="med" data-o="LO">Lineout</button>
+    <button class="med" data-o="E">Error</button><button class="med" data-o="FC">Fielder's choice</button><button class="med" data-o="SAC">Sacrifice</button>
     <button class="med" data-o="DP">Double Play</button>
     </div><div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
   $('#sheet').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>handleOutcome(b.dataset.o));
@@ -762,6 +773,8 @@ function handleOutcome(kind){
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],f,'Grounded out '+f);},'Groundout — fielders');return;}
   if(kind==='FO'){fielderPad(f=>{ev('o','Flied out to '+f);
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'F'+f,'Flied out F'+f);},'Flyout — fielder');return;}
+  if(kind==='POP'){fielderPad(f=>{ev('o','Popped out P'+f);
+    placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f:'P'+f}},...holdMovers()],'P'+f,'Popped out P'+f);},'Pop fly — fielder');return;}
   if(kind==='LO'){fielderPad(f=>{ev('o','Lined out to '+f);
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'L'+f,'Lined out L'+f);},'Lineout — fielder');return;}
   if(kind==='E'){fielderPad(f=>{ev('o','Reached on error E'+f);
@@ -1346,7 +1359,8 @@ function renderPastList(){
 /* ================= nav / init ================= */
 function renderAll(){renderScore();renderBook();}
 function showView(v){['setup','score','book','games'].forEach(x=>{
-  $('#v-'+x).classList.toggle('on',x===v);$('#tab-'+x).classList.toggle('on',x===v);});}
+  $('#v-'+x).classList.toggle('on',x===v);
+  const t=$('#tab-'+x);if(t)t.classList.toggle('on',x===v);});}
 function init(){
   load();if(!S)S=blank();ensureShape();
   $('#awayName').addEventListener('change',e=>{S.away.name=e.target.value||'Away';save();});
@@ -1373,7 +1387,10 @@ function init(){
   $('#wppbBtn').onclick=actWPPB;$('#balkBtn').onclick=actBalk;
   $('#undoBtn').onclick=undo;
   $('#subBtn').onclick=subModal;
-  $('#tab-setup').onclick=()=>{if(viewing){toast('Viewing a past game — read only');return;}showView('setup');};$('#tab-score').onclick=()=>showView('score');$('#tab-book').onclick=()=>showView('book');$('#tab-games').onclick=()=>{renderGames();showView('games');};
+  $('#tab-score').onclick=()=>showView('score');$('#tab-book').onclick=()=>showView('book');$('#tab-games').onclick=()=>{renderGames();showView('games');};
+  const goSetup=()=>{if(viewing){toast('Viewing a past game — read only');return;}showView('setup');};
+  $('#scorehead').onclick=goSetup;
+  $('#scorehead').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();goSetup();}});
   renderSetup();renderAll();renderGames();showView(S.started?'score':'setup');
   if(syncCfg())pullOnStart(false);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&syncCfg()&&!viewing)pullOnStart(true);});
