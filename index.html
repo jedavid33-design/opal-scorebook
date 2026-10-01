@@ -101,6 +101,21 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .sheet h2{margin:0 0 10px; font-size:20px;}
 .fpad{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0;}
 .fpad button{min-height:58px; font-size:20px; font-weight:700;}
+.fieldSvg{width:100%; max-width:330px; display:block; margin:6px auto; touch-action:manipulation;}
+.fieldSvg .grass{fill:rgba(255,255,255,.045);}
+.fieldSvg .dirt{fill:rgba(255,255,255,.07); stroke:rgba(255,255,255,.20); stroke-width:1;}
+.fieldSvg .mound{fill:rgba(255,255,255,.28);}
+.fieldSvg .plate{fill:rgba(255,255,255,.40);}
+.fieldSvg .fnode{cursor:pointer;}
+.fieldSvg .fnode .dot{fill:rgba(16,10,26,.9); stroke:var(--plum); stroke-width:1.6;}
+.fieldSvg .fnode text{fill:#fff; text-anchor:middle; pointer-events:none;}
+.fieldSvg .fnode .fn{font-size:13px; font-weight:800;}
+.fieldSvg .fnode .fp{font-size:8.5px; fill:var(--dim);}
+.fieldSvg .fnode.on .dot{fill:var(--plum);}
+.fieldSvg .fbadge{fill:#fff;}
+.fieldSvg .fbt{font-size:10px; font-weight:800; fill:#2a1840;}
+.mover .dest button.ebtn{flex:0 0 auto; min-width:52px;}
+.mover .dest button.ebtn.sel{background:linear-gradient(135deg,#b03a5b,#7a2a4a); border:none;}
 .fread{font-size:26px; font-weight:800; text-align:center; min-height:40px; color:var(--plum);}
 .mover{border:1px solid var(--line); border-radius:12px; padding:10px; margin-bottom:8px;}
 .mover .nm{font-weight:700; margin-bottom:6px;}
@@ -449,20 +464,52 @@ function closeModal(){$('#modal').classList.remove('on');}
 $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
 const baseName=n=>({1:'1st',2:'2nd',3:'3rd',4:'home'}[n]);
 
+/* Field-layout fielder picker: tap positions where they stand. sel = array of position numbers in tap order. */
+const FIELD_POS={1:[110,132],2:[110,186],3:[165,120],4:[135,95],5:[55,120],6:[85,95],7:[40,55],8:[110,38],9:[180,55]};
+function fieldSVG(sel){
+  const nodes=[1,2,3,4,5,6,7,8,9].map(n=>{
+    const xy=FIELD_POS[n],x=xy[0],y=xy[1],idx=sel.indexOf(n),on=idx>=0;
+    return `<g class="fnode${on?' on':''}" data-n="${n}">`+
+      `<circle class="dot" cx="${x}" cy="${y}" r="15"></circle>`+
+      `<text class="fn" x="${x}" y="${y+4.5}">${n}</text>`+
+      (on&&sel.length>1?`<circle class="fbadge" cx="${x+11}" cy="${y-11}" r="8"/><text class="fbt" x="${x+11}" y="${y-7.5}">${idx+1}</text>`:'')+
+      `<text class="fp" x="${x}" y="${y+27}">${POS[n]}</text></g>`;
+  }).join('');
+  return `<svg class="fieldSvg" viewBox="0 0 220 218">`+
+    `<ellipse class="grass" cx="110" cy="102" rx="104" ry="94"/>`+
+    `<polygon class="dirt" points="110,172 150,132 110,92 70,132"/>`+
+    `<circle class="mound" cx="110" cy="132" r="4"/>`+
+    `<polygon class="plate" points="110,164 117,171 103,171"/>`+
+    nodes+`</svg>`;
+}
+function bindField(root,cb){root.querySelectorAll('.fnode').forEach(g=>{g.onclick=()=>cb(+g.dataset.n);});}
 function fielderPad(cb,title){
-  let f='';
-  const posName=n=>POS[n]||n;
-  const draw=()=>{ $('#fread').textContent=f||'–';
-    $('#freadPos').textContent=f?f.split('-').map(posName).join(' → '):''; };
+  let taps=[];
+  const draw=()=>{
+    $('#fread').textContent=taps.join('-')||'–';
+    $('#freadPos').textContent=taps.map(n=>POS[n]).join(' → ');
+    $('#fsField').innerHTML=fieldSVG(taps);
+    bindField($('#fsField'),n=>{taps.push(n);draw();});
+  };
   openModal(`<h2>${title||'Fielders (tap in order)'}</h2><div class="fread" id="fread">–</div>
     <div class="fread" id="freadPos" style="font-size:15px;color:var(--dim);min-height:22px"></div>
-    <div class="fpad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-n="${n}">${POS[n]}<br><small style="opacity:.55">${n}</small></button>`).join('')}</div>
+    <div id="fsField"></div>
     <div class="grid3"><button class="med" id="fback">⌫</button><button class="med" id="fclr">Clear</button>
     <button class="med accent" id="fok">OK</button></div>`);
-  $('#sheet').querySelectorAll('[data-n]').forEach(b=>b.onclick=()=>{f+=(f?'-':'')+b.dataset.n;draw();});
-  $('#fback').onclick=()=>{const p=f.split('-');p.pop();f=p.filter(Boolean).join('-');draw();};
-  $('#fclr').onclick=()=>{f='';draw();};
-  $('#fok').onclick=()=>{if(!f)return;closeModal();cb(f);};
+  $('#fback').onclick=()=>{taps.pop();draw();};
+  $('#fclr').onclick=()=>{taps=[];draw();};
+  $('#fok').onclick=()=>{if(!taps.length)return;closeModal();cb(taps.join('-'));};
+  draw();
+}
+/* Single-fielder variant on the field layout, with cancel. */
+function fielderSingle(cb,title,onCancel){
+  let f=null;
+  const draw=()=>{$('#fs1').innerHTML=fieldSVG(f?[f]:[]);bindField($('#fs1'),n=>{f=n;draw();});};
+  openModal(`<h2>${title||'Fielder'}</h2><div id="fs1"></div>
+    <div class="grid2"><button class="med accent" id="fs1ok">OK</button><button class="med ghost" id="fs1cx">Cancel</button></div>`);
+  draw();
+  $('#fs1ok').onclick=()=>{if(!f)return;closeModal();cb(String(f));};
+  $('#fs1cx').onclick=()=>{closeModal();if(onCancel)onCancel();};
 }
 function pickRunner(cb,title){
   const occ=[0,1,2].filter(i=>S.bases[i]);
@@ -478,9 +525,13 @@ function endHalfCheck(){
   if(S.half===1){S.half=0;S.inning++;S.bat='away';}
   else{S.half=1;S.bat='home';}
 }
-function commitPA(result){
+/* Drop an err tag already captured by an E-type outcome, e.g. result E5 + tag E5 -> null. */
+function stripDupErr(code,tag){if(!tag)return tag;const m=/^E(\d+)/.exec(code||'');if(!m)return tag;
+  const rest=tag.split(',').filter(e=>e.trim()!=='E'+m[1]);return rest.length?rest.join(','):null;}
+function commitPA(result,err){
+  err=stripDupErr(result,err);
   S.pas.push({team:S.bat,b:curIdx(),inning:S.inning,half:S.half,result,
-    batter:pname({t:S.bat,i:curIdx()}),events:S.pa.slice()});
+    batter:pname({t:S.bat,i:curIdx()}),events:S.pa.slice(),...(err?{err}:null)});
   S.pa=[];
 }
 
@@ -546,13 +597,12 @@ function hitPicker(verb,cb){
       <div class="grid2">${['line drive','ground ball','fly ball','bunt'].map(h=>
         `<button class="med${ht===h?' accent':''}" data-ht="${h}">${cap(h)}</button>`).join('')}</div>
       <div class="sect">Played by</div>
-      <div class="grid3">${[1,2,3,4,5,6,7,8,9].map(p=>
-        `<button class="med${f===String(p)?' accent':''}" data-f="${p}">${POS[p]}<br><small style="opacity:.55">${p}</small></button>`).join('')}</div>
+      ${fieldSVG(f?[+f]:[])}
       <div class="fread" style="font-size:16px;min-height:30px">${ready?`${verb} on a ${ht} to ${POS[f]}`:'Pick a hit type and a fielder'}</div>
       <button class="med${ready?' accent':''}" id="hitDone" style="width:100%;margin-top:8px"${ready?'':' disabled'}>Done</button>
       <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
     $('#sheet').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{ht=b.dataset.ht;draw();});
-    $('#sheet').querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{f=b.dataset.f;draw();});
+    bindField($('#sheet'),n=>{f=String(n);draw();});
     if(ready)$('#hitDone').onclick=()=>cb(ht,f);
   };
   draw();$('#modal').classList.add('on');
@@ -637,16 +687,39 @@ function handleOutcome(kind){
 }
 
 /* ================= runner placement ================= */
+/* Runner-event sentences for one mover (pure — also used by the test harness). */
+function moveRunnerEvents(m){
+  if(m.out)return[];
+  const errTxt=m.err?' on error E'+m.err:'',out=[];
+  if(m.who==='BR'){
+    if(m.to>=4)out.push(['r',m.label+' scores'+errTxt]);
+    else if(m.err&&m.from!==m.to)out.push(['r',m.label+' to '+baseName(m.to)+errTxt]);
+  }else{
+    if(m.from!==m.to)out.push(['r',`${m.label}: ${baseName(m.from)} → ${baseName(m.to)}${errTxt}`]);
+    if(m.to>=4)out.push(['r',m.label+' scores'+errTxt]);
+  }
+  return out;
+}
+/* Error tag for the PA record, e.g. 'E8' or 'E5,E8'. Null when no error was marked. */
+function paErrTag(movers){
+  const u=[...new Set(movers.filter(m=>m.err&&!m.out).map(m=>m.err))];
+  return u.length?u.map(f=>'E'+f).join(','):null;
+}
 function placementReview(movers,code,text){
   const draw=()=>{
     $('#sheet').innerHTML=`<h2>${text}</h2><p class="sub">Confirm where everyone ends up.</p>`+
       movers.map((m,i)=>`<div class="mover"><div class="nm">${m.label}${m.out?' — <span style="color:var(--out)">OUT ('+m.out.f+')</span>':''}</div>
         ${m.out?'':`<div class="dest">${[1,2,3,4].map(b=>`<button data-m="${i}" data-b="${b}" class="${m.to===b?'sel':''}">${baseName(b)}</button>`).join('')}
-        <button data-m="${i}" data-b="out">Out</button></div>`}</div>`).join('')+
+        <button data-m="${i}" data-b="out">Out</button>
+        <button data-m="${i}" data-b="err" class="ebtn${m.err?' sel':''}">${m.err?'E'+m.err:'E'}</button></div>`}</div>`).join('')+
       `<button class="med accent" id="plDone" style="width:100%;margin-top:6px">Done</button>`;
     $('#sheet').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{
       const m=movers[+b.dataset.m],v=b.dataset.b;
-      if(v==='out'){fielderPad(f=>{m.out={f};m.to=0;draw();},'Out — fielders');}
+      if(v==='out'){fielderPad(f=>{m.out={f};m.to=0;m.err=null;draw();},'Out — fielders');}
+      else if(v==='err'){
+        if(m.err){m.err=null;draw();}
+        else fielderSingle(f=>{m.err=f;draw();},'Error by whom?',()=>draw());
+      }
       else{m.to=+v;m.out=null;draw();}
     });
     $('#plDone').onclick=applyPlacement;
@@ -656,15 +729,13 @@ function placementReview(movers,code,text){
     const nb=[null,null,null];
     movers.forEach(m=>{
       if(m.out){ev('o',(m.who==='BR'?'Batter out ':'Runner out ')+m.out.f);S.outs++;return;}
+      moveRunnerEvents(m).forEach(([t,x])=>ev(t,x));
       if(m.who==='BR'){const R={t:S.bat,i:curIdx()};
-        if(m.to>=4){scoreRun(S.bat);ev('r',m.label+' scores');}
-        else nb[m.to-1]=R;}
-      else{if(m.from!==m.to)ev('r',`${m.label}: ${baseName(m.from)} → ${baseName(m.to)}`);
-        if(m.to>=4){scoreRun(S.bat);ev('r',m.label+' scores');}
-        else nb[m.to-1]=m.r;}
+        if(m.to>=4)scoreRun(S.bat);else nb[m.to-1]=R;}
+      else{if(m.to>=4)scoreRun(S.bat);else nb[m.to-1]=m.r;}
     });
     S.bases=nb;closeModal();
-    commitPA(code);S.order[S.bat]++;S.balls=0;S.strikes=0;
+    commitPA(code,paErrTag(movers));S.order[S.bat]++;S.balls=0;S.strikes=0;
     save();renderAll();endHalfCheck();save();renderAll();
   };
   draw();$('#modal').classList.add('on');
@@ -813,13 +884,20 @@ function subModal(){
 function paAt(t,i,n){const half=t==='away'?0:1;return S.pas.find(p=>p.team===t&&p.b===i&&p.inning===n&&p.half===half);}
 function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
   if(/^(K|ꓘ)$/.test(r)||/[-FLE]/.test(r[0])||/^\d/.test(r))return'out';return'';}
+function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;}
+/* Errors belong to the fielding team — the opponent of the batting team in p.team.
+   Counts distinct fielder errors per PA: an E-type outcome plus any extra tags. */
+function paErrDisp(pa){return stripDupErr(pa.result,pa.err);}
+function teamErrs(t){const def=p=>(p.team==='away'?'home':'away')===t;
+  return S.pas.filter(p=>def(p)).reduce((n,p)=>{const fs=new Set();let m=/^E(\d+)/.exec(p.result||'');if(m)fs.add(m[1]);
+    (p.err||'').split(',').forEach(e=>{m=/^E(\d+)/.exec(e.trim());if(m)fs.add(m[1]);});return n+fs.size;},0);}
 function bookTable(t){
   const team=S[t],nInn=Math.max(9,S.inning);
   let h=`<table class="book"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}</tr>`;
   team.lineup.forEach((p,i)=>{
     h+=`<tr><td class="plname">${p.num?'#'+p.num+' ':''}${p.name||'—'}${p.hist&&p.hist.length>1?' ⇄':''}</td>`;
     for(let n=1;n<=nInn;n++){const pa=paAt(t,i,n);
-      h+=`<td>${pa?`<div class="dcell ${clsOf(pa.result)}"><div class="d"></div><span>${pa.result}</span></div>`:''}</td>`;}
+      h+=`<td>${pa?`<div class="dcell ${clsOf(pa.result)}"><div class="d"></div><span>${pa.result}${paErrDisp(pa)?', '+paErrDisp(pa):''}</span></div>`:''}</td>`;}
     h+=`</tr>`;});
   return h+'</table>';
 }
@@ -828,8 +906,8 @@ function renderBook(){
   $('#bookAwayT').textContent=S.away.name+' — away';$('#bookHomeT').textContent=S.home.name+' — home';
   $('#bookAway').innerHTML=bookTable('away');$('#bookHome').innerHTML=bookTable('home');
   const nInn=Math.max(9,S.inning);
-  const H=t=>S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;
-  const E=t=>S.pas.filter(p=>p.team===t&&/^E/.test(p.result)).length;
+  const H=teamHits;
+  const E=teamErrs;
   const row=t=>{const R=innRuns(t);
     return `<tr><td style="text-align:left">${S[t].name}</td>${Array.from({length:nInn},(_,i)=>`<td>${R[i]||0}</td>`).join('')}
     <td><b>${R.reduce((a,b)=>a+b,0)}</b></td><td>${H(t)}</td><td>${E(t)}</td></tr>`;};
@@ -840,7 +918,7 @@ function renderPbp(){
   const el=$('#pbp');if(!el)return;
   el.innerHTML=S.pas.map((p,idx)=>{
     const e0=p.events.length?p.events[0].text:'';
-    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div><button class="sml" data-edit="${idx}">Edit</button></div>`;
+    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div><button class="sml" data-edit="${idx}">Edit</button></div>`;
   }).join('')||'<p class="sub">No plays yet.</p>';
   el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editPA(+b.dataset.edit));
 }
