@@ -184,3 +184,36 @@ replacing the "visco" app she currently uses.
   modal's visible class on every render. Reproduced on the live page in a real
   browser; regression tests M1-M3 fail without the fix and pass with it.
   136 harness checks passing. Commit ef350ad, live on Pages (verified).
+
+- 2026-10-01: narrow-window optimization for iPad (Julie: "optimized for
+  smaller windows for my iPad" — Slide Over / Split View). Book grid and
+  linescore no longer crush in narrow windows: tables get a min-width and
+  scroll sideways, with the player-name column sticky (solid dark-plum
+  background) so you never lose track of who's who while scrolling. Under
+  400px the diamonds shrink slightly (44→36px) to reduce scrolling. CSS-only
+  change — no logic touched. Pushed via GitHub API (no local .git in this
+  checkout), commit 0b89e4b, Pages rebuilds automatically.
+
+- 2026-10-01: cross-device sync + past games (Julie: "save the game state
+  between devices/browsers, so I can go between devices ama also look at
+  old games"). New Cloudflare Worker `opal-scorebook-sync`
+  (https://opal-scorebook-sync.4d8v7jw78c.workers.dev) + D1 database
+  `opal-scorebook` (table `games`: id, sync_code, name, device, created_at,
+  updated_at, finished, score, state). No accounts: client generates a
+  sync code (XXXX-XXXX-XXXX); every row carries it and every request must
+  present the matching code (wrong code -> 404, cross-code write -> 403).
+  App changes (index.html): new 4th tab "Games" with (a) Sync card —
+  enable/disable, code display, device name, Sync now, "use a code" for the
+  second device; (b) Past games list (local archive always kept, 50 max;
+  cloud archive when sync on) with read-only viewer. Current game
+  auto-pushes (debounced 2.5s) after every scoring change; on launch the
+  app pulls — blank local + remote game -> auto-load; same game newer on
+  the other device -> auto-update; different newer game -> "Load it / Keep
+  mine" card. Viewing a past game is read-only: banner + inert controls on
+  Score, Edit buttons and End-game hidden in Book, save() is a no-op, Setup
+  tab shows a notice; "Back to current game" restores the live game.
+  Conflicts are last-write-wins. NOTE: a half-finished alternate sync draft
+  exists at sync-worker/worker.js (different API: Bearer-hashed codes);
+  the live system is the root worker.js + this app code — do not deploy
+  the draft over opal-scorebook-sync. Commits e6542c2 (app), 5777ba1
+  (worker), b4dbdc3 (deploy script). Live on Pages (verified).
