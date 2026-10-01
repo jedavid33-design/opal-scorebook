@@ -166,6 +166,27 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   .sheet .med{min-height:56px;}
   .sheet .sml{min-height:48px;}
   .tabs button{min-height:56px;}
+  /* iPad narrow windows (Slide Over / Split View): book + linescore scroll
+     sideways with a sticky name column instead of crushing the diamonds. */
+  #linescore{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  table.book{min-width:560px;}
+  table.book th:first-child, table.book td:first-child{
+    position:sticky; left:0; z-index:2; background:#1a1328;
+    box-shadow:1px 0 0 rgba(255,255,255,.13);
+  }
+}
+/* Very narrow (Slide Over): slightly smaller diamonds, less sideways scroll. */
+@media (max-width:400px){
+  .dcell{width:36px; height:36px;}
+  .dcell .d{inset:5px;}
+  .dcell span{font-size:10px;}
+  table.book{min-width:500px;}
+  .plname{max-width:76px;}
+  #linescore{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  table.book th:first-child, table.book td:first-child{
+    position:sticky; left:0; z-index:2; background:#1a1328;
+    box-shadow:1px 0 0 rgba(255,255,255,.13);
+  }
 }
 </style>
 </head>
