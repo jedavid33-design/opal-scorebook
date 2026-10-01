@@ -188,6 +188,18 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     box-shadow:1px 0 0 rgba(255,255,255,.13);
   }
 }
+.viewbanner{background:linear-gradient(135deg,var(--plum-deep),#7a4fb5);color:#fff;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.viewbanner .grow{flex:1;}
+.viewbanner button{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4);}
+.pastRow{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;}
+.pastRow .meta{flex:1;min-width:0;}
+.pastRow .nm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pastRow .dt{font-size:12px;opacity:.6;}
+.pastRow .sc{font-weight:700;font-size:16px;}
+.codebox{font-family:ui-monospace,monospace;font-size:20px;letter-spacing:2px;background:#1c1030;color:#fff;border-radius:10px;padding:10px;text-align:center;margin:8px 0;user-select:all;}
+.syncrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+#toast{position:fixed;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);background:#1c1030;color:#fff;padding:10px 16px;border-radius:24px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:99;max-width:90vw;text-align:center;}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
@@ -239,6 +251,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 </div>
 
 <div id="v-score" class="view">
+  <div id="scoreBanner" class="viewbanner" hidden></div>
   <div class="card">
     <div class="scorehead">
       <div><span class="t" id="hAway">AWY</span> <span class="s" id="sAway">0</span>
@@ -288,6 +301,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 </div>
 
 <div id="v-book" class="view">
+  <div id="bookBanner" class="viewbanner" hidden></div>
   <h1>Scorebook</h1>
   <p class="sub" id="bookSub"></p>
   <div class="card" style="overflow-x:auto">
@@ -303,11 +317,23 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <button class="med danger" id="newGameBtn" style="width:100%">End game / start over</button>
 </div>
 
+<div id="v-games" class="view">
+  <h1>Games</h1>
+  <p class="sub">Past games &amp; sync between devices</p>
+  <div id="pendingCard"></div>
+  <div class="card" id="syncCard"></div>
+  <div class="sect">Past games</div>
+  <div id="pastList"></div>
+</div>
+
 <div class="tabs">
   <button id="tab-setup">Setup</button>
   <button id="tab-score" class="on">Score</button>
   <button id="tab-book">Book</button>
+  <button id="tab-games">Games</button>
 </div>
+
+<div id="toast"></div>
 
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
 
@@ -319,12 +345,20 @@ let S=null; const undoStack=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
 
 function blankTeam(name){return{name:name,pitcher:'',bench:[],pool:[],poolMeta:null,dh:false,lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
+function genId(){return 'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);}
 function blank(){return{
+  gid:genId(),
   away:blankTeam('Astros'),home:blankTeam('Opponent'),
   bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
   bases:[null,null,null],order:{away:0,home:0},
   pa:[],pas:[],runs:{away:[],home:[]},subLog:[],started:false
 };}
+let viewing=null; // {gid,name,score,date} while browsing a past game (read-only)
+let liveS=null;    // stashed live game while viewing
+let localSavedAt=0;
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+let toastTimer=null;
+function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;t.classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('on'),2600);}
 function ensureShape(){
   ['away','home'].forEach(t=>{const T=S[t];
     if(T.dh===undefined)T.dh=false;
@@ -338,8 +372,10 @@ function ensureShape(){
 }
 function snap(){undoStack.push(JSON.stringify(S));if(undoStack.length>80)undoStack.shift();persistUndo();}
 function persistUndo(){try{localStorage.setItem('osb1-undo',JSON.stringify(undoStack));}catch(e){}}
-function save(){try{localStorage.setItem('osb1',JSON.stringify(S));}catch(e){}}
+function save(){if(viewing)return;try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();try{localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}}catch(e){}queuePush();}
 function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}catch(e){}
+  if(S&&!S.gid)S.gid=genId();
+  try{localSavedAt=+localStorage.getItem('osb1-ts')||0;}catch(e){localSavedAt=0;}
   try{const u=localStorage.getItem('osb1-undo');undoStack.length=0;if(u)JSON.parse(u).forEach(s=>undoStack.push(s));}catch(e){}}
 function undo(){if(!undoStack.length)return;S=JSON.parse(undoStack.pop());persistUndo();save();renderAll();}
 
@@ -505,6 +541,13 @@ function renderScore(){
   $('#hBatter').innerHTML=`${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
   $('#hEvents').innerHTML=S.pa.map(e=>`<li>${e.text}</li>`).join('')||'<li style="opacity:.5">No pitches yet this PA</li>';
   const sc=$('#v-score');
+  const bn=$('#scoreBanner');
+  if(viewing){
+    bn.hidden=false;
+    bn.innerHTML=`<span>👁️ Viewing <b>${esc(viewing.name)}</b> · ${esc(viewing.score)} — read only</span><span class="grow"></span><button class="sml" id="backLive1">Back to current game</button>`;
+    $('#backLive1').onclick=backToLive;
+    [...sc.children].forEach(ch=>{if(ch!==bn)ch.inert=true;});
+  }else{bn.hidden=true;[...sc.children].forEach(ch=>{ch.inert=false;});}
 }
 /* ================= modal helpers ================= */
 function openModal(html){$('#sheet').innerHTML=html;$('#modal').classList.add('on');}
@@ -975,6 +1018,13 @@ function bookTable(t){
 }
 function renderBook(){
   $('#bookSub').textContent=`${S.away.name} @ ${S.home.name}`;
+  const bb=$('#bookBanner');
+  if(viewing){
+    bb.hidden=false;
+    bb.innerHTML=`<span>👁️ Viewing <b>${esc(viewing.name)}</b> · ${esc(viewing.score)} — read only</span><span class="grow"></span><button class="sml" id="backLive2">Back to current game</button>`;
+    $('#backLive2').onclick=backToLive;
+  }else bb.hidden=true;
+  const ng=$('#newGameBtn');if(ng)ng.style.display=viewing?'none':'';
   $('#bookAwayT').textContent=S.away.name+' — away';$('#bookHomeT').textContent=S.home.name+' — home';
   $('#bookAway').innerHTML=bookTable('away');$('#bookHome').innerHTML=bookTable('home');
   const nInn=Math.max(9,S.inning);
@@ -990,7 +1040,7 @@ function renderPbp(){
   const el=$('#pbp');if(!el)return;
   el.innerHTML=S.pas.map((p,idx)=>{
     const e0=p.events.length?p.events[0].text:'';
-    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div><button class="sml" data-edit="${idx}">Edit</button></div>`;
+    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div>${viewing?'':`<button class="sml" data-edit="${idx}">Edit</button>`}</div>`;
   }).join('')||'<p class="sub">No plays yet.</p>';
   el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editPA(+b.dataset.edit));
 }
@@ -1137,9 +1187,163 @@ function addPitchPA(idx){
   draw('');$('#modal').classList.add('on');
 }
 
+/* ================= sync between devices ================= */
+const SYNC_URL='https://opal-scorebook-sync.4d8v7jw78c.workers.dev';
+let syncInfo={state:'off',msg:''}; // off|ok|pending|error
+let pushTimer=null, remoteGames=[], pendingRemote=null;
+function syncCfg(){try{const r=localStorage.getItem('osb1-sync');return r?JSON.parse(r):null;}catch(e){return null;}}
+function setSyncCfg(c){try{if(c)localStorage.setItem('osb1-sync',JSON.stringify(c));else localStorage.removeItem('osb1-sync');}catch(e){}}
+function genCode(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<12;i++){s+=A[Math.floor(Math.random()*A.length)];if(i===3||i===7)s+='-';}return s;}
+function defaultDevice(){const ua=navigator.userAgent||'';if(/iPad/.test(ua))return'iPad';if(/iPhone/.test(ua))return'iPhone';return'Browser';}
+function gameName(st){st=st||S;const a=(st.away&&st.away.name)||'Away',h=(st.home&&st.home.name)||'Home';return a+' @ '+h;}
+function gameScore(st){st=st||S;const r=t=>((st.runs&&st.runs[t])||[]).reduce((x,y)=>x+(+y||0),0);return r('away')+'-'+r('home');}
+function gameStarted(st){st=st||S;return !!(st&&(st.started||(st.pas&&st.pas.length))); }
+function queuePush(){const c=syncCfg();if(!c||viewing||!gameStarted())return;syncInfo={state:'pending',msg:'Syncing…'};renderSyncCard();clearTimeout(pushTimer);pushTimer=setTimeout(()=>pushGame(false,S),2500);}
+async function pushGame(finished,st){
+  const c=syncCfg();if(!c||viewing)return;st=st||S;
+  if(!finished&&!gameStarted(st))return;
+  const body={code:c.code,name:gameName(st),device:c.device||defaultDevice(),finished:!!finished,score:gameScore(st),state:st};
+  try{const r=await fetch(SYNC_URL+'/api/games/'+st.gid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error('http '+r.status);
+    syncInfo={state:'ok',msg:'Synced '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})};
+  }catch(e){syncInfo={state:'error',msg:'Sync failed — will retry on next change'};}
+  renderSyncCard();
+}
+async function fetchGameList(){
+  const c=syncCfg();if(!c)return[];
+  const r=await fetch(SYNC_URL+'/api/games?code='+encodeURIComponent(c.code));
+  if(!r.ok)throw new Error('http '+r.status);
+  return (await r.json()).games||[];
+}
+async function pullOnStart(background){
+  const c=syncCfg();if(!c||viewing)return;
+  let games=[];try{games=await fetchGameList();}catch(e){syncInfo={state:'error',msg:'Could not reach sync server'};renderSyncCard();return;}
+  remoteGames=games;pendingRemote=null;
+  const open=games.filter(g=>!g.finished).sort((a,b)=>b.updated_at-a.updated_at)[0];
+  if(!open){renderGames();return;}
+  if(!gameStarted()){
+    if(open.id!==S.gid)await loadRemoteGame(open,true);
+  }else if(open.id===S.gid){
+    if(!background&&open.updated_at>localSavedAt+45000)await loadRemoteGame(open,true);
+  }else{
+    if(open.updated_at>localSavedAt){pendingRemote=open;markGamesTab();}
+  }
+  renderGames();
+}
+async function loadRemoteGame(g,silent){
+  const c=syncCfg();if(!c)return;
+  try{
+    const r=await fetch(SYNC_URL+'/api/games/'+g.id+'?code='+encodeURIComponent(c.code));
+    if(!r.ok)throw new Error('http '+r.status);
+    const full=await r.json();
+    const st=typeof full.state==='string'?JSON.parse(full.state):full.state;
+    st.gid=g.id;S=st;ensureShape();undoStack.length=0;persistUndo();
+    try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}
+    pendingRemote=null;markGamesTab();
+    renderSetup();renderAll();renderGames();showView('score');
+    if(!silent)toast('Loaded game from '+(g.device||'other device'));
+    else toast('Loaded "'+g.name+'" from '+(g.device||'other device'));
+  }catch(e){toast('Could not load that game');}
+}
+function markGamesTab(){const t=$('#tab-games');if(t)t.textContent=pendingRemote?'Games •':'Games';}
+
+/* ================= past games archive ================= */
+function getArchive(){try{return JSON.parse(localStorage.getItem('osb1-archive')||'[]');}catch(e){return[];}}
+function addToArchive(entry){const a=getArchive().filter(x=>x.gid!==entry.gid);a.unshift(entry);while(a.length>50)a.pop();try{localStorage.setItem('osb1-archive',JSON.stringify(a));}catch(e){}}
+function endGame(){
+  if(gameStarted()){const st=S;addToArchive({gid:st.gid,name:gameName(st),score:gameScore(st),date:Date.now(),state:st});pushGame(true,st);}
+  S=blank();undoStack.length=0;persistUndo();save();renderSetup();renderGames();showView('setup');
+}
+function viewGame(src){
+  if(!liveS)liveS=S;
+  const done=st=>{viewing={gid:src.gid,name:src.name,score:src.score,date:src.date};S=st;ensureShape();renderAll();renderGames();showView('book');window.scrollTo(0,0);};
+  if(src.state){done(typeof src.state==='string'?JSON.parse(src.state):src.state);return;}
+  const c=syncCfg();if(!c){toast('Sync is off — that game has no saved state');return;}
+  fetch(SYNC_URL+'/api/games/'+src.gid+'?code='+encodeURIComponent(c.code)).then(r=>{if(!r.ok)throw 0;return r.json();})
+    .then(g=>done(JSON.parse(g.state))).catch(()=>toast('Could not load that game'));
+}
+function backToLive(){if(liveS){S=liveS;liveS=null;}viewing=null;ensureShape();renderSetup();renderAll();renderGames();showView('score');}
+async function deletePastGame(gid,remote){
+  if(!confirm('Delete this past game?'))return;
+  const a=getArchive().filter(x=>x.gid!==gid);
+  try{localStorage.setItem('osb1-archive',JSON.stringify(a));}catch(e){}
+  if(remote){const c=syncCfg();try{await fetch(SYNC_URL+'/api/games/'+gid+'?code='+encodeURIComponent(c.code),{method:'DELETE'});remoteGames=remoteGames.filter(g=>g.id!==gid);}catch(e){}}
+  if(viewing&&viewing.gid===gid)backToLive();
+  renderGames();
+}
+
+/* ================= games tab UI ================= */
+function renderGames(){renderPendingCard();renderSyncCard();renderPastList();}
+function renderPendingCard(){
+  const el=$('#pendingCard');if(!el)return;
+  if(pendingRemote){const g=pendingRemote;
+    el.innerHTML=`<div class="viewbanner"><span>📱 <b>${esc(g.device||'Other device')}</b> has a newer game:<br><b>${esc(g.name)}</b> · ${esc(g.score)}</span><span class="grow"></span><button class="sml" id="prLoad">Load it</button><button class="sml" id="prKeep">Keep mine</button></div>`;
+    $('#prLoad').onclick=()=>loadRemoteGame(g,false);
+    $('#prKeep').onclick=()=>{pendingRemote=null;markGamesTab();pushGame(false,S);renderGames();};
+  }else el.innerHTML='';
+}
+function renderSyncCard(){
+  const el=$('#syncCard');if(!el)return;
+  const c=syncCfg();
+  const dot={off:'⚪',ok:'🟢',pending:'🟡',error:'🔴'}[syncInfo.state]||'⚪';
+  if(!c){
+    el.innerHTML=`<div class="sect" style="margin-top:0">Sync between devices</div>
+      <p class="sub">Keep this game on your iPhone and iPad, and look back at old games from either one.</p>
+      <div class="syncrow"><button class="med accent" id="syncEnable">Enable sync</button></div>
+      <div id="syncEnterWrap"></div>`;
+    $('#syncEnable').onclick=()=>{
+      const code=genCode();setSyncCfg({code,device:defaultDevice()});
+      syncInfo={state:'ok',msg:'Sync enabled'};renderGames();pushGame(false,S);
+    };
+    return;
+  }
+  const statusTxt=syncInfo.state==='off'?'':`${dot} ${esc(syncInfo.msg)}`;
+  el.innerHTML=`<div class="sect" style="margin-top:0">Sync between devices</div>
+    <p class="sub">${statusTxt||'Sync is on'}</p>
+    <div class="codebox">${esc(c.code)}</div>
+    <p class="sub">Enter this code on your other device under Games → Sync → Use a code.</p>
+    <label class="sub" for="devName">This device's name</label>
+    <input id="devName" value="${esc(c.device||'')}" maxlength="24" style="width:100%">
+    <div class="syncrow">
+      <button class="med" id="syncNow">Sync now</button>
+      <button class="med ghost" id="syncUse">Use a code</button>
+      <button class="med ghost" id="syncOff">Turn off</button>
+    </div>
+    <div id="syncEnterWrap"></div>`;
+  $('#devName').addEventListener('change',e=>{const cc=syncCfg();cc.device=e.target.value.trim()||defaultDevice();setSyncCfg(cc);pushGame(false,S);});
+  $('#syncNow').onclick=async()=>{syncInfo={state:'pending',msg:'Syncing…'};renderSyncCard();await pushGame(false,S);await pullOnStart(true);};
+  $('#syncOff').onclick=()=>{if(confirm('Turn off sync? Your games stay on this device.')){setSyncCfg(null);syncInfo={state:'off',msg:''};remoteGames=[];pendingRemote=null;markGamesTab();renderGames();}};
+  $('#syncUse').onclick=()=>{
+    const w=$('#syncEnterWrap');
+    w.innerHTML=`<div style="margin-top:8px"><input id="codeIn" placeholder="XXXX-XXXX-XXXX" style="width:100%" maxlength="14"><div class="syncrow"><button class="med accent" id="codeGo">Connect</button></div></div>`;
+    $('#codeGo').onclick=()=>{
+      const code=($('#codeIn').value||'').trim().toUpperCase();
+      if(!/^[A-Z0-9-]{4,14}$/.test(code)){toast('That code looks off — check it');return;}
+      setSyncCfg({code,device:defaultDevice()});syncInfo={state:'pending',msg:'Connecting…'};renderGames();pullOnStart(false);
+    };
+  };
+}
+function renderPastList(){
+  const el=$('#pastList');if(!el)return;
+  const local=getArchive();
+  const seen=new Set(local.map(x=>x.gid));
+  const remote=remoteGames.filter(g=>g.finished&&!seen.has(g.id));
+  const items=[
+    ...local.map(x=>({gid:x.gid,name:x.name,score:x.score,date:x.date,local:true,state:x.state})),
+    ...remote.map(g=>({gid:g.id,name:g.name,score:g.score,date:g.updated_at,local:false,device:g.device}))
+  ].sort((a,b)=>(b.date||0)-(a.date||0));
+  if(!items.length){el.innerHTML='<p class="sub">No past games yet. Ended games show up here.</p>';return;}
+  el.innerHTML=items.map((g,i)=>{
+    const d=g.date?new Date(g.date).toLocaleDateString([],{month:'short',day:'numeric'})+' '+new Date(g.date).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'';
+    return `<div class="pastRow"><div class="meta"><div class="nm">${esc(g.name)}</div><div class="dt">${esc(d)}${g.device?' · '+esc(g.device):''}${g.local?'':' · ☁️'}</div></div><div class="sc">${esc(g.score)}</div><button class="sml" data-view="${i}">View</button><button class="sml ghost" data-del="${i}">✕</button></div>`;
+  }).join('');
+  el.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>viewGame(items[+b.dataset.view]));
+  el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const g=items[+b.dataset.del];deletePastGame(g.gid,!g.local);});
+}
+
 /* ================= nav / init ================= */
 function renderAll(){renderScore();renderBook();}
-function showView(v){['setup','score','book'].forEach(x=>{
+function showView(v){['setup','score','book','games'].forEach(x=>{
   $('#v-'+x).classList.toggle('on',x===v);$('#tab-'+x).classList.toggle('on',x===v);});}
 function init(){
   load();if(!S)S=blank();ensureShape();
@@ -1161,14 +1365,16 @@ function init(){
   });
   $('#demoBtn').onclick=demoLineups;
   $('#playBtn').onclick=()=>{S.started=true;save();renderAll();showView('score');};
-  $('#newGameBtn').onclick=()=>{if(confirm('End this game and start over?')){S=blank();undoStack.length=0;persistUndo();save();renderSetup();showView('setup');}};
+  $('#newGameBtn').onclick=()=>{if(viewing)return;if(confirm('End this game and start over? It will be kept under Games.'))endGame();};
   document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
   $('#stealBtn').onclick=actSteal;$('#diBtn').onclick=actDI;$('#pickBtn').onclick=actPick;
   $('#wppbBtn').onclick=actWPPB;$('#balkBtn').onclick=actBalk;
   $('#undoBtn').onclick=undo;
   $('#subBtn').onclick=subModal;
-  $('#tab-setup').onclick=()=>showView('setup');$('#tab-score').onclick=()=>showView('score');$('#tab-book').onclick=()=>showView('book');
-  renderSetup();renderAll();showView(S.started?'score':'setup');
+  $('#tab-setup').onclick=()=>{if(viewing){toast('Viewing a past game — read only');return;}showView('setup');};$('#tab-score').onclick=()=>showView('score');$('#tab-book').onclick=()=>showView('book');$('#tab-games').onclick=()=>{renderGames();showView('games');};
+  renderSetup();renderAll();renderGames();showView(S.started?'score':'setup');
+  if(syncCfg())pullOnStart(false);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&syncCfg()&&!viewing)pullOnStart(true);});
 }
 init();
 </script>
