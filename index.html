@@ -734,6 +734,7 @@ function placementReview(movers,code,text){
       else{m.to=+v;m.out=null;draw();}
     });
     $('#plDone').onclick=applyPlacement;
+    $('#modal').classList.add('on');
   };
   const applyPlacement=()=>{
     snap();
@@ -1040,8 +1041,9 @@ function fixNotation(idx){
       }
       applyFixNotation(pa,nr,nt);closeModal();renderAll();
     };
+    $('#modal').classList.add('on');
   };
-  draw();$('#modal').classList.add('on');
+  draw();
 }
 function pitchCounts(pa){
   let b=0,s=0;
