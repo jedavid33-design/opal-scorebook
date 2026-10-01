@@ -254,3 +254,8 @@ replacing the "visco" app she currently uses.
   preserves "Fouled out" wording instead of rewriting it as a flyout.
   Verified: node --check, 11-assertion harness (FL skip/show paths, POP/FL
   classification, notation preservation). Commit 4b9091b. Live on Pages.
+
+- 2026-10-01: Julie: foul outs now notate lowercase (f2) vs uppercase for
+  fly outs (F8), so the diamond tells them apart. paKind/clsOf updated;
+  notation editor preserves the lowercase form on fielder re-pick.
+  Verified: node --check, 8-assertion harness. Commit 1bfa6eb. Live.
