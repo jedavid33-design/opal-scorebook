@@ -281,3 +281,47 @@ replacing the "visco" app she currently uses.
   flips incl. foul-ball recount edge, K/BB forward-commit, un-K,
   third-out-K/BB/closed-PA notation-only paths, extra-inning grant).
   Commit ad3cf3f566e9. Live on Pages (verified markers).
+
+- 2026-10-01: audit fix pack — all 20 findings from the 2026-10-01 audit fixed
+  (5 major, 15 minor), verified by a new committed harness
+  (harness/scorebook-harness.js, 137 checks) that loads the real index.html
+  script with stubbed DOM/storage and exercises every fix, plus worker.js
+  against a mocked D1. Majors: (A1) sync is no longer last-write-wins —
+  worker uses integer revision numbers (D1 `games.rev` column added via
+  migration; PUT sends base_rev, stale writes get 409 {error:'stale',rev};
+  blind writes only when base_rev is omitted = Julie's explicit "Keep mine");
+  on 409 the local rev is NOT advanced so every later push keeps 409ing until
+  she resolves via the Games-tab card ("Load it" / "Keep mine (overwrites)").
+  (A2) the launch pull never auto-replaces a started same-game local copy —
+  server-newer routes to the conflict card. (A3) runner-placement review
+  refuses and toasts when two runners would end on the same base. (A4) undo
+  keeps a parallel length array so Re-score "Rewind & re-enter" is refused
+  with an explanation when the needed snapshot has aged out (80-cap); undo
+  preserves rev/serverUpdatedAt so it can't manufacture a conflict. (A5) the
+  illegal-pitch double-count is gone — one pitch event per pitch for
+  auto-ball, illegal pitch, and pitchout; overturn recounts now agree
+  (the 2-1 + illegal-pitch → overturn scenario recounts exactly 3 balls).
+  Minors: (A6) "Out of challenges" sheet with no result buttons at 0 +
+  defense-in-depth guard; (A7) challenge stepper capped at 2; (A8) verified
+  against the actual 2026 MLB ABS rule — +1 challenge for EACH extra inning
+  when at 0, so the existing per-inning grant is correct, no code change;
+  (A9) already-challenged pitches show "Already challenged" with no result
+  buttons; (A10) "Load it" on a different newer game archives the outgoing
+  local game first; (A11) staleness compares server updated_at, not device
+  clocks; (A12) a failed finish-push marks the archive entry pendingFinish
+  and the next launch pull retries it; (A13) corrupt local saves are stashed
+  to osb1-corrupt-<ts> with a toast instead of silently resetting; (A14)
+  corrupt undo entries toast "Couldn't undo that step"; (A15) ensureShape
+  pads short lineups to 9/10 and coerces bad state; (A16) fix-notation keeps
+  stored point-in-time names for unchanged error positions, only genuinely
+  new positions resolve against the current lineup; (A17) Re-score with no
+  undo history (e.g. game loaded from the other device) explains the other
+  device wiped it; (A18) pitchout logs a single pitch event; (A19) archive
+  cap 50→100 with a heads-up toast at 90; (A20) this harness + the old
+  sync-worker/worker.js draft is now labeled NEVER DEPLOY. Frozen rules
+  untouched (2/team, overturn keeps, +1 in extras only if at 0, floor 0).
+  D1 migration: ALTER TABLE games ADD COLUMN rev INTEGER NOT NULL DEFAULT 0
+  (schema-only; existing rows default to rev 0). Worker deployed (health now
+  reports ver 2026-10-01-rev1, verified live). Git: local checkout had no
+  .git — recovered via init/fetch/reset to origin/main (e581da1), committed,
+  pushed; Pages auto-deploys.

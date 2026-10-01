@@ -361,7 +361,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 "use strict";
 /* ================= state ================= */
 const $=s=>document.querySelector(s);
-let S=null; const undoStack=[];
+let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
 
 function blankTeam(name){return{name:name,pitcher:'',bench:[],pool:[],poolMeta:null,dh:false,lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
@@ -371,7 +371,8 @@ function blank(){return{
   away:blankTeam('Astros'),home:blankTeam('Opponent'),
   bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
   bases:[null,null,null],order:{away:0,home:0},
-  pa:[],pas:[],runs:{away:[],home:[]},subLog:[],started:false
+  pa:[],pas:[],runs:{away:[],home:[]},subLog:[],started:false,
+  rev:0,serverUpdatedAt:0 // sync: rev = server revision this state is based on
 };}
 let viewing=null; // {gid,name,score,date} while browsing a past game (read-only)
 let liveS=null;    // stashed live game while viewing
@@ -382,23 +383,50 @@ function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;t.classLi
 function ensureShape(){
   ['away','home'].forEach(t=>{const T=S[t];
     if(T.dh===undefined)T.dh=false;
-    if(T.dh&&T.lineup.length<10)T.lineup.push({name:'',num:'',pos:'1',nb:true});
-    if(!T.dh&&T.lineup.length>9)T.lineup.length=9;
+    if(!Array.isArray(T.lineup))T.lineup=[];
+    const want=T.dh?10:9; // A15: never leave a short lineup — curBatter() would throw
+    if(T.lineup.length>want)T.lineup.length=want;
+    while(T.lineup.length<want)T.lineup.push((T.dh&&T.lineup.length===9)?{name:'',num:'',pos:'1',nb:true}:{name:'',num:'',pos:''});
     if(!Array.isArray(T.pool))T.pool=Array.isArray(T.bench)?T.bench.slice():[];
     const inLU2=new Set(T.lineup.map(s=>s.name).filter(Boolean));
     T.pool=T.pool.filter(p=>!inLU2.has(p.name));
     if(T.pitcher===undefined)T.pitcher='';});
   if(!S.subLog)S.subLog=[];
   if(!S.chal)S.chal={away:2,home:2};
+  if(typeof S.rev!=='number')S.rev=0;
+  if(typeof S.serverUpdatedAt!=='number')S.serverUpdatedAt=0;
+  if(S.bat!=='away'&&S.bat!=='home')S.bat='away'; // A15: corrupt bat value -> white screen
 }
-function snap(){undoStack.push(JSON.stringify(S));if(undoStack.length>80)undoStack.shift();persistUndo();}
-function persistUndo(){try{localStorage.setItem('osb1-undo',JSON.stringify(undoStack));}catch(e){}}
+function snap(){undoStack.push(JSON.stringify(S));undoMeta.push([S.pas.length,S.pa.length]);
+  if(undoStack.length>80){undoStack.shift();undoMeta.shift();}persistUndo();}
+// undoMeta[i] = [pas.length, pa.length] for undoStack[i] — lets Re-score check
+// the target is reachable before popping (A4), without parsing 80 snapshots.
+function persistUndo(){try{localStorage.setItem('osb1-undo',JSON.stringify({s:undoStack,m:undoMeta}));}catch(e){}}
+function rebuildUndoMeta(){ // for pre-fix undo stores (plain arrays); bounded, one-time
+  undoMeta.length=0;
+  for(const s of undoStack){try{const o=JSON.parse(s);undoMeta.push([o.pas?o.pas.length:0,o.pa?o.pa.length:0]);}
+    catch(e){undoMeta.push([-1,-1]);}}
+  persistUndo();}
 function save(){if(viewing)return;try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();try{localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}}catch(e){}queuePush();}
-function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}catch(e){}
+function persistLocal(){try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();try{localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}}catch(e){}}
+let corruptStashed=false; // A13: damaged osb1 is stashed + reported, never silently dropped
+function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}catch(e){
+    try{localStorage.setItem('osb1-corrupt-'+Date.now(),localStorage.getItem('osb1')||'');}catch(e2){}
+    corruptStashed=true;S=null;}
   if(S&&!S.gid)S.gid=genId();
   try{localSavedAt=+localStorage.getItem('osb1-ts')||0;}catch(e){localSavedAt=0;}
-  try{const u=localStorage.getItem('osb1-undo');undoStack.length=0;if(u)JSON.parse(u).forEach(s=>undoStack.push(s));}catch(e){}}
-function undo(){if(!undoStack.length)return;S=JSON.parse(undoStack.pop());persistUndo();save();renderAll();}
+  try{const u=localStorage.getItem('osb1-undo');undoStack.length=0;undoMeta.length=0;
+    if(u){const d=JSON.parse(u);const arr=Array.isArray(d)?d:(d.s||[]);
+      arr.forEach(s=>undoStack.push(s));
+      if(d&&!Array.isArray(d)&&Array.isArray(d.m))d.m.forEach(m=>undoMeta.push(m));}}catch(e){}}
+function undo(){if(!undoStack.length)return;
+  const raw=undoStack[undoStack.length-1];
+  let next;try{next=JSON.parse(raw);}catch(e){toast("Couldn't undo that step");return;} // A14
+  undoStack.pop();undoMeta.pop();
+  // rev tracks server lineage, not local content — undo must not manufacture a conflict
+  const keepRev=S.rev,keepTs=S.serverUpdatedAt;
+  S=next;S.rev=keepRev;S.serverUpdatedAt=keepTs;
+  persistUndo();save();renderAll();}
 
 const batTeam=()=>S[S.bat];
 const curIdx=()=>S.order[S.bat]%9;
@@ -676,13 +704,13 @@ function doPitch(kind){
   else if(kind==='cstr')addCountStrike('Called strike',true);
   else if(kind==='sstr')addCountStrike('Swinging strike',false);
   else if(kind==='foul'){ev('p','Foul ball');if(S.strikes<2)S.strikes++;}
-  else if(kind==='pitchout'){ev('p','Pitchout');addCountBall('Pitchout (ball)');}
+  else if(kind==='pitchout'){addCountBall('Pitchout (ball)');} // A18: one event per pitch
   else if(kind==='hbp'){doWalk('HBP','Hit by pitch');}
-  else if(kind==='autoball'){ev('p','Automatic ball — pitch timer violation');addCountBall('Automatic ball');}
+  else if(kind==='autoball'){addCountBall('Automatic ball — pitch timer violation');} // A5: single p event
   else if(kind==='autostrike'){addCountStrike('Automatic strike — batter timer violation',true);}
-  else if(kind==='illegal'){ev('p','Illegal pitch — automatic ball');
+  else if(kind==='illegal'){ // A5: single p event — was 2, which double-counted balls on overturns
     if(S.bases.some(Boolean)){ev('r','Illegal pitch with runners on — balk, all advance');advanceAll(1);}
-    addCountBall('Ball (illegal pitch)');}
+    addCountBall('Illegal pitch — automatic ball');}
   else if(kind==='inplay'){outcomeModal();return;}
   save();renderAll();
 }
@@ -726,6 +754,8 @@ function challengeSheet(){
   const ft=lp.team==='away'?'home':'away';
   let team=isBall?ft:lp.team; // ball challenged by the fielding team, strike by the batting team
   const draw=()=>{
+    const already=e.ch; // A9: a pitch can only be challenged once
+    const noChal=S.chal&&S.chal[team]<=0; // A6: 0 remaining = no free challenges
     openModal(`<h2>Challenge the call</h2>
     <p class="sub">&ldquo;${e.text}&rdquo; &middot; ${lp.live?'this PA':'previous PA'} &mdash; ${chalTeamName(lp.team)} batting</p>
     <label>Who challenged?</label>
@@ -733,21 +763,26 @@ function challengeSheet(){
       <button class="med${team==='away'?' sel':''}" data-ct="away">${chalTeamName('away')}</button>
       <button class="med${team==='home'?' sel':''}" data-ct="home">${chalTeamName('home')}</button>
     </div>
-    <label>Result</label>
+    ${already?`<p class="sub"><b>Already challenged</b> — ${already.res} by ${chalTeamName(already.team)}. One challenge per pitch.</p>`
+      :noChal?`<p class="sub"><b>Out of challenges</b> — ${chalTeamName(team)} has none left.</p>`
+      :`<label>Result</label>
     <div class="grid2">
       <button class="med" id="chUp">Upheld<br><small>call stands</small></button>
       <button class="med" id="chOv">Overturned<br><small>flip the call</small></button>
-    </div>
+    </div>`}
     <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
     $('#sheet').querySelectorAll('[data-ct]').forEach(b=>b.onclick=()=>{team=b.dataset.ct;draw();});
-    $('#chUp').onclick=()=>doChallenge(team,'upheld');
-    $('#chOv').onclick=()=>doChallenge(team,'overturned');
+    if(!already&&!noChal){
+      $('#chUp').onclick=()=>doChallenge(team,'upheld');
+      $('#chOv').onclick=()=>doChallenge(team,'overturned');
+    }
   };
   draw();
 }
 function doChallenge(team,res){
   const lp=lastPitch();if(!lp||viewing)return;
   const e=lp.evts[lp.idx];
+  if(e.ch||!S.chal||S.chal[team]<=0)return; // belt & suspenders: A6/A9
   snap();e.ch={team,res};
   if(res==='upheld'){S.chal[team]=Math.max(0,S.chal[team]-1);save();renderAll();closeModal();return;}
   // overturned — challenger keeps the challenge; flip the call
@@ -772,7 +807,7 @@ function chalStepper(){
     openModal(`<h2>Challenges</h2><p class="sub">Remaining per team &middot; kept when overturned &middot; +1 per extra inning if out</p>`+
     ['away','home'].map(t=>`<div class="chrow"><span>${chalTeamName(t)}</span><button class="sml" data-ca="${t}|-1">&minus;</button><b>${S.chal[t]}</b><button class="sml" data-ca="${t}|1">+</button></div>`).join('')+
     `<div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Done</button></div>`);
-    $('#sheet').querySelectorAll('[data-ca]').forEach(b=>b.onclick=()=>{const[t,d]=b.dataset.ca.split('|');snap();S.chal[t]=Math.max(0,S.chal[t]+ +d);save();renderAll();draw();});
+    $('#sheet').querySelectorAll('[data-ca]').forEach(b=>b.onclick=()=>{const[t,d]=b.dataset.ca.split('|');snap();S.chal[t]=Math.min(2,Math.max(0,S.chal[t]+ +d));save();renderAll();draw();}); // A7: ceiling 2
   };
   draw();
 }
@@ -900,6 +935,17 @@ function handleOutcome(kind){
 }
 
 /* ================= runner placement ================= */
+/* A3: two runners can't end on the same base — returns the offending base, or 0.
+   Pure — also used by the test harness. */
+function placementCollision(movers){
+  const seen={};
+  for(const m of movers){
+    if(m.out||m.to<1||m.to>3)continue;
+    if(seen[m.to])return m.to;
+    seen[m.to]=true;
+  }
+  return 0;
+}
 /* Runner-event sentences for one mover (pure — also used by the test harness). */
 function moveRunnerEvents(m){
   if(m.out)return[];
@@ -939,6 +985,8 @@ function placementReview(movers,code,text){
     $('#modal').classList.add('on');
   };
   const applyPlacement=(movers,code)=>{
+    const cb=placementCollision(movers); // A3: two runners can't end on the same base
+    if(cb){toast("Two runners can't end on "+baseName(cb)+' — fix one.');return;}
     snap();
     const nb=[null,null,null];
     movers.forEach(m=>{
@@ -1163,12 +1211,25 @@ function renderSubLog(){
   const nm=t=>t==='away'?S.away.name:S.home.name;
   el.innerHTML=S.subLog.map(s=>`<div class="subRow">${s.half?'B':'T'}${s.inn} ${nm(s.team)}: <b>${s.type}</b> ${s.new} for ${s.old}${s.slot!=null?' (slot '+(s.slot+1)+')':''}${s.base?' ('+['1st','2nd','3rd'][s.base-1]+')':''}</div>`).join('')||'<p class="sub">No substitutions.</p>';
 }
+/* A4: is the target PA reachable by popping snapshots? Walks the parallel
+   undoMeta (no full parses) — the rewind loop would otherwise silently stop
+   at the 80-cap or on an empty stack, leaving a half-rewound game. */
+function editRescoreReachable(idx){
+  if(undoMeta.length!==undoStack.length)rebuildUndoMeta();
+  for(let i=undoStack.length-1;i>=0;i--){
+    const m=undoMeta[i];if(!m||m[0]<0)continue;
+    if(m[0]<=idx&&m[1]===0)return true;
+  }
+  return false;
+}
 function confirmEditPA(idx){
   const n=S.pas.length-idx;
   const what=n===1?'just this play':'this play and the '+(n-1)+' after it';
+  const ok=editRescoreReachable(idx);
   openModal(`<h2>Edit play</h2><p class="sub">Rewind and re-enter from here? This erases ${what} — the game rewinds to right before it happened, and you score it again.</p>
-    <div class="grid2"><button class="med accent" id="ceYes">Rewind &amp; re-enter</button><button class="med ghost" onclick="closeModal()">Keep</button></div>`);
-  $('#ceYes').onclick=()=>{let g=500;while((S.pas.length>idx||S.pa.length>0)&&undoStack.length&&g-->0)undo();closeModal();showView('score');};
+    ${ok?'':`<p class="sub" style="color:var(--warn)"><b>Can't rewind that far${undoStack.length?'':' — this game came from the other device, so there\'s no undo history on this one'}.</b> That play is beyond the undo history — use Fix notation or Add missed pitch instead.</p>`}
+    <div class="grid2"><button class="med${ok?' accent':''}" id="ceYes"${ok?'':' disabled'}>Rewind &amp; re-enter</button><button class="med ghost" onclick="closeModal()">Keep</button></div>`);
+  if(ok)$('#ceYes').onclick=()=>{let g=500;while((S.pas.length>idx||S.pa.length>0)&&undoStack.length&&g-->0)undo();closeModal();showView('score');};
 }
 
 /* ================= edit past plays ================= */
@@ -1203,11 +1264,17 @@ function applyNotationFix(kind,ht,f,wasFoul){
 function applyFixNotation(pa,nr,nt){
   snap();
   const oldM=/^E(\d+)/.exec(pa.result||''),newM=/^E(\d+)/.exec(nr||'');
+  const oldPos=errPositions(pa); // capture BEFORE result changes — positions key the stored names
+  const oldNames=(pa.errBy&&pa.errBy.length===oldPos.length)?pa.errBy.slice():null;
   pa.result=nr;const j=outcomeIdx(pa);
   if(j>=0)pa.events[j]={t:'o',text:nt};else pa.events.push({t:'o',text:nt});
   if((oldM&&oldM[1])!==(newM&&newM[1])){
     const ft=pa.team==='away'?'home':'away';
-    const by=errPositions(pa).map(f=>fielderName(ft,f));
+    const oldByPos={};if(oldNames)oldPos.forEach((f,i)=>{oldByPos[f]=oldNames[i];});
+    // A16: keep the point-in-time names already stored for unchanged positions —
+    // a defensive sub since the play must not move the blame. Only genuinely
+    // NEW error positions fall back to the current lineup.
+    const by=errPositions(pa).map(f=>oldByPos[f]||fielderName(ft,f));
     if(by.some(Boolean))pa.errBy=by;else delete pa.errBy;
   }
   save();
@@ -1315,15 +1382,45 @@ function gameName(st){st=st||S;const a=(st.away&&st.away.name)||'Away',h=(st.hom
 function gameScore(st){st=st||S;const r=t=>((st.runs&&st.runs[t])||[]).reduce((x,y)=>x+(+y||0),0);return r('away')+'-'+r('home');}
 function gameStarted(st){st=st||S;return !!(st&&(st.started||(st.pas&&st.pas.length))); }
 function queuePush(){const c=syncCfg();if(!c||viewing||!gameStarted())return;syncInfo={state:'pending',msg:'Syncing…'};renderSyncCard();clearTimeout(pushTimer);pushTimer=setTimeout(()=>pushGame(false,S),2500);}
-async function pushGame(finished,st){
-  const c=syncCfg();if(!c||viewing)return;st=st||S;
-  if(!finished&&!gameStarted(st))return;
+let pushInflight=false,pushQueued=false;
+async function pushGame(finished,st,force){
+  const c=syncCfg();if(!c||viewing)return false;st=st||S;
+  if(!finished&&!gameStarted(st))return false;
+  if(pushInflight&&!finished){pushQueued=true;return false;} // serialize; re-queue after
+  pushInflight=true;
+  // A1: send the rev this state is based on. Server 409s stale writes so the
+  // other device's innings can't be silently clobbered. force = Julie's
+  // explicit "Keep mine (overwrites)" — the only blind overwrite left.
   const body={code:c.code,name:gameName(st),device:c.device||defaultDevice(),finished:!!finished,score:gameScore(st),state:st};
-  try{const r=await fetch(SYNC_URL+'/api/games/'+st.gid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error('http '+r.status);
-    syncInfo={state:'ok',msg:'Synced '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})};
+  if(!force&&typeof st.rev==='number')body.base_rev=st.rev;
+  let ok=false;
+  try{
+    const r=await fetch(SYNC_URL+'/api/games/'+st.gid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.status===409){
+      // Another device saved a newer version — keep ours locally, ask Julie.
+      // NOTE: st.rev is deliberately NOT advanced to the server's rev here:
+      // every later push must keep 409ing until she resolves it via the card,
+      // otherwise her next tap would silently clobber the other device's game.
+      let dev='another device';
+      try{const gr=await fetch(SYNC_URL+'/api/games/'+st.gid+'?code='+encodeURIComponent(c.code));
+        if(gr.ok){const grow=await gr.json();if(grow.device)dev=grow.device;}}catch(e){}
+      pendingRemote={id:st.gid,name:gameName(st),score:gameScore(st),device:dev,conflict:true};
+      markGamesTab();renderGames();
+      syncInfo={state:'error',msg:'Other device has a newer game — see Games tab'};
+    }else{
+      if(!r.ok)throw new Error('http '+r.status);
+      let resp={};try{resp=await r.json();}catch(e){}
+      if(typeof resp.rev==='number')st.rev=resp.rev;
+      if(typeof resp.updated_at==='number')st.serverUpdatedAt=resp.updated_at;
+      if(st===S)persistLocal(); // don't re-queue: the push itself isn't a local change
+      syncInfo={state:'ok',msg:'Synced '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})};
+      ok=true;
+    }
   }catch(e){syncInfo={state:'error',msg:'Sync failed — will retry on next change'};}
+  pushInflight=false;
+  if(pushQueued&&!finished){pushQueued=false;queuePush();}
   renderSyncCard();
+  return ok;
 }
 async function fetchGameList(){
   const c=syncCfg();if(!c)return[];
@@ -1335,14 +1432,25 @@ async function pullOnStart(background){
   const c=syncCfg();if(!c||viewing)return;
   let games=[];try{games=await fetchGameList();}catch(e){syncInfo={state:'error',msg:'Could not reach sync server'};renderSyncCard();return;}
   remoteGames=games;pendingRemote=null;
+  // A12: retry finish-pushes that failed earlier (finished game looked open elsewhere)
+  for(const a of getArchive().filter(x=>x.pendingFinish&&x.state)){
+    let ok=false;try{ok=await pushGame(true,a.state);}catch(e){}
+    if(ok)updateArchive(a.gid,{pendingFinish:false,state:a.state});
+  }
   const open=games.filter(g=>!g.finished).sort((a,b)=>b.updated_at-a.updated_at)[0];
   if(!open){renderGames();return;}
   if(!gameStarted()){
     if(open.id!==S.gid)await loadRemoteGame(open,true);
   }else if(open.id===S.gid){
-    if(!background&&open.updated_at>localSavedAt+45000)await loadRemoteGame(open,true);
+    // A2: never auto-replace a STARTED local game — route through the pending card.
+    // A11: compare server clock to server clock (stored serverUpdatedAt), not device clock.
+    const serverNewer=open.rev!==undefined?open.rev>S.rev:open.updated_at>(S.serverUpdatedAt||0);
+    if(serverNewer){pendingRemote={id:open.id,name:open.name,score:open.score,device:open.device,conflict:true};markGamesTab();}
   }else{
-    if(open.updated_at>localSavedAt){pendingRemote=open;markGamesTab();}
+    // A11: compare server clock to server clock once we've synced; fall back
+    // to the old device-clock compare only before the first sync.
+    const srvTs=S.serverUpdatedAt||0;
+    if(open.updated_at>(srvTs||localSavedAt)){pendingRemote=open;markGamesTab();}
   }
   renderGames();
 }
@@ -1353,7 +1461,10 @@ async function loadRemoteGame(g,silent){
     if(!r.ok)throw new Error('http '+r.status);
     const full=await r.json();
     const st=typeof full.state==='string'?JSON.parse(full.state):full.state;
-    st.gid=g.id;S=st;ensureShape();undoStack.length=0;persistUndo();
+    st.gid=g.id;S=st;ensureShape();
+    if(typeof full.rev==='number')S.rev=full.rev;
+    S.serverUpdatedAt=typeof full.updated_at==='number'?full.updated_at:(typeof g.updated_at==='number'?g.updated_at:0);
+    undoStack.length=0;undoMeta.length=0;persistUndo(); // snapshots don't sync — A4/A17 explains this
     try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}
     pendingRemote=null;markGamesTab();
     renderSetup();renderAll();renderGames();showView('score');
@@ -1365,10 +1476,17 @@ function markGamesTab(){const t=$('#tab-games');if(t)t.textContent=pendingRemote
 
 /* ================= past games archive ================= */
 function getArchive(){try{return JSON.parse(localStorage.getItem('osb1-archive')||'[]');}catch(e){return[];}}
-function addToArchive(entry){const a=getArchive().filter(x=>x.gid!==entry.gid);a.unshift(entry);while(a.length>50)a.pop();try{localStorage.setItem('osb1-archive',JSON.stringify(a));}catch(e){}}
-function endGame(){
-  if(gameStarted()){const st=S;addToArchive({gid:st.gid,name:gameName(st),score:gameScore(st),date:Date.now(),state:st});pushGame(true,st);}
-  S=blank();undoStack.length=0;persistUndo();save();renderSetup();renderGames();showView('setup');
+function updateArchive(gid,patch){const a=getArchive().map(x=>x.gid===gid?Object.assign({},x,patch):x);try{localStorage.setItem('osb1-archive',JSON.stringify(a));}catch(e){}}
+function addToArchive(entry){const a=getArchive().filter(x=>x.gid!==entry.gid);a.unshift(entry);
+  if(a.length===90)toast('Past games list is getting full — oldest games will drop off this device (finished games stay in the cloud).'); // A19
+  while(a.length>100)a.pop();
+  try{localStorage.setItem('osb1-archive',JSON.stringify(a));}catch(e){}}
+async function endGame(){
+  if(gameStarted()){const st=S;
+    addToArchive({gid:st.gid,name:gameName(st),score:gameScore(st),date:Date.now(),state:st,pendingFinish:true});
+    const ok=await pushGame(true,st); // A12: on failure the entry keeps pendingFinish and is retried on next pull
+    if(ok)updateArchive(st.gid,{pendingFinish:false,state:st});}
+  S=blank();undoStack.length=0;undoMeta.length=0;persistUndo();save();renderSetup();renderGames();showView('setup');
 }
 function viewGame(src){
   if(!liveS)liveS=S;
@@ -1390,12 +1508,17 @@ async function deletePastGame(gid,remote){
 
 /* ================= games tab UI ================= */
 function renderGames(){renderPendingCard();renderSyncCard();renderPastList();}
+function archiveCurrentGame(){ // A10: the outgoing local game is real — keep it, don't drop it
+  if(!gameStarted())return;
+  addToArchive({gid:S.gid,name:gameName(),score:gameScore(),date:Date.now(),state:JSON.parse(JSON.stringify(S))});
+}
 function renderPendingCard(){
   const el=$('#pendingCard');if(!el)return;
   if(pendingRemote){const g=pendingRemote;
-    el.innerHTML=`<div class="viewbanner"><span>📱 <b>${esc(g.device||'Other device')}</b> has a newer game:<br><b>${esc(g.name)}</b> · ${esc(g.score)}</span><span class="grow"></span><button class="sml" id="prLoad">Load it</button><button class="sml" id="prKeep">Keep mine</button></div>`;
-    $('#prLoad').onclick=()=>loadRemoteGame(g,false);
-    $('#prKeep').onclick=()=>{pendingRemote=null;markGamesTab();pushGame(false,S);renderGames();};
+    const conflict=!!g.conflict;
+    el.innerHTML=`<div class="viewbanner"><span>📱 <b>${esc(g.device||'Other device')}</b> has a ${conflict?'newer version of this game':'newer game'}:<br><b>${esc(g.name)}</b> · ${esc(g.score)}${conflict?'':'<br><small>Loading it keeps your current game under Past games.</small>'}</span><span class="grow"></span><button class="sml" id="prLoad">Load it</button><button class="sml" id="prKeep">${conflict?'Keep mine (overwrites)':'Keep mine'}</button></div>`;
+    $('#prLoad').onclick=async()=>{if(!conflict)archiveCurrentGame();await loadRemoteGame(g,false);};
+    $('#prKeep').onclick=async()=>{pendingRemote=null;markGamesTab();renderGames();await pushGame(false,S,true);};
   }else el.innerHTML='';
 }
 function renderSyncCard(){
@@ -1495,6 +1618,7 @@ function init(){
   $('#hChal').addEventListener('click',e=>{e.stopPropagation();chalStepper();});
   $('#hChal').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();chalStepper();}});
   renderSetup();renderAll();renderGames();showView(S.started?'score':'setup');
+  if(corruptStashed)toast('Saved game looked damaged — started fresh (old data kept for recovery)');
   if(syncCfg())pullOnStart(false);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&syncCfg()&&!viewing)pullOnStart(true);});
 }
