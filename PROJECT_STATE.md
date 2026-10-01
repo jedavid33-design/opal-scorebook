@@ -217,3 +217,15 @@ replacing the "visco" app she currently uses.
   the live system is the root worker.js + this app code — do not deploy
   the draft over opal-scorebook-sync. Commits e6542c2 (app), 5777ba1
   (worker), b4dbdc3 (deploy script). Live on Pages (verified).
+
+- 2026-10-01: skip runner-placement prompt on the third out (Julie: "Third
+  out — doesn't need to ask where everyone ended up"). placementReview now
+  applies the play's default placements directly when current outs + outs
+  already decided on the play reach 3 (groundout/flyout/lineout/sac/FC with
+  2 out, DP with 1 out) — identical to tapping Done immediately — then ends
+  the half-inning. Plays where the third out isn't decided yet (hits, errors,
+  marking a runner out in the review) still show the prompt. Caught during
+  dev: the skip check initially ran before applyPlacement's const
+  initialization (temporal-dead-zone ReferenceError); the check now sits
+  after the definition. Verified with a 14-assertion node harness. Commit
+  bb1be89. Live on Pages (verified).
