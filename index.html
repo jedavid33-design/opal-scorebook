@@ -250,6 +250,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <div id="bookHome"></div>
   </div>
   <div class="card"><div class="sect" style="margin-top:0">Linescore</div><div id="linescore"></div></div>
+  <div class="card"><div class="sect" style="margin-top:0">Fielding</div><div id="fielding"></div></div>
   <div class="card"><div class="sect" style="margin-top:0">Play by play</div><div id="pbp"></div></div>
   <div class="card"><div class="sect" style="margin-top:0">Substitutions</div><div id="sublog"></div></div>
   <button class="med danger" id="newGameBtn" style="width:100%">End game / start over</button>
@@ -525,13 +526,23 @@ function endHalfCheck(){
   if(S.half===1){S.half=0;S.inning++;S.bat='away';}
   else{S.half=1;S.bat='home';}
 }
+/* Distinct error positions on a PA: outcome error first, then extra tags. */
+function errPositions(pa){const fs=[];let m=/^E(\d+)/.exec(pa.result||'');if(m)fs.push(m[1]);
+  (pa.err||'').split(',').forEach(e=>{m=/^E(\d+)/.exec(e.trim());if(m&&!fs.includes(m[1]))fs.push(m[1]);});
+  return fs;}
+/* Player currently at a defensive position for a team. */
+function fielderName(ft,pos){const s=(S[ft].lineup||[]).find(x=>String(x.pos)===String(pos));return s&&s.name?s.name:null;}
 /* Drop an err tag already captured by an E-type outcome, e.g. result E5 + tag E5 -> null. */
 function stripDupErr(code,tag){if(!tag)return tag;const m=/^E(\d+)/.exec(code||'');if(!m)return tag;
   const rest=tag.split(',').filter(e=>e.trim()!=='E'+m[1]);return rest.length?rest.join(','):null;}
 function commitPA(result,err){
   err=stripDupErr(result,err);
-  S.pas.push({team:S.bat,b:curIdx(),inning:S.inning,half:S.half,result,
-    batter:pname({t:S.bat,i:curIdx()}),events:S.pa.slice(),...(err?{err}:null)});
+  const pa={team:S.bat,b:curIdx(),inning:S.inning,half:S.half,result,
+    batter:pname({t:S.bat,i:curIdx()}),events:S.pa.slice(),...(err?{err}:null)};
+  const ft=S.bat==='away'?'home':'away';
+  const by=errPositions(pa).map(f=>fielderName(ft,f));
+  if(by.some(Boolean))pa.errBy=by;
+  S.pas.push(pa);
   S.pa=[];
 }
 
@@ -891,6 +902,19 @@ function paErrDisp(pa){return stripDupErr(pa.result,pa.err);}
 function teamErrs(t){const def=p=>(p.team==='away'?'home':'away')===t;
   return S.pas.filter(p=>def(p)).reduce((n,p)=>{const fs=new Set();let m=/^E(\d+)/.exec(p.result||'');if(m)fs.add(m[1]);
     (p.err||'').split(',').forEach(e=>{m=/^E(\d+)/.exec(e.trim());if(m)fs.add(m[1]);});return n+fs.size;},0);}
+/* Per-player error counts, grouped by fielding team. Uses the point-in-time
+   names stored at commit; falls back to the current lineup for old saves. */
+function playerErrs(){const out={away:{},home:{}};
+  S.pas.forEach(pa=>{const ft=pa.team==='away'?'home':'away';
+    const posns=errPositions(pa);
+    const names=pa.errBy&&pa.errBy.length===posns.length?pa.errBy:posns.map(f=>fielderName(ft,f));
+    posns.forEach((f,i)=>{const nm=names[i];if(nm)out[ft][nm]=(out[ft][nm]||0)+1;});});
+  return out;}
+function renderFielding(){const el=$('#fielding');if(!el)return;
+  const pe=playerErrs();
+  const sec=t=>{const ns=Object.keys(pe[t]);if(!ns.length)return '';
+    return `<div class="subRow"><b>${S[t].name||t}</b> — ${ns.map(n=>`${n}: ${pe[t][n]} E`).join(' · ')}</div>`;};
+  el.innerHTML=(sec('away')+sec('home'))||'<p class="sub">No errors.</p>';}
 function bookTable(t){
   const team=S[t],nInn=Math.max(9,S.inning);
   let h=`<table class="book"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}</tr>`;
@@ -912,7 +936,7 @@ function renderBook(){
     return `<tr><td style="text-align:left">${S[t].name}</td>${Array.from({length:nInn},(_,i)=>`<td>${R[i]||0}</td>`).join('')}
     <td><b>${R.reduce((a,b)=>a+b,0)}</b></td><td>${H(t)}</td><td>${E(t)}</td></tr>`;};
   $('#linescore').innerHTML=`<table class="book ls"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}<th>R</th><th>H</th><th>E</th></tr>${row('away')}${row('home')}</table>`;
-  renderPbp();renderSubLog();
+  renderFielding();renderPbp();renderSubLog();
 }
 function renderPbp(){
   const el=$('#pbp');if(!el)return;
@@ -963,8 +987,15 @@ function applyNotationFix(kind,ht,f){
   return null;
 }
 function applyFixNotation(pa,nr,nt){
-  snap();pa.result=nr;const j=outcomeIdx(pa);
+  snap();
+  const oldM=/^E(\d+)/.exec(pa.result||''),newM=/^E(\d+)/.exec(nr||'');
+  pa.result=nr;const j=outcomeIdx(pa);
   if(j>=0)pa.events[j]={t:'o',text:nt};else pa.events.push({t:'o',text:nt});
+  if((oldM&&oldM[1])!==(newM&&newM[1])){
+    const ft=pa.team==='away'?'home':'away';
+    const by=errPositions(pa).map(f=>fielderName(ft,f));
+    if(by.some(Boolean))pa.errBy=by;else delete pa.errBy;
+  }
   save();
 }
 function editPA(idx){
