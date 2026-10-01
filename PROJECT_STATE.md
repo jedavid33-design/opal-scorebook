@@ -229,3 +229,18 @@ replacing the "visco" app she currently uses.
   initialization (temporal-dead-zone ReferenceError); the check now sits
   after the definition. Verified with a 14-assertion node harness. Commit
   bb1be89. Live on Pages (verified).
+
+- 2026-10-01: Julie's UX round (from iPad screenshots). (a) New "Pop fly"
+  in-play outcome: P-notation (e.g. P4), batter out, runners hold; honors
+  the third-out auto-skip. (b) Pitch buttons reordered: Called K left of
+  Swing K on the top row, Ball + Foul below, In Play full-width unchanged.
+  (c) PA pitch list: pitches numbered (badge per pitch) and the list
+  auto-scrolls to the latest pitch on every render. (d) Setup tab removed;
+  the screen is now titled "Lineup" — tap the score line (WHIT 4 @ ASTR 1,
+  pencil affordance by the inning) to open it anytime; showView guards the
+  missing tab button. (e) Small-window: roster-load row stacks under 700px
+  (team + date side by side, Load roster full-width below) instead of the
+  cramped 3-col squeeze. Verified: node --check, zero dangling $('#id')
+  refs, 10-assertion harness (POP skip/show paths, showView without
+  tab-setup, pitch numbering, GO third-out regression). Commit 09023c6.
+  Live on Pages (verified markers).
