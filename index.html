@@ -778,8 +778,8 @@ function handleOutcome(kind){
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f:'P'+f}},...holdMovers()],'P'+f,'Popped out P'+f);},'Pop fly — fielder');return;}
   if(kind==='LO'){fielderPad(f=>{ev('o','Lined out to '+f);
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'L'+f,'Lined out L'+f);},'Lineout — fielder');return;}
-  if(kind==='FL'){fielderPad(f=>{ev('o','Fouled out F'+f);
-    placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'F'+f,'Fouled out F'+f);},'Foul out — fielder');return;}
+  if(kind==='FL'){fielderPad(f=>{ev('o','Fouled out f'+f);
+    placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'f'+f,'Fouled out f'+f);},'Foul out — fielder');return;}
   if(kind==='E'){fielderPad(f=>{ev('o','Reached on error E'+f);
     const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
     [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+2;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
@@ -1003,7 +1003,7 @@ function subModal(){
 /* ================= book view ================= */
 function paAt(t,i,n){const half=t==='away'?0:1;return S.pas.find(p=>p.team===t&&p.b===i&&p.inning===n&&p.half===half);}
 function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
-  if(/^(K|ꓘ)$/.test(r)||/[-FLEP]/.test(r[0])||/^\d/.test(r))return'out';return'';}
+  if(/^(K|ꓘ)$/.test(r)||/[-FLEPf]/.test(r[0])||/^\d/.test(r))return'out';return'';}
 function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;}
 /* Errors belong to the fielding team — the opponent of the batting team in p.team.
    Counts distinct fielder errors per PA: an E-type outcome plus any extra tags. */
@@ -1080,7 +1080,7 @@ function outcomeIdx(pa){for(let i=pa.events.length-1;i>=0;i--)if(pa.events[i].t=
 function describePA(pa){return `${pa.half?'B':'T'}${pa.inning} · ${pa.batter||''} · ${pa.result}`;}
 function paKind(r){
   if(/^(1B|2B|3B)$/.test(r))return r;
-  if(/^F\d/.test(r))return 'FO';
+  if(/^[Ff]\d/.test(r))return 'FO';
   if(/^L\d/.test(r))return 'LO';
   if(/^P\d/.test(r))return 'POP';
   if(/^E\d/.test(r))return 'E';
@@ -1095,7 +1095,7 @@ function applyNotationFix(kind,ht,f,wasFoul){
   if(kind==='1B'||kind==='2B'||kind==='3B')
     return{result:kind,text:`${HITVERB[kind]} on a ${ht} to ${POS[f]}`};
   if(kind==='GO')return{result:f,text:'Grounded out '+f};
-  if(kind==='FO')return wasFoul?{result:'F'+f,text:'Fouled out F'+f}:{result:'F'+f,text:'Flied out to '+f};
+  if(kind==='FO')return wasFoul?{result:'f'+f,text:'Fouled out f'+f}:{result:'F'+f,text:'Flied out to '+f};
   if(kind==='POP')return{result:'P'+f,text:'Popped out P'+f};
   if(kind==='LO')return{result:'L'+f,text:'Lined out to '+f};
   if(kind==='E')return{result:'E'+f,text:'Reached on error E'+f};
