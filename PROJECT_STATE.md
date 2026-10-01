@@ -174,3 +174,13 @@ replacing the "visco" app she currently uses.
   charge when the error fielder changes. New Fielding card in the Book view
   lists each team's players with their E counts. 130 harness checks passing.
   Commit 93ba4b9, live on Pages (verified).
+
+- 2026-10-01: modal-visibility bug fix (Julie: "not registering the play after I
+  enter it"). In placement review, the E and Out buttons open a sub-picker
+  (fielderSingle/fielderPad) whose OK handler closes the modal before calling
+  back into draw() — but draw() never re-showed the modal, so the sheet went
+  invisible with Done unreachable and the play was never committed. Same defect
+  in fix-notation's re-pick flows. Fix: both draw() functions now re-add the
+  modal's visible class on every render. Reproduced on the live page in a real
+  browser; regression tests M1-M3 fail without the fix and pass with it.
+  136 harness checks passing. Commit ef350ad, live on Pages (verified).
