@@ -95,6 +95,16 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
   border-radius:50%; border:1px solid var(--line); font-size:11px; font-weight:700;
   color:var(--dim); margin-right:8px; flex:0 0 auto;}
 .events li{display:flex; align-items:center;}
+.chBtn{font-size:11px; font-weight:700; padding:3px 10px; border-radius:9px; background:transparent;
+  border:1px dashed var(--line); color:var(--dim); margin-left:8px; cursor:pointer; align-self:center;}
+.chb{font-size:10px; font-weight:700; border:1px solid var(--line); border-radius:6px; padding:1px 5px;
+  margin-left:6px; color:var(--dim); flex:0 0 auto;}
+.chb.ov{border-style:dashed;}
+.chal{font-size:11px; color:var(--dim); border:1px solid var(--line); border-radius:8px; padding:2px 7px;
+  margin-right:6px; cursor:pointer; white-space:nowrap;}
+.chrow{display:flex; align-items:center; gap:10px; margin:8px 0;}
+.chrow span{flex:1;}
+.chrow b{min-width:24px; text-align:center;}
 .sect{font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); margin:12px 0 6px;}
 .sect.lineup-head{display:flex; justify-content:space-between; align-items:center;}
 .tabs{position:fixed; bottom:0; left:0; right:0; display:flex; gap:8px; padding:10px 14px calc(10px + env(safe-area-inset-bottom));
@@ -267,10 +277,10 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <div class="scorehead" id="scorehead" role="button" tabindex="0" title="Set lineups" aria-label="Set lineups">
       <div><span class="t" id="hAway">AWY</span> <span class="s" id="sAway">0</span>
         &nbsp;@&nbsp; <span class="t" id="hHome">HME</span> <span class="s" id="sHome">0</span></div>
-      <div class="s" id="hInn">▲ 1</div>
+      <div class="s"><span id="hChal" class="chal" role="button" tabindex="0" title="Challenges remaining">CH 2&middot;2</span><span id="hInn">▲ 1</span></div>
     </div>
     <div class="countline">
-      <div class="count" id="hCount">0-0</div>
+      <div class="count" id="hCount">0-0</div><button class="chBtn" id="chalBtn" hidden title="Challenge the last call">C</button>
       <div class="outs" id="hOuts"></div>
       <div class="grow"></div>
       <button class="sml ghost" id="subBtn">⇄ Subs</button>
@@ -379,6 +389,7 @@ function ensureShape(){
     T.pool=T.pool.filter(p=>!inLU2.has(p.name));
     if(T.pitcher===undefined)T.pitcher='';});
   if(!S.subLog)S.subLog=[];
+  if(!S.chal)S.chal={away:2,home:2};
 }
 function snap(){undoStack.push(JSON.stringify(S));if(undoStack.length>80)undoStack.shift();persistUndo();}
 function persistUndo(){try{localStorage.setItem('osb1-undo',JSON.stringify(undoStack));}catch(e){}}
@@ -542,6 +553,9 @@ function renderScore(){
   $('#sAway').textContent=innRuns('away').reduce((x,y)=>x+y,0);
   $('#sHome').textContent=innRuns('home').reduce((x,y)=>x+y,0);
   $('#hInn').innerHTML=(S.half===0?'▲ ':'▼ ')+S.inning+' <span class="luhint">✎</span>';
+  $('#hChal').textContent='CH '+(S.chal?S.chal.away:2)+'·'+(S.chal?S.chal.home:2);
+  const hcb=$('#chalBtn'),hlp=!viewing&&S.started?lastPitch():null;
+  hcb.hidden=!hlp;if(hlp)hcb.onclick=challengeSheet;
   $('#hCount').textContent=S.balls+'-'+S.strikes;
   $('#hOuts').textContent='● '.repeat(S.outs)+'○ '.repeat(Math.max(0,3-S.outs));
   $('#b1').classList.toggle('on',!!S.bases[0]);
@@ -549,7 +563,7 @@ function renderScore(){
   $('#b3').classList.toggle('on',!!S.bases[2]);
   const b=curBatter();
   $('#hBatter').innerHTML=`${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
-  $('#hEvents').innerHTML=S.pa.map((e,i)=>`<li><span class="pnum">${i+1}</span>${e.text}</li>`).join('')||'<li style="opacity:.5">No pitches yet this PA</li>';
+  $('#hEvents').innerHTML=S.pa.map((e,i)=>`<li><span class="pnum">${i+1}</span>${e.text}${e.ch?` <span class="chb${e.ch.res==='overturned'?' ov':''}" title="Challenge ${e.ch.res} by ${chalTeamName(e.ch.team)}">${e.ch.res==='overturned'?'C↺':'C'}</span>`:''}</li>`).join('')||'<li style="opacity:.5">No pitches yet this PA</li>';
   $('#hEvents').scrollTop=$('#hEvents').scrollHeight;
   const sc=$('#v-score');
   const bn=$('#scoreBanner');
@@ -624,7 +638,8 @@ function pickRunner(cb,title){
 function endHalfCheck(){
   if(S.outs<3)return;
   S.bases=[null,null,null];S.outs=0;S.balls=0;S.strikes=0;
-  if(S.half===1){S.half=0;S.inning++;S.bat='away';}
+  if(S.half===1){S.half=0;S.inning++;S.bat='away';
+    if(S.inning>=10&&S.chal)['away','home'].forEach(t=>{if(S.chal[t]===0)S.chal[t]=1;});}
   else{S.half=1;S.bat='home';}
 }
 /* Distinct error positions on a PA: outcome error first, then extra tags. */
@@ -679,6 +694,87 @@ function doWalk(code,text){
   const r1=at(1);
   if(r1){r1.to=2;const r2=at(2);if(r2){r2.to=3;const r3=at(3);if(r3)r3.to=4;}}
   placementReview(mv,code,text);
+}
+
+/* ================= ABS challenges =================
+   Discreet: per-team remaining counter in the score header, per-pitch C
+   badge. Only called balls/strikes can be challenged. Overturning flips
+   the call: safe while the PA is live, or by un-doing a strikeout (no
+   runners ever move on a K). Walks can't auto-flip (bases would need
+   restoring), and a PA that already moved on is notation-only. */
+const CHAL_PITCH=t=>t==='Ball'||t==='Called strike';
+function lastPitchEv(evts){for(let i=evts.length-1;i>=0;i--)if(evts[i].t==='p')return{ev:evts[i],idx:i};return null;}
+function lastPitch(){
+  if(S.pa.length){const f=lastPitchEv(S.pa);
+    if(f&&CHAL_PITCH(f.ev.text))return{evts:S.pa,idx:f.idx,team:S.bat,live:true};return null;}
+  const pa=S.pas[S.pas.length-1];if(!pa)return null;
+  const f=lastPitchEv(pa.events);
+  if(f&&CHAL_PITCH(f.ev.text))return{evts:pa.events,idx:f.idx,team:pa.team,live:false,pa};
+  return null;
+}
+function chalTeamName(t){return(t==='away'?S.away.name:S.home.name)||(t==='away'?'Away':'Home');}
+function recountCount(evts){let b=0,s=0;
+  for(const x of evts){if(x.t!=='p')continue;
+    if(/^foul/i.test(x.text)){if(s<2)s++;}
+    else if(/ball/i.test(x.text))b++;
+    else if(/strike/i.test(x.text))s++;}
+  S.balls=b;S.strikes=s;}
+function challengeSheet(){
+  if(viewing)return;
+  const lp=lastPitch();if(!lp)return;
+  const e=lp.evts[lp.idx],isBall=e.text==='Ball';
+  const ft=lp.team==='away'?'home':'away';
+  let team=isBall?ft:lp.team; // ball challenged by the fielding team, strike by the batting team
+  const draw=()=>{
+    openModal(`<h2>Challenge the call</h2>
+    <p class="sub">&ldquo;${e.text}&rdquo; &middot; ${lp.live?'this PA':'previous PA'} &mdash; ${chalTeamName(lp.team)} batting</p>
+    <label>Who challenged?</label>
+    <div class="grid2">
+      <button class="med${team==='away'?' sel':''}" data-ct="away">${chalTeamName('away')}</button>
+      <button class="med${team==='home'?' sel':''}" data-ct="home">${chalTeamName('home')}</button>
+    </div>
+    <label>Result</label>
+    <div class="grid2">
+      <button class="med" id="chUp">Upheld<br><small>call stands</small></button>
+      <button class="med" id="chOv">Overturned<br><small>flip the call</small></button>
+    </div>
+    <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+    $('#sheet').querySelectorAll('[data-ct]').forEach(b=>b.onclick=()=>{team=b.dataset.ct;draw();});
+    $('#chUp').onclick=()=>doChallenge(team,'upheld');
+    $('#chOv').onclick=()=>doChallenge(team,'overturned');
+  };
+  draw();
+}
+function doChallenge(team,res){
+  const lp=lastPitch();if(!lp||viewing)return;
+  const e=lp.evts[lp.idx];
+  snap();e.ch={team,res};
+  if(res==='upheld'){S.chal[team]=Math.max(0,S.chal[team]-1);save();renderAll();closeModal();return;}
+  // overturned — challenger keeps the challenge; flip the call
+  const flipIt=()=>{e.text=e.text==='Ball'?'Called strike':'Ball';recountCount(S.pa);};
+  const commitFlip=()=>{
+    if(S.strikes>=3){ev('o','Struck out looking');S.outs++;commitPA('ꓘ');S.order[S.bat]++;S.balls=0;S.strikes=0;save();renderAll();endHalfCheck();save();renderAll();}
+    else if(S.balls>=4){doWalk('BB','Walk');save();renderAll();}
+    else save(),renderAll();
+  };
+  if(lp.live){flipIt();commitFlip();closeModal();return;}
+  // committed PA: only a strikeout can be cleanly un-done
+  const pa=lp.pa;
+  if(!/^(K|ꓘ)$/.test(pa.result||'')){save();renderAll();closeModal();toast('Challenge noted — that PA already moved on, so the count stays as-is.');return;}
+  if(S.outs===0){save();renderAll();closeModal();toast('Challenge noted — that K ended the half-inning, so the count stays as-is.');return;}
+  S.pas.pop();S.outs--;S.order[pa.team]--;
+  S.pa=pa.events.filter(x=>x.t!=='o');
+  flipIt();commitFlip();closeModal();
+}
+function chalStepper(){
+  if(viewing||!S.chal)return;
+  const draw=()=>{
+    openModal(`<h2>Challenges</h2><p class="sub">Remaining per team &middot; kept when overturned &middot; +1 per extra inning if out</p>`+
+    ['away','home'].map(t=>`<div class="chrow"><span>${chalTeamName(t)}</span><button class="sml" data-ca="${t}|-1">&minus;</button><b>${S.chal[t]}</b><button class="sml" data-ca="${t}|1">+</button></div>`).join('')+
+    `<div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Done</button></div>`);
+    $('#sheet').querySelectorAll('[data-ca]').forEach(b=>b.onclick=()=>{const[t,d]=b.dataset.ca.split('|');snap();S.chal[t]=Math.max(0,S.chal[t]+ +d);save();renderAll();draw();});
+  };
+  draw();
 }
 
 /* ================= in-play outcomes ================= */
@@ -1396,6 +1492,8 @@ function init(){
   const goSetup=()=>{if(viewing){toast('Viewing a past game — read only');return;}showView('setup');};
   $('#scorehead').onclick=goSetup;
   $('#scorehead').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();goSetup();}});
+  $('#hChal').addEventListener('click',e=>{e.stopPropagation();chalStepper();});
+  $('#hChal').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();chalStepper();}});
   renderSetup();renderAll();renderGames();showView(S.started?'score':'setup');
   if(syncCfg())pullOnStart(false);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&syncCfg()&&!viewing)pullOnStart(true);});
