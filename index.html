@@ -823,10 +823,10 @@ function placementReview(movers,code,text){
       }
       else{m.to=+v;m.out=null;draw();}
     });
-    $('#plDone').onclick=applyPlacement;
+    $('#plDone').onclick=()=>applyPlacement(movers,code);
     $('#modal').classList.add('on');
   };
-  const applyPlacement=()=>{
+  const applyPlacement=(movers,code)=>{
     snap();
     const nb=[null,null,null];
     movers.forEach(m=>{
@@ -840,6 +840,8 @@ function placementReview(movers,code,text){
     commitPA(code,paErrTag(movers));S.order[S.bat]++;S.balls=0;S.strikes=0;
     save();renderAll();endHalfCheck();save();renderAll();
   };
+  // Third out ends the half-inning — no need to ask where everyone ended up.
+  if(S.outs+movers.filter(m=>m.out).length>=3){applyPlacement(movers,code);return;}
   draw();$('#modal').classList.add('on');
 }
 function advanceAll(n){
