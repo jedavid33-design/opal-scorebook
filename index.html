@@ -467,7 +467,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.10';
+const APP_VERSION='2026.10.05.11';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1067,10 +1067,41 @@ function commitPA(result,err){
 /* ================= pitches ================= */
 function addCountBall(txt){ev('p',txt||'Ball');S.balls++;
   if(S.balls>=4){doWalk('BB','Walk',true);}}
+function commitCaughtStrikeout(looking){
+  ev('o',looking?'Struck out looking':'Struck out swinging');
+  S.outs++;commitPA(looking?'ꓘ':'K');S.order[S.bat]++;S.balls=0;S.strikes=0;
+  closeModal();save();renderAll();endHalfCheck();save();renderAll();
+}
+function uncaughtThirdStrike(kind,looking){
+  const label=kind==='PB'?'Passed ball':'Wild pitch';
+  const code=(looking?'ꓘ':'K')+'-'+kind;
+  ev('o',(looking?'Struck out looking':'Struck out swinging')+' — uncaught third strike, '+label.toLowerCase());
+  ev('r',label+' on uncaught third strike');
+  const canReach=S.outs===2||!S.bases[0];
+  const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:canReach?1:0,out:canReach?null:{f:'K'}}];
+  [2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});
+  placementReview(mv,code,(looking?'Looking':'Swinging')+' strike three — '+label,true);
+}
+function thirdStrikeSheet(looking){
+  const autoOut=S.outs<2&&!!S.bases[0];
+  openModal('<h2>Strike three</h2>'+
+    '<p class="sub">'+(autoOut?'First base is occupied with fewer than two outs, so the batter is out even if the pitch gets away. Runners can still advance.':'Was strike three caught?')+'</p>'+
+    '<button class="med accent" id="kCaught" style="width:100%;margin-bottom:7px">Caught · strikeout</button>'+
+    '<div class="grid2"><button class="med" id="kPB">Uncaught<br><small>Passed ball</small></button>'+
+    '<button class="med" id="kWP">Uncaught<br><small>Wild pitch</small></button></div>'+
+    '<button class="sml ghost" id="kUndo" style="width:100%;margin-top:8px">Undo this pitch</button>');
+  $('#kCaught').onclick=()=>commitCaughtStrikeout(looking);
+  $('#kPB').onclick=()=>uncaughtThirdStrike('PB',looking);
+  $('#kWP').onclick=()=>uncaughtThirdStrike('WP',looking);
+  $('#kUndo').onclick=()=>{closeModal();undo();};
+}
 function addCountStrike(txt,looking){ev('p',txt);S.strikes++;
-  if(S.strikes>=3){ev('o',looking?'Struck out looking':'Struck out swinging');
-    S.outs++;commitPA(looking?'ꓘ':'K');S.order[S.bat]++;S.balls=0;S.strikes=0;
-    save();renderAll();endHalfCheck();save();renderAll();}}
+  if(S.strikes>=3){
+    // A foul tip is caught by definition, and an automatic strike has no live
+    // pitch to get away. Called/swinging third strikes may be uncaught.
+    if(txt==='Called strike'||txt==='Swinging strike')thirdStrikeSheet(looking);
+    else commitCaughtStrikeout(looking);
+  }}
 function doPitch(kind){
   if(!S.started)return;
   // In-play opens a chooser first; snapshot only when the play is actually committed.
@@ -1766,7 +1797,7 @@ function pitchCounts(pa){
 }
 // Returns '' on success, or a plain-English reason the pitch can't be added.
 function tryAddPitch(pa,label){
-  const pc=pitchCounts(pa),isK=/^(K|ꓘ)$/.test(pa.result),isBB=pa.result==='BB';
+  const pc=pitchCounts(pa),isK=/^(K|ꓘ)(?:-(?:PB|WP))?$/.test(pa.result),isBB=pa.result==='BB';
   if(label==='Ball'){
     if(isBB)return 'this PA ended in a walk — 4 balls are already logged.';
     if(pc.b>=3)return pc.b+' balls already logged — a '+(pc.b+1)+'th would be ball four, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
