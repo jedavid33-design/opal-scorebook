@@ -71,9 +71,9 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get pendingRemote(){return pendingRemote;},set pendingRemote(v){pendingRemote=v;},` +
   `get syncInfo(){return syncInfo;},` +
   `get corruptStashed(){return corruptStashed;},set corruptStashed(v){corruptStashed=v;},` +
-  `blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
+  `APP_VERSION,blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,` +
-  `demoLineups,rosterToPool,renderSetup,applySetupTeam,showSetupTeam,` +
+  `demoLineups,rosterToPool,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
   `doPitch,addCountBall,addCountStrike,doWalk,` +
@@ -86,7 +86,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `pitchCounts,tryAddPitch,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
   `getArchive,updateArchive,addToArchive,archiveCurrentGame,endGame,` +
-  `renderGames,renderPendingCard,renderSyncCard,renderPastList,renderAll,showView,toast,esc,genId` +
+  `renderGames,renderPendingCard,renderSyncCard,renderPastList,renderAll,showView,initPullToRefresh,toast,esc,genId` +
   `}))();`;
 eval(m[1] + exportLine);
 const sb = globalThis.__sb;
@@ -398,6 +398,45 @@ async function main() {
   eq(suffixRoster.map(p=>p.name).join('|'),
     'Albert Almora Jr.|Kris Bryant|Luis Garcia Jr.|Will Smith',
     'roster: Jr./Sr./Roman numeral suffixes do not become the surname');
+
+  /* ===== 2026-10-05 scoring usability batch ===== */
+  newGame();
+  sb.S.away.lineup[0] = { name:'A', num:'1', pos:'6' };
+  sb.S.away.lineup[1] = { name:'B', num:'2', pos:'6' };
+  sb.S.away.lineup[2] = { name:'C', num:'3', pos:'4' };
+  const dups = sb.duplicatePositions(sb.S.away);
+  ok(dups.length===1 && dups[0].pos==='6' && dups[0].idxs.length===2,
+    'U1: duplicate defensive positions detected without blocking lineup');
+  sb.renderSetup();
+  ok(el('#awayPosWarn').hidden===false && el('#awayPosWarn').textContent.indexOf('SS ×2')>=0,
+    'U1: duplicate-position warning is shown on lineup');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:0};
+  sb.actWPPB();
+  el('#wpB').onclick();
+  el('#wpDone').onclick();
+  ok(sb.S.pa.some(e=>e.t==='r'&&e.text==='Wild pitch'),
+    'U2: wild pitch is stored as a runner/game event, not a pitch');
+
+  newGame();
+  sb.S.pa=[
+    {t:'p',text:'Ball'},
+    {t:'r',text:'Wild pitch'},
+    {t:'r',text:'Runner advances to 2nd'},
+    {t:'p',text:'Called strike'}
+  ];
+  sb.renderScore();
+  const liveEvents=el('#hEvents').innerHTML;
+  ok(liveEvents.indexOf('>1</span>Ball')>=0 &&
+     liveEvents.indexOf('>•</span>Wild pitch')>=0 &&
+     liveEvents.indexOf('>2</span>Called strike')>=0,
+    'U2: wild pitch displays separately and does not consume a pitch number');
+
+  eq(sb.APP_VERSION,'2026.10.05.1','U3: discreet build version is explicit');
+  ok(typeof sb.initPullToRefresh==='function' &&
+     html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
+    'U4: pull-to-refresh gesture is wired to reload the saved app');
 
   /* ===== 2026-10-04: runner safety + undo boundaries + batting-around + lineup nav ===== */
   newGame();
