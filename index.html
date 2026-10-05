@@ -476,7 +476,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.13';
+const APP_VERSION='2026.10.05.14';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1236,6 +1236,7 @@ function outcomeModal(){
         <button class="med" data-o="HR">Home run</button>
         <button class="med" data-o="E">Error</button>
         <button class="med" data-o="FC">Fielder's choice</button>
+        <button class="med" data-o="CI">Catcher Interference</button>
       </div>
       <div class="outcomeCol"><div class="outcomeHead">Out</div>
         <button class="med" data-o="GO">Groundout</button>
@@ -1352,6 +1353,11 @@ function handleOutcome(kind){
     const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
     [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+2;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
     placementReview(mv,'E'+f,'Reached on E'+f);},'Error — fielder');return;}
+  if(kind==='CI'){
+    ev('o',"Reached on catcher's interference");
+    const mv=walkMovers();mv[0].err='2';
+    placementReview(mv,'CI',"Catcher's interference · E2");return;
+  }
   if(kind==='FC'){fielderPad(f=>{pickRunner((bi,r)=>{ev('o',"Fielder's choice "+f);
     const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
     [2,1,0].forEach(i=>{if(S.bases[i]){const isOut=i===bi;
@@ -1726,6 +1732,7 @@ function paKind(r){
   if(/^P\d/.test(r))return 'POP';
   if(/^E\d/.test(r))return 'E';
   if(r==='FC')return 'FC';
+  if(r==='CI')return 'CI';
   if(r==='SAC')return 'SAC';
   if(r==='SF')return 'SF';
   if(/^\d/.test(r))return 'GO';
