@@ -73,15 +73,15 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get corruptStashed(){return corruptStashed;},set corruptStashed(v){corruptStashed=v;},` +
   `blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,` +
-  `demoLineups,rosterToPool,` +
+  `demoLineups,rosterToPool,renderSetup,applySetupTeam,showSetupTeam,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
   `doPitch,addCountBall,addCountStrike,doWalk,` +
   `lastPitchEv,lastPitch,chalTeamName,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
-  `actBalk,actDI,applySub,` +
-  `paAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,` +
+  `actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
+  `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,` +
   `pitchCounts,tryAddPitch,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
@@ -387,6 +387,58 @@ async function main() {
   eq(fpa.result, 'E6', 'A16: result updated');
   eq(fpa.errBy[1], 'Rival7', 'A16: unchanged error position keeps the stored name');
   eq(fpa.errBy[0], 'Rival1', 'A16: genuinely new error position resolves to current lineup');
+
+  /* ===== 2026-10-04: runner safety + undo boundaries + batting-around + lineup nav ===== */
+  newGame();
+  sb.renderSetup();
+  sb.showSetupTeam('home');
+  ok(el('#awayPanel').hidden === true && el('#homePanel').hidden === false,
+    'N1: Lineup team switch shows only Home');
+  sb.showSetupTeam('away');
+  ok(el('#awayPanel').hidden === false && el('#homePanel').hidden === true,
+    'N1: Lineup team switch returns to Away');
+
+  newGame();
+  sb.S.bases[0] = { t: 'away', i: 0 };
+  sb.S.bases[1] = { t: 'away', i: 1 };
+  eq(sb.runnerActionCollision({ 0: 2 }), 2,
+    'N2: standalone runner move refuses an occupied destination');
+  eq(sb.runnerActionCollision({ 0: 2, 1: 3 }), 0,
+    'N2: coordinated advances may vacate the destination');
+  eq(sb.runnerActionCollision({ 1: 4 }), 0,
+    'N2: scoring runner leaves no base collision');
+
+  newGame();
+  let u0 = sb.undoStack.length;
+  sb.doPitch('inplay');
+  eq(sb.undoStack.length, u0,
+    'N3: opening In Play does not consume an undo snapshot');
+
+  newGame();
+  u0 = sb.undoStack.length;
+  sb.doPitch('hbp');
+  el('#plDone').onclick();
+  eq(sb.undoStack.length, u0 + 1,
+    'N3: HBP + placement is one undoable action');
+
+  newGame();
+  sb.doPitch('ball'); sb.doPitch('ball'); sb.doPitch('ball');
+  u0 = sb.undoStack.length;
+  sb.doPitch('ball');
+  el('#plDone').onclick();
+  eq(sb.undoStack.length, u0 + 1,
+    'N3: ball four + placement is one undoable action');
+
+  newGame();
+  sb.S.pas = [
+    { team: 'away', b: 0, inning: 1, half: 0, result: '1B', batter: 'Astro1', events: [] },
+    { team: 'away', b: 0, inning: 1, half: 0, result: 'K', batter: 'Astro1', events: [] },
+  ];
+  eq(sb.pasAt('away', 0, 1).length, 2,
+    'N4: batting around keeps multiple PAs for one lineup slot in an inning');
+  const batAroundBook = sb.bookTable('away');
+  ok(batAroundBook.indexOf('paStack') >= 0 && batAroundBook.indexOf('>1B<') >= 0 && batAroundBook.indexOf('>K<') >= 0,
+    'N4: scorebook renders both batting-around diamonds in the inning cell');
 
   /* ===== A19: archive cap ===== */
   newGame();
