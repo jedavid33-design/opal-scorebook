@@ -343,3 +343,14 @@ replacing the "visco" app she currently uses.
   regression coverage for all four areas. Full harness: 147 passed, 0 failed.
   Commits 32b36d6 (app) + 0b1135c (regressions). Worker unchanged; no Worker
   deployment required.
+
+
+- 2026-10-05: First weird-game scoring usability batch. Wild pitch / passed
+  ball is now stored and displayed as a separate runner/game event instead of a
+  numbered pitch, matching the tracker convention; subsequent real pitches keep
+  the correct pitch number. Lineup now gives a non-blocking warning and highlight
+  when multiple active players share the same defensive position. Added custom
+  pull-to-refresh from the top of the app (saved state is persisted before reload)
+  and a discreet fixed build label, v2026.10.05.1. Full regression harness:
+  154 passed, 0 failed. App commit 574339a; regression commit c6da1c2. Worker
+  unchanged; no Worker deployment required.
