@@ -394,8 +394,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <div class="sect">Pitch</div>
   <div class="pitchstack">
     <button class="med pitch ps-inplay" data-p="inplay">In Play</button>
-    <button class="big pitch ps-called" data-p="cstr" aria-label="Called strike" title="Called strike">ꓘ</button>
-    <button class="big pitch ps-swing" data-p="sstr" aria-label="Swinging strike" title="Swinging strike">K</button>
+    <button class="big pitch ps-called" data-p="cstr" aria-label="Called strike" title="Called strike">Called</button>
+    <button class="big pitch ps-swing" data-p="sstr" aria-label="Swinging strike" title="Swinging strike">Swinging</button>
     <button class="med pitch ps-ball" data-p="ball">Ball</button>
     <button class="med pitch ps-foul" data-p="foul">Foul</button>
     <button class="med pitch ps-foultip" data-p="foultip">Foul Tip</button>
@@ -459,7 +459,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.8';
+const APP_VERSION='2026.10.05.9';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
