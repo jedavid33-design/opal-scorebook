@@ -431,3 +431,11 @@ replacing the "visco" app she currently uses.
   and Hit by Pitch use a slightly smaller 14px. Layout and scoring behavior are
   unchanged. App version v2026.10.05.10. Full regression harness: 210 passed,
   0 failed. App commit 2e5996e; regression commit c51384b. Worker unchanged.
+
+
+- 2026-10-05: Mid-PA intentional-walk pitch preservation is now regression-locked.
+  Example: Ball, Ball, then Intentional Walk commits result IBB with exactly the
+  two thrown pitch events preserved and adds no extra pitches. App behavior was
+  already correct; this change adds explicit coverage so future pitch-total work
+  cannot regress it. Full harness: 214 passed, 0 failed. Regression commit
+  43d4636. App version remains v2026.10.05.10; Worker unchanged.
