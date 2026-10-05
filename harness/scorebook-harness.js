@@ -433,7 +433,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.4','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.5','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -460,15 +460,25 @@ async function main() {
   eq(sb.homeRunText('RCF'),'Home run to right-center field','V3: HR RCF location text');
   eq(sb.homeRunText('RF'),'Home run to right field','V3: HR RF location text');
 
-  ok(html.indexOf('@media (min-width:430px) and (max-width:700px)')>=0 &&
-     html.indexOf('#v-score .pgrid{grid-template-columns:repeat(4,1fr);}')>=0 &&
-     html.indexOf('#v-score .pgrid2{grid-template-columns:repeat(4,1fr);}')>=0,
-    'V4: split-view scoring uses compact 4/4-column pitch controls');
+  ok(html.indexOf('.pitchstack{')>=0 &&
+     html.indexOf('"inplay inplay inplay inplay inplay inplay"')>=0 &&
+     html.indexOf('"called called called swing swing swing"')>=0 &&
+     html.indexOf('"ball ball foul foul foultip foultip"')>=0 &&
+     html.indexOf('"ibb ibb ibb hbp hbp hbp"')>=0,
+    'V4: pitch controls follow In Play / K / ball-foul-tip / IBB-HBP rows');
   ok(html.indexOf('.count{font-size:30px; font-weight:800; letter-spacing:2px; flex:0 0 auto; white-space:nowrap;}')>=0,
     'V4: count is protected from squeezing');
 
+  ok(html.indexOf('data-p="cstr" aria-label="Called strike" title="Called strike">ꓘ</button>')>=0 &&
+     html.indexOf('data-p="sstr" aria-label="Swinging strike" title="Swinging strike">K</button>')>=0,
+    'V4: compact strike row uses backwards K for called strike and K for swinging strike');
+  ok(html.indexOf('data-p="hbp">Hit Batter</button>')<0 &&
+     html.indexOf('Hit by Pitch</button>')>=0,
+    'V4: HBP button uses Hit by Pitch label');
+
   /* ===== intentional walk button ===== */
-  ok(html.indexOf('data-p="ibb">Intentional Walk</button>')>=0 &&
+  ok(html.indexOf('data-p="ibb"')>=0 &&
+     html.indexOf('Intentional Walk</button>')>=0 &&
      html.indexOf('data-p="pitchout">Pitchout</button>')<0,
     'V5: Intentional Walk replaces Pitchout in the scoring controls');
 
@@ -485,7 +495,7 @@ async function main() {
     'V5: intentional walk uses normal forced-runner movement');
 
   /* ===== foul tip pitch ===== */
-  ok(html.indexOf('data-p="foultip">Foul Tip</button>')>=0,
+  ok(html.indexOf('data-p="foultip"')>=0 && html.indexOf('Foul Tip</button>')>=0,
     'V6: Foul Tip has its own scoring button');
 
   newGame();
