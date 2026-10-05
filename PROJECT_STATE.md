@@ -453,3 +453,15 @@ replacing the "visco" app she currently uses.
   pitch and the WP/PB event. App version v2026.10.05.12. Full regression
   harness: 230 passed, 0 failed. App commits d420098 + 0d17250; regression
   commit 52f22ac. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-05: Catcher Interference added as a dedicated reach-base outcome.
+  The On Base outcome sheet now includes Catcher Interference. It records result
+  CI, awards the batter first, advances only forced runners by default, and
+  automatically tags E2 so the catcher receives the fielding error. Final
+  runner locations remain editable in the placement sheet. CI counts as neither
+  a hit nor an out. Compound surname sorting was also fixed so names such as
+  Tommy La Stella sort under L and Elly De La Cruz under D while suffix handling
+  remains intact. App version v2026.10.05.14. Full regression harness:
+  240 passed, 0 failed. App commits c3d8d03 + 8cbd0d7; regression commits
+  a9b1fbd + 5466823. Worker unchanged.
