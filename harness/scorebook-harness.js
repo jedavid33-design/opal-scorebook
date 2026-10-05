@@ -408,7 +408,7 @@ async function main() {
     { person:{fullName:'Sam Dyson'}, jerseyNumber:'49', position:{abbreviation:'P'} },
   ]);
   eq(compoundRoster.map(p=>p.name).join('|'),
-    'Elly De La Cruz|Tommy La Stella|Adam Lind|Sam Dyson',
+    'Elly De La Cruz|Sam Dyson|Tommy La Stella|Adam Lind',
     'roster: compound surnames sort under the leading surname particle');
 
   /* ===== 2026-10-05 scoring usability batch ===== */
