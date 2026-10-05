@@ -194,9 +194,9 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   .events{max-height:92px;margin-top:5px;}
   .events li{padding:4px 6px;}
   #v-score .sect{margin:7px 0 4px;}
-  #v-score .pgrid,#v-score .pgrid2,#v-score .agrid,#v-score .rgrid{gap:6px;}
-  #v-score .pgrid .big{min-height:48px;font-size:15px;}
-  #v-score .pgrid2 .med,#v-score .agrid .med,#v-score .rgrid .med{min-height:44px;font-size:13px;}
+  #v-score .pitchstack,#v-score .agrid,#v-score .rgrid{gap:6px;}
+  #v-score .pitchstack .big{min-height:46px;font-size:21px;}
+  #v-score .pitchstack .med,#v-score .agrid .med,#v-score .rgrid .med{min-height:44px;font-size:13px;}
   .sheet{padding:14px 12px calc(16px + env(safe-area-inset-bottom));}
   .sheet h2{font-size:18px;margin-bottom:7px;}
   .sheet .med{min-height:44px;font-size:14px;}
@@ -219,19 +219,31 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     box-shadow:1px 0 0 rgba(255,255,255,.13);
   }
 }
-/* iPad split view: use the width efficiently instead of turning every scoring control into a tall phone button. */
+/* Pitch controls follow the scorekeeping decision flow:
+   In Play / called+swung strikes / ball+foul+foul tip / IBB+HBP. */
+.pitchstack{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  grid-template-areas:
+    "inplay inplay inplay inplay inplay inplay"
+    "called called called swing swing swing"
+    "ball ball foul foul foultip foultip"
+    "ibb ibb ibb hbp hbp hbp";
+  gap:8px;
+}
+.ps-inplay{grid-area:inplay;}
+.ps-called{grid-area:called;}
+.ps-swing{grid-area:swing;}
+.ps-ball{grid-area:ball;}
+.ps-foul{grid-area:foul;}
+.ps-foultip{grid-area:foultip;}
+.ps-ibb{grid-area:ibb;}
+.ps-hbp{grid-area:hbp;}
 @media (min-width:430px) and (max-width:700px){
-  #v-score .pgrid{grid-template-columns:repeat(4,1fr);}
-  #v-score .pgrid2{grid-template-columns:repeat(4,1fr);}
-  #v-score .pgrid2 [data-p="inplay"]{grid-column:auto;}
   #v-score .rgrid{grid-template-columns:repeat(3,1fr);}
   #v-score #balkBtn{grid-column:auto;}
 }
-/* Phone-width scoring keeps two columns, but still uses the compact heights above. */
 @media (max-width:429px){
-  #v-score .pgrid{grid-template-columns:1fr 1fr;}
-  #v-score .pgrid2{grid-template-columns:1fr 1fr;}
-  #v-score .pgrid2 [data-p="inplay"]{grid-column:1/-1;}
   #v-score .rgrid{grid-template-columns:1fr 1fr;}
   #v-score #balkBtn{grid-column:1/-1;}
 }
@@ -363,17 +375,15 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   </div>
 
   <div class="sect">Pitch</div>
-  <div class="grid4 pgrid">
-    <button class="big pitch" data-p="cstr">Called K</button>
-    <button class="big pitch" data-p="sstr">Swing K</button>
-    <button class="big pitch" data-p="ball">Ball</button>
-    <button class="big pitch" data-p="foul">Foul</button>
-  </div>
-  <div class="grid3 pgrid2" style="margin-top:8px">
-    <button class="med pitch" data-p="inplay">In Play</button>
-    <button class="med pitch" data-p="ibb">Intentional Walk</button>
-    <button class="med pitch" data-p="hbp">Hit Batter</button>
-    <button class="med pitch" data-p="foultip">Foul Tip</button>
+  <div class="pitchstack">
+    <button class="med pitch ps-inplay" data-p="inplay">In Play</button>
+    <button class="big pitch ps-called" data-p="cstr" aria-label="Called strike" title="Called strike">ꓘ</button>
+    <button class="big pitch ps-swing" data-p="sstr" aria-label="Swinging strike" title="Swinging strike">K</button>
+    <button class="med pitch ps-ball" data-p="ball">Ball</button>
+    <button class="med pitch ps-foul" data-p="foul">Foul</button>
+    <button class="med pitch ps-foultip" data-p="foultip">Foul Tip</button>
+    <button class="med pitch ps-ibb" data-p="ibb">Intentional Walk</button>
+    <button class="med pitch ps-hbp" data-p="hbp">Hit by Pitch</button>
   </div>
   <div class="sect">Automatic calls</div>
   <div class="grid3 agrid">
@@ -432,7 +442,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.4';
+const APP_VERSION='2026.10.05.5';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
