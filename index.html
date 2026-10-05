@@ -70,6 +70,12 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .luSlot{font-size:13px;font-weight:800;text-align:center;color:var(--dim);padding:10px 2px;}
 .subPlayer{width:100%;min-height:44px;text-align:left;padding:9px 10px;border-radius:10px;font-size:14px;}
 .subPlayer.empty{border-style:dashed;color:var(--dim);background:rgba(255,255,255,.035);}
+.offSubList{display:grid;gap:8px;}
+.offSubTarget{display:grid;grid-template-columns:76px 1fr;gap:8px;align-items:center;border:1px solid var(--line);
+  border-radius:12px;padding:8px;background:rgba(255,255,255,.025);}
+.offSubTarget.sel{border-color:var(--plum);box-shadow:0 0 0 1px var(--plum);background:rgba(201,160,232,.07);}
+.offSubRole{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);text-align:center;}
+.offSubTarget .subPlayer{min-height:48px;}
 .subModeBanner{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:9px 10px;border-radius:12px;
   background:rgba(201,160,232,.11);border:1px solid rgba(201,160,232,.35);font-size:13px;color:var(--dim);}
 .subModeBanner b{color:var(--ink);}
@@ -330,7 +336,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
       <div id="awaySlotBar"></div>
     </div>
     <div class="card setupAnchor" id="awayLineupArea">
-      <div class="sect lineup-head" style="margin-top:0">Away lineup <button class="sml ghost" id="awayClearLU">Clear</button></div>
+      <div class="sect lineup-head" style="margin-top:0"><span id="awayLineupTitle">Away lineup</span> <button class="sml ghost" id="awayClearLU">Clear</button></div>
       <div id="awayPosWarn" class="poswarn" hidden></div>
       <div id="awayLU"></div>
     </div>
@@ -350,7 +356,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
       <div id="homeSlotBar"></div>
     </div>
     <div class="card setupAnchor" id="homeLineupArea">
-      <div class="sect lineup-head" style="margin-top:0">Home lineup <button class="sml ghost" id="homeClearLU">Clear</button></div>
+      <div class="sect lineup-head" style="margin-top:0"><span id="homeLineupTitle">Home lineup</span> <button class="sml ghost" id="homeClearLU">Clear</button></div>
       <div id="homePosWarn" class="poswarn" hidden></div>
       <div id="homeLU"></div>
     </div>
@@ -453,7 +459,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.7';
+const APP_VERSION='2026.10.05.8';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -554,14 +560,54 @@ function duplicatePositions(team){
 }
 function renderPositionWarning(t){
   const el=$('#'+t+'PosWarn');if(!el)return;
+  if(substitutionMode&&t===S.bat){el.hidden=true;el.textContent='';return;}
   const d=duplicatePositions(S[t]);
   el.hidden=!d.length;
   el.textContent=d.length?'⚠ Duplicate position'+(d.length>1?'s':'')+': '+d.map(x=>(POS[x.pos]||x.pos)+' ×'+x.idxs.length).join(' · '):'';
 }
+function runnerLineupSlot(team,r){
+  if(!r)return -1;
+  if(r.t===team&&Number.isInteger(r.i)&&r.i>=0&&r.i<9)return r.i;
+  if(r.name){
+    const i=(S[team].lineup||[]).findIndex(x=>x&&x.name===r.name);
+    if(i>=0&&i<9)return i;
+  }
+  return -1;
+}
+function offensiveSubTargets(team){
+  if(team!==S.bat)return[];
+  const out=[{kind:'PH',slot:curIdx(),label:'Batter',player:S[team].lineup[curIdx()]||{}}];
+  [0,1,2].forEach(base=>{
+    const r=S.bases[base];if(!r)return;
+    out.push({kind:'PR',base,slot:runnerLineupSlot(team,r),label:baseName(base+1),runner:r,
+      player:{name:pname(r).replace(/^#\S+\s+/,''),num:(r.num||((S[team].lineup[r.i]||{}).num)||'')}});
+  });
+  if(pendingSub&&pendingSub.team===team&&pendingSub.kind==='PR'&&!out.some(x=>x.kind==='PR'&&x.base===pendingSub.base)){
+    out.push({kind:'PR',base:pendingSub.base,slot:pendingSub.slot,label:baseName(pendingSub.base+1),
+      player:pendingSub.old||{},pending:true});
+  }
+  return out;
+}
+function offensiveSubHTML(team){
+  const targets=offensiveSubTargets(team);
+  if(!targets.length)return'<p class="sub">No batter or runners available for an offensive substitution.</p>';
+  return '<div class="offSubList">'+targets.map(x=>{
+    const selected=pendingSub&&pendingSub.team===team&&pendingSub.kind===x.kind&&
+      (x.kind==='PH'?pendingSub.slot===x.slot:pendingSub.base===x.base);
+    const role=x.kind==='PH'?'Pinch hitter':'Pinch runner';
+    const p=x.player||{},txt=selected?'Open · choose replacement':((p.num?'#'+esc(p.num)+' ':'')+esc(p.name||'—'));
+    return `<div class="offSubTarget${selected?' sel':''}">
+      <div class="offSubRole">${esc(role)}<br><span style="opacity:.65">${esc(x.label)}</span></div>
+      <button class="subPlayer${selected?' empty':''}" type="button" data-offsub="${x.kind}" data-slot="${x.slot}"${x.base!=null?` data-base="${x.base}"`:''}>${txt}</button>
+    </div>`;
+  }).join('')+'</div>';
+}
 function lineupHTML(el,team){
   const tk=team===S.away?'away':'home';
   const dup=new Set(duplicatePositions(team).flatMap(x=>x.idxs));
-  if(substitutionMode){
+  if(substitutionMode&&tk===S.bat){
+    el.innerHTML=offensiveSubHTML(tk);
+  }else if(substitutionMode){
     el.innerHTML=team.lineup.map((p,i)=>{
       const isP=team.dh&&i===9,selected=pendingSub&&pendingSub.team===tk&&pendingSub.slot===i;
       const posSelect=isP
@@ -606,6 +652,11 @@ function lineupHTML(el,team){
     });
   });
   if(substitutionMode){
+    el.querySelectorAll('[data-offsub]').forEach(btn=>btn.onclick=()=>{
+      const kind=btn.dataset.offsub,slot=+btn.dataset.slot;
+      if(kind==='PH')beginOffensiveSub(tk,'PH',slot,null);
+      else beginOffensiveSub(tk,'PR',slot,+btn.dataset.base);
+    });
     el.querySelectorAll('[data-subslot]').forEach(btn=>btn.onclick=()=>{
       const t=btn.dataset.subslot,i=+btn.dataset.i;
       beginLineupSub(t,i);
@@ -633,6 +684,12 @@ function renderSetupNav(){
   if(intro)intro.hidden=!!substitutionMode;
   const ac=$('#awayClearLU'),hc=$('#homeClearLU');
   if(ac)ac.hidden=!!substitutionMode;if(hc)hc.hidden=!!substitutionMode;
+  ['away','home'].forEach(t=>{
+    const lt=$('#'+t+'LineupTitle');if(!lt)return;
+    lt.textContent=substitutionMode&&t===S.bat
+      ?(t==='away'?'Away':'Home')+' offensive subs'
+      :(t==='away'?'Away':'Home')+' lineup';
+  });
 }
 function applySetupTeam(){
   ['away','home'].forEach(t=>{const p=$('#'+t+'Panel');if(p)p.hidden=t!==setupTeam;});
@@ -656,18 +713,55 @@ function beginLineupSub(team,slot){
   const T=S[team],old=T.lineup[slot];
   if(!old||!old.name){S.selSlot={t:team,i:slot};renderSetup();showSetupTeam(team,'roster');return;}
   snap();
-  pendingSub={team,slot,old:JSON.parse(JSON.stringify(old))};
-  poolAdd(T,old);
+  pendingSub={team,slot,old:JSON.parse(JSON.stringify(old)),kind:'DEF'};
   T.lineup[slot]=(slot===9&&T.dh)?{name:'',num:'',pos:'1',nb:true}:{name:'',num:'',pos:old.pos||''};
   S.selSlot={t:team,i:slot};
   syncPitcherFromLineup(team);
   renderSetup();showSetupTeam(team,'roster');
 }
+function beginOffensiveSub(team,kind,slot,base){
+  if(!substitutionMode||team!==S.bat)return;
+  if(pendingSub){toast('Choose a replacement or cancel the current substitution first.');return;}
+  const T=S[team];
+  if(kind==='PH'){
+    const old=T.lineup[slot];if(!old||!old.name)return;
+    snap();
+    pendingSub={team,kind:'PH',slot,old:JSON.parse(JSON.stringify(old))};
+    T.lineup[slot]={name:'',num:'',pos:old.pos||''};
+    S.selSlot={t:team,i:slot};syncPitcherFromLineup(team);
+  }else{
+    const r=S.bases[base];if(!r)return;
+    const rs=slot>=0?slot:runnerLineupSlot(team,r);
+    if(rs<0){toast("Can't match that runner to a batting-order slot.");return;}
+    const old=T.lineup[rs];if(!old||!old.name)return;
+    snap();
+    pendingSub={team,kind:'PR',slot:rs,base,old:JSON.parse(JSON.stringify(old)),oldRunner:JSON.parse(JSON.stringify(r))};
+    T.lineup[rs]={name:'',num:'',pos:old.pos||''};
+    S.bases[base]=null;
+    S.selSlot={t:team,i:rs};syncPitcherFromLineup(team);
+  }
+  renderSetup();showSetupTeam(team,'roster');
+}
+function completeOffensiveSub(team,p){
+  const ctx=pendingSub;if(!ctx||ctx.team!==team||(ctx.kind!=='PH'&&ctx.kind!=='PR'))return false;
+  const T=S[team],slot=ctx.slot,old=ctx.old;
+  const hist=old&&old.hist?old.hist.slice():(old&&old.name?[{name:old.name,num:old.num||''}]:[]);
+  if(hist.length)hist.push({name:p.name,num:p.num||''});
+  T.lineup[slot]={name:p.name,num:p.num||'',pos:p.pos||old.pos||'',...(hist.length?{hist}:{})};
+  poolRemove(T,p.name);
+  if(ctx.kind==='PR')S.bases[ctx.base]={t:team,i:slot};
+  const label=ctx.kind==='PH'?'Pinch hitter':'Pinch runner';
+  const msg=label+': '+p.name+(p.num?' #'+p.num:'')+' for '+old.name;
+  if(S.pa.length)ev('r',msg);
+  S.subLog.push({inn:S.inning,half:S.half,team,slot,type:ctx.kind,old:old.name,new:p.name,...(ctx.kind==='PR'?{base:ctx.base+1}:{})});
+  pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
+  save();renderSetup();showSetupTeam(team,'lineup');return true;
+}
 function cancelPendingSub(){
   if(!pendingSub)return;
-  const {team,slot,old}=pendingSub,T=S[team];
+  const ctx=pendingSub,{team,slot,old}=ctx,T=S[team];
   T.lineup[slot]=old;
-  poolRemove(T,old.name);
+  if(ctx.kind==='PR'&&ctx.base!=null&&ctx.oldRunner)S.bases[ctx.base]=ctx.oldRunner;
   pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
   renderSetup();showSetupTeam(team,'lineup');
 }
@@ -778,8 +872,10 @@ function tapPoolPlayer(team,pi){
   const T=S[team],p=T.pool[pi];if(!p)return;
   if(T.lineup.some(s=>s.name===p.name)){poolMsg(team,p.name+' is already in the lineup.');return;}
   if(substitutionMode){
-    if(!S.selSlot||S.selSlot.t!==team){poolMsg(team,'Tap the outgoing lineup player first.');return;}
-    completeLineupSub(team,S.selSlot.i,p);poolMsg(team,'');return;
+    if(!S.selSlot||S.selSlot.t!==team){poolMsg(team,team===S.bat?'Tap the batter or a runner first.':'Tap the outgoing lineup player first.');return;}
+    if(pendingSub&&(pendingSub.kind==='PH'||pendingSub.kind==='PR'))completeOffensiveSub(team,p);
+    else completeLineupSub(team,S.selSlot.i,p);
+    poolMsg(team,'');return;
   }
   let i=-1;
   if(S.selSlot&&S.selSlot.t===team)i=S.selSlot.i;
@@ -797,7 +893,8 @@ function renderSlotBar(team){
   const el=$('#'+team+'SlotBar');if(!el)return;
   if(substitutionMode&&pendingSub&&pendingSub.team===team){
     const s=pendingSub,p=s.old;
-    el.innerHTML=`<div class="slotbar">Slot ${s.slot+1} open · ${esc(p.name)} removed. Tap a roster player to replace them.
+    const what=s.kind==='PH'?'Batter':s.kind==='PR'?baseName(s.base+1)+' runner':'Slot '+(s.slot+1);
+    el.innerHTML=`<div class="slotbar">${esc(what)} open · ${esc(p.name)} removed. Tap a roster player to replace them.
       <button class="sml ghost" id="${team}CancelSub">Cancel substitution</button></div>`;
     $('#'+team+'CancelSub').onclick=cancelPendingSub;return;
   }
@@ -1955,8 +2052,8 @@ function init(){
       const c=e.target.closest('[data-pool]');if(c)tapPoolPlayer(c.dataset.pool,+c.dataset.pi);
     });
   });
-  $('#setupAwayTab').onclick=()=>showSetupTeam('away');
-  $('#setupHomeTab').onclick=()=>showSetupTeam('home');
+  $('#setupAwayTab').onclick=()=>showSetupTeam('away',substitutionMode?'lineup':undefined);
+  $('#setupHomeTab').onclick=()=>showSetupTeam('home',substitutionMode?'lineup':undefined);
   document.querySelectorAll('[data-setupjump]').forEach(b=>b.onclick=()=>showSetupTeam(setupTeam,b.dataset.setupjump));
   const startScoring=()=>{if(substitutionMode){finishSubstitutionMode();return;}S.started=true;save();renderAll();showView('score');};
   $('#demoBtn').onclick=demoLineups;
