@@ -297,6 +297,15 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   z-index:90;opacity:0;pointer-events:none;background:rgba(23,16,33,.93);border:1px solid var(--line);
   border-radius:999px;padding:6px 10px;font-size:11px;color:var(--dim);transition:opacity .12s,transform .12s;}
 #pullRefresh.show{opacity:1;}
+#pitchHoldMenu{position:fixed;z-index:95;display:none;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);grid-template-columns:1fr 1fr;gap:6px;width:min(300px,82vw);
+  padding:7px;background:rgba(23,16,33,.97);border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.38);pointer-events:none;}
+#pitchHoldMenu.on{display:grid;}
+#pitchHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);
+  border:1px solid transparent;}
+#pitchHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
+.pitch[data-hold-wppb]{touch-action:none;}
 .appver{position:fixed;right:10px;bottom:calc(82px + env(safe-area-inset-bottom));z-index:4;
   font-size:9px;letter-spacing:.3px;color:var(--dim);opacity:.38;pointer-events:none;}
 </style>
@@ -402,9 +411,9 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <div class="sect">Pitch</div>
   <div class="pitchstack">
     <button class="med pitch ps-inplay" data-p="inplay">In Play</button>
-    <button class="big pitch ps-called" data-p="cstr" aria-label="Called strike" title="Called strike">Called</button>
-    <button class="big pitch ps-swing" data-p="sstr" aria-label="Swinging strike" title="Swinging strike">Swinging</button>
-    <button class="med pitch ps-ball" data-p="ball">Ball</button>
+    <button class="big pitch ps-called" data-p="cstr" data-hold-wppb="1" aria-label="Called strike" title="Called strike · hold for wild/passed ball">Called</button>
+    <button class="big pitch ps-swing" data-p="sstr" data-hold-wppb="1" aria-label="Swinging strike" title="Swinging strike · hold for wild/passed ball">Swinging</button>
+    <button class="med pitch ps-ball" data-p="ball" data-hold-wppb="1" title="Ball · hold for wild/passed ball">Ball</button>
     <button class="med pitch ps-foul" data-p="foul">Foul</button>
     <button class="med pitch ps-foultip" data-p="foultip">Foul Tip</button>
     <button class="med pitch ps-ibb" data-p="ibb">Intentional Walk</button>
@@ -421,7 +430,6 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <button class="med" id="stealBtn">Steal</button>
     <button class="med" id="diBtn">Def. Indiff.</button>
     <button class="med" id="pickBtn">Pickoff</button>
-    <button class="med" id="wppbBtn">Wild / Passed</button>
     <button class="med" id="balkBtn">Balk</button>
   </div>
 </div>
@@ -459,6 +467,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 </div>
 
 <div id="toast"></div>
+<div id="pitchHoldMenu" aria-hidden="true"><span data-wp="WP">← Wild Pitch</span><span data-wp="PB">Passed Ball →</span></div>
 <div id="pullRefresh">↓ Pull to refresh</div>
 <div id="appVersion" class="appver"></div>
 
@@ -467,7 +476,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.11';
+const APP_VERSION='2026.10.05.12';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1082,26 +1091,9 @@ function uncaughtThirdStrike(kind,looking){
   [2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});
   placementReview(mv,code,(looking?'Looking':'Swinging')+' strike three — '+label,true);
 }
-function thirdStrikeSheet(looking){
-  const autoOut=S.outs<2&&!!S.bases[0];
-  openModal('<h2>Strike three</h2>'+
-    '<p class="sub">'+(autoOut?'First base is occupied with fewer than two outs, so the batter is out even if the pitch gets away. Runners can still advance.':'Was strike three caught?')+'</p>'+
-    '<button class="med accent" id="kCaught" style="width:100%;margin-bottom:7px">Caught · strikeout</button>'+
-    '<div class="grid2"><button class="med" id="kPB">Uncaught<br><small>Passed ball</small></button>'+
-    '<button class="med" id="kWP">Uncaught<br><small>Wild pitch</small></button></div>'+
-    '<button class="sml ghost" id="kUndo" style="width:100%;margin-top:8px">Undo this pitch</button>');
-  $('#kCaught').onclick=()=>commitCaughtStrikeout(looking);
-  $('#kPB').onclick=()=>uncaughtThirdStrike('PB',looking);
-  $('#kWP').onclick=()=>uncaughtThirdStrike('WP',looking);
-  $('#kUndo').onclick=()=>{closeModal();undo();};
-}
 function addCountStrike(txt,looking){ev('p',txt);S.strikes++;
-  if(S.strikes>=3){
-    // A foul tip is caught by definition, and an automatic strike has no live
-    // pitch to get away. Called/swinging third strikes may be uncaught.
-    if(txt==='Called strike'||txt==='Swinging strike')thirdStrikeSheet(looking);
-    else commitCaughtStrikeout(looking);
-  }}
+  if(S.strikes>=3)commitCaughtStrikeout(looking);
+}
 function doPitch(kind){
   if(!S.started)return;
   // In-play opens a chooser first; snapshot only when the play is actually committed.
@@ -1122,14 +1114,17 @@ function doPitch(kind){
     addCountBall('Illegal pitch — automatic ball');}
   save();renderAll();
 }
-function doWalk(code,text,alreadySnapped){
-  ev('o',text);
+function walkMovers(){
   const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
   [2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});
   const at=b=>mv.find(m=>m.who==='R'&&m.from===b);
   const r1=at(1);
   if(r1){r1.to=2;const r2=at(2);if(r2){r2.to=3;const r3=at(3);if(r3)r3.to=4;}}
-  placementReview(mv,code,text,!!alreadySnapped);
+  return mv;
+}
+function doWalk(code,text,alreadySnapped){
+  ev('o',text);
+  placementReview(walkMovers(),code,text,!!alreadySnapped);
 }
 
 /* ================= ABS challenges =================
@@ -1498,26 +1493,48 @@ function actPick(){if(!S.bases.some(Boolean))return;
       ev('o','Picked off '+f+' — '+pname(r));closeModal();save();renderAll();endHalfCheck();save();renderAll();},'Pickoff — fielders');
     $('#pkSafe').onclick=()=>{snap();ev('r','Pickoff attempt — '+pname(r)+' back safely');closeModal();save();renderAll();};
   },'Pickoff — which runner?');}
-function actWPPB(){if(!S.bases.some(Boolean))return;
-  openModal(`<h2>Wild pitch / passed ball</h2><div class="grid2">
-    <button class="med" id="wpB">Wild pitch</button><button class="med" id="pbB">Passed ball</button></div>
-    <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
-  const go=lbl=>{
-    const adv=new Set();
-    openModal(`<h2>${lbl} — who advances?</h2><p class="sub">Tap each runner that moves up one.</p>`+
-      [2,1,0].filter(i=>S.bases[i]).map(i=>`<button class="med" data-a="${i}" style="width:100%;margin-bottom:6px">${pname(S.bases[i])} <small>on ${baseName(i+1)}</small></button>`).join('')+
-      `<button class="med accent" id="wpDone" style="width:100%;margin-top:6px">Done</button>`);
-    $('#sheet').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const i=+b.dataset.a;
-      if(adv.has(i)){adv.delete(i);b.classList.remove('accent');}else{adv.add(i);b.classList.add('accent');}});
-    $('#wpDone').onclick=()=>{
-      const changes={};adv.forEach(i=>{changes[i]=i+2;});
-      const cb=runnerActionCollision(changes);if(cb){runnerCollisionToast(cb);return;}
-      snap();ev('r',lbl);
-      [...adv].sort((a,b)=>b-a).forEach(i=>{const r=S.bases[i];S.bases[i]=null;const d=i+2;
-        if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' scores on '+lbl.toLowerCase());}
-        else{S.bases[d-1]=r;ev('r',pname(r)+' advances on '+lbl.toLowerCase());}});
-      closeModal();save();renderAll();};};
-  $('#wpB').onclick=()=>go('Wild pitch');$('#pbB').onclick=()=>go('Passed ball');}
+function wppbAdvancePicker(label,alreadySnapped){
+  if(!S.bases.some(Boolean)){save();renderAll();return;}
+  const adv=new Set();
+  openModal('<h2>'+label+' — who advances?</h2><p class="sub">Tap each runner that moves up one.</p>'+
+    [2,1,0].filter(i=>S.bases[i]).map(i=>'<button class="med" data-a="'+i+'" style="width:100%;margin-bottom:6px">'+pname(S.bases[i])+' <small>on '+baseName(i+1)+'</small></button>').join('')+
+    '<button class="med accent" id="wpDone" style="width:100%;margin-top:6px">Done</button>');
+  $('#sheet').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const i=+b.dataset.a;
+    if(adv.has(i)){adv.delete(i);b.classList.remove('accent');}else{adv.add(i);b.classList.add('accent');}});
+  $('#wpDone').onclick=()=>{
+    const changes={};adv.forEach(i=>{changes[i]=i+2;});
+    const cb=runnerActionCollision(changes);if(cb){runnerCollisionToast(cb);return;}
+    if(!alreadySnapped)snap();
+    [...adv].sort((a,b)=>b-a).forEach(i=>{const r=S.bases[i];S.bases[i]=null;const d=i+2;
+      if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' scores on '+label.toLowerCase());}
+      else{S.bases[d-1]=r;ev('r',pname(r)+' advances on '+label.toLowerCase());}});
+    closeModal();save();renderAll();
+  };
+}
+function actWPPB(){
+  openModal('<h2>Wild pitch / passed ball</h2><div class="grid2">'+
+    '<button class="med" id="wpB">Wild pitch</button><button class="med" id="pbB">Passed ball</button></div>'+
+    '<div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>');
+  $('#wpB').onclick=()=>{closeModal();snap();ev('r','Wild pitch');wppbAdvancePicker('Wild pitch',true);};
+  $('#pbB').onclick=()=>{closeModal();snap();ev('r','Passed ball');wppbAdvancePicker('Passed ball',true);};
+}
+function doPitchWPPB(kind,wpKind){
+  if(!S.started)return;
+  const label=wpKind==='PB'?'Passed ball':'Wild pitch';
+  snap();
+  if(kind==='ball'){
+    ev('p','Ball');S.balls++;ev('r',label);
+    if(S.balls>=4){
+      ev('o','Walk — '+label.toLowerCase());
+      placementReview(walkMovers(),'BB','Walk — '+label,true);
+    }else wppbAdvancePicker(label,true);
+    return;
+  }
+  const looking=kind==='cstr',txt=looking?'Called strike':'Swinging strike';
+  ev('p',txt);S.strikes++;
+  if(S.strikes>=3){uncaughtThirdStrike(wpKind,looking);return;}
+  ev('r',label);wppbAdvancePicker(label,true);
+}
 function actBalk(){if(!S.bases.some(Boolean))return;snap();ev('r','Balk — all runners advance');advanceAll(1);save();renderAll();}
 
 /* ================= substitutions ================= */
@@ -2067,6 +2084,42 @@ function initPullToRefresh(){
   },{passive:true});
   document.addEventListener('touchcancel',reset,{passive:true});
 }
+function bindPitchGestures(){
+  const menu=$('#pitchHoldMenu'),left=menu&&menu.querySelector('[data-wp="WP"]'),right=menu&&menu.querySelector('[data-wp="PB"]');
+  document.querySelectorAll('[data-hold-wppb]').forEach(btn=>{
+    let timer=null,held=false,choice=null,startX=0,suppressClick=false;
+    const paint=()=>{if(left)left.classList.toggle('sel',choice==='WP');if(right)right.classList.toggle('sel',choice==='PB');};
+    const hide=()=>{if(menu){menu.classList.remove('on');menu.setAttribute&&menu.setAttribute('aria-hidden','true');}choice=null;paint();};
+    btn.addEventListener('pointerdown',e=>{
+      if(e.button!=null&&e.button!==0)return;
+      held=false;choice=null;startX=e.clientX;paint();
+      timer=setTimeout(()=>{held=true;if(menu){menu.classList.add('on');menu.setAttribute&&menu.setAttribute('aria-hidden','false');}
+        if(btn.setPointerCapture)try{btn.setPointerCapture(e.pointerId);}catch(_){}
+      },480);
+    });
+    btn.addEventListener('pointermove',e=>{
+      if(!held)return;
+      const dx=e.clientX-startX;
+      choice=dx<-12?'WP':dx>12?'PB':null;paint();
+      if(e.cancelable)e.preventDefault();
+    });
+    btn.addEventListener('pointerup',e=>{
+      clearTimeout(timer);timer=null;suppressClick=true;
+      if(held){
+        const c=choice;hide();
+        if(c)doPitchWPPB(btn.dataset.p,c);
+        else toast('Hold, then slide left for Wild Pitch or right for Passed Ball.');
+      }else doPitch(btn.dataset.p);
+      setTimeout(()=>{suppressClick=false;},0);
+    });
+    btn.addEventListener('pointercancel',()=>{clearTimeout(timer);timer=null;held=false;hide();});
+    btn.addEventListener('contextmenu',e=>e.preventDefault());
+    btn.addEventListener('click',e=>{
+      if(suppressClick){e.preventDefault();return;}
+      if(e.detail===0)doPitch(btn.dataset.p); // keyboard / assistive activation
+    });
+  });
+}
 function renderAll(){renderScore();renderBook();}
 function showView(v){['setup','score','book','games'].forEach(x=>{
   $('#v-'+x).classList.toggle('on',x===v);
@@ -2100,9 +2153,10 @@ function init(){
   $('#playBtnTop').onclick=startScoring;
   $('#subDone').onclick=finishSubstitutionMode;
   $('#newGameBtn').onclick=()=>{if(viewing)return;if(confirm('End this game and start over? It will be kept under Games.'))endGame();};
-  document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
+  document.querySelectorAll('[data-p]:not([data-hold-wppb])').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
+  bindPitchGestures();
   $('#stealBtn').onclick=actSteal;$('#diBtn').onclick=actDI;$('#pickBtn').onclick=actPick;
-  $('#wppbBtn').onclick=actWPPB;$('#balkBtn').onclick=actBalk;
+  $('#balkBtn').onclick=actBalk;
   $('#undoBtn').onclick=undo;
   $('#subBtn').onclick=openSubstitutionLineup;
   $('#tab-score').onclick=()=>{if(substitutionMode){finishSubstitutionMode();return;}showView('score');};$('#tab-book').onclick=()=>showView('book');$('#tab-games').onclick=()=>{renderGames();showView('games');};
