@@ -77,9 +77,9 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
   `doPitch,addCountBall,addCountStrike,doWalk,` +
-  `lastPitchEv,lastPitch,chalTeamName,recountCount,` +
+  `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
+  `outcomeModal,homeRunText,homeRunLocation,hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
   `actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,` +
@@ -428,15 +428,44 @@ async function main() {
   ];
   sb.renderScore();
   const liveEvents=el('#hEvents').innerHTML;
-  ok(liveEvents.indexOf('>1</span>Ball')>=0 &&
-     liveEvents.indexOf('>•</span>Wild pitch')>=0 &&
-     liveEvents.indexOf('>2</span>Called strike')>=0,
+  ok(liveEvents.indexOf('>1</span><span class="grow">Ball</span>')>=0 &&
+     liveEvents.indexOf('>•</span><span class="grow">Wild pitch</span>')>=0 &&
+     liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.1','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.2','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
+
+  /* ===== 2026-10-05 compact scoring visual + HR location batch ===== */
+  newGame();
+  sb.S.pa=[{t:'p',text:'Called strike'}];
+  sb.renderScore();
+  ok(el('#hEvents').innerHTML.indexOf('id="eventChallenge"')>=0,
+    'V1: live challenge action is attached to the challengeable pitch row');
+  ok(html.indexOf('id="chalBtn"')<0,
+    'V1: challenge control is no longer in the count row');
+
+  sb.outcomeModal();
+  const outcomeHTML=el('#sheet').innerHTML;
+  ok(outcomeHTML.indexOf('outcomeHead">On base')>=0 &&
+     outcomeHTML.indexOf('outcomeHead">Out')>=0 &&
+     outcomeHTML.indexOf('data-o="SAC"')>=0,
+    'V2: In Play is grouped into On base / Out with Sacrifice separate');
+
+  eq(sb.homeRunText('LF'),'Home run to left field','V3: HR LF location text');
+  eq(sb.homeRunText('LCF'),'Home run to left-center field','V3: HR LCF location text');
+  eq(sb.homeRunText('CF'),'Home run to center field','V3: HR CF location text');
+  eq(sb.homeRunText('RCF'),'Home run to right-center field','V3: HR RCF location text');
+  eq(sb.homeRunText('RF'),'Home run to right field','V3: HR RF location text');
+
+  ok(html.indexOf('@media (min-width:430px) and (max-width:700px)')>=0 &&
+     html.indexOf('#v-score .pgrid{grid-template-columns:repeat(4,1fr);}')>=0 &&
+     html.indexOf('#v-score .pgrid2{grid-template-columns:repeat(3,1fr);}')>=0,
+    'V4: split-view scoring uses compact 4/3-column pitch controls');
+  ok(html.indexOf('.count{font-size:30px; font-weight:800; letter-spacing:2px; flex:0 0 auto; white-space:nowrap;}')>=0,
+    'V4: count is protected from squeezing');
 
   /* ===== 2026-10-04: runner safety + undo boundaries + batting-around + lineup nav ===== */
   newGame();
