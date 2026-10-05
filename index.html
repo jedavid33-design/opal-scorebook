@@ -566,7 +566,7 @@ function lineupHTML(el,team){
       const isP=team.dh&&i===9,selected=pendingSub&&pendingSub.team===tk&&pendingSub.slot===i;
       const posSelect=isP
         ?'<div style="padding:10px 8px;color:var(--dim)">P</div>'
-        :`<select data-t="${tk}" data-i="${i}" data-f="pos" aria-label="Defensive position for ${esc(p.name||'open slot')}">
+        :`<select data-t="${tk}" data-i="${i}" data-f="pos" aria-label="Defensive position for ${esc(p.name||'open slot')}"${pendingSub?' disabled':''}>
           <option value="">–</option>${Object.entries(POS).map(([k,v])=>`<option value="${k}"${String(p.pos)===k?' selected':''}>${v}</option>`).join('')}
         </select>`;
       return `<div class="lu-row submode${selected?' sel':''}${dup.has(i)?' posdup':''}" data-slot="${tk}" data-i="${i}">
@@ -661,7 +661,7 @@ function beginLineupSub(team,slot){
   T.lineup[slot]=(slot===9&&T.dh)?{name:'',num:'',pos:'1',nb:true}:{name:'',num:'',pos:old.pos||''};
   S.selSlot={t:team,i:slot};
   syncPitcherFromLineup(team);
-  save();renderSetup();showSetupTeam(team,'roster');
+  renderSetup();showSetupTeam(team,'roster');
 }
 function cancelPendingSub(){
   if(!pendingSub)return;
@@ -669,9 +669,7 @@ function cancelPendingSub(){
   T.lineup[slot]=old;
   poolRemove(T,old.name);
   pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
-  // beginLineupSub created exactly one snapshot for this unfinished substitution.
-  if(undoStack.length){undoStack.pop();undoMeta.pop();persistUndo();}
-  save();renderSetup();showSetupTeam(team,'lineup');
+  renderSetup();showSetupTeam(team,'lineup');
 }
 function completeLineupSub(team,slot,p){
   const T=S[team],ctx=pendingSub&&pendingSub.team===team&&pendingSub.slot===slot?pendingSub:null;
@@ -682,7 +680,7 @@ function completeLineupSub(team,slot,p){
   poolRemove(T,p.name);
   if(ctx){
     const oldName=old.name||('Slot '+(slot+1));
-    const type=String(T.lineup[slot].pos)==='1'?'P':'SUB';
+    const type=String((old&&old.pos)||'')==='1'||String(T.lineup[slot].pos)==='1'?'P':'SUB';
     const msg=(type==='P'?'Pitching change: ':'Substitution: ')+p.name+(p.num?' #'+p.num:'')+' for '+oldName;
     if(S.pa.length)ev('o',msg);
     S.subLog.push({inn:S.inning,half:S.half,team,slot,type,old:oldName,new:p.name});
@@ -751,6 +749,7 @@ function rosterQuery(team){
   return{url:'https://statsapi.mlb.com/api/v1/teams/'+id+'/roster?season='+cy,season:cy,date:null};
 }
 function loadRoster(team){
+  if(substitutionMode&&pendingSub){toast('Finish or cancel the open substitution before reloading the roster.');return;}
   const id=+$('#'+team+'MLB').value;
   if(!id){poolMsg(team,'Pick an MLB team first.');return;}
   const q=rosterQuery(team);
