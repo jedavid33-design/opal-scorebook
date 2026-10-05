@@ -78,7 +78,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
-  `doPitch,addCountBall,addCountStrike,doWalk,` +
+  `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,homeRunText,homeRunLocation,hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
@@ -88,7 +88,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `pitchCounts,tryAddPitch,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
   `getArchive,updateArchive,addToArchive,archiveCurrentGame,endGame,` +
-  `renderGames,renderPendingCard,renderSyncCard,renderPastList,renderAll,showView,initPullToRefresh,toast,esc,genId` +
+  `renderGames,renderPendingCard,renderSyncCard,renderPastList,bindPitchGestures,renderAll,showView,initPullToRefresh,toast,esc,genId` +
   `}))();`;
 eval(m[1] + exportLine);
 const sb = globalThis.__sb;
@@ -435,7 +435,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.10','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.12','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -471,9 +471,10 @@ async function main() {
   ok(html.indexOf('.count{font-size:30px; font-weight:800; letter-spacing:2px; flex:0 0 auto; white-space:nowrap;}')>=0,
     'V4: count is protected from squeezing');
 
-  ok(html.indexOf('data-p="cstr" aria-label="Called strike" title="Called strike">Called</button>')>=0 &&
-     html.indexOf('data-p="sstr" aria-label="Swinging strike" title="Swinging strike">Swinging</button>')>=0,
-    'V4: compact strike row uses Called and Swinging labels');
+  ok(html.indexOf('data-p="cstr" data-hold-wppb="1" aria-label="Called strike"')>=0 &&
+     html.indexOf('data-p="sstr" data-hold-wppb="1" aria-label="Swinging strike"')>=0 &&
+     html.indexOf('>Called</button>')>=0 && html.indexOf('>Swinging</button>')>=0,
+    'V4: compact strike row uses Called and Swinging labels with hold support');
   ok(html.indexOf('data-p="hbp">Hit Batter</button>')<0 &&
      html.indexOf('Hit by Pitch</button>')>=0,
     'V4: HBP button uses Hit by Pitch label');
@@ -541,6 +542,63 @@ async function main() {
   eq(sb.pitchCounts(ftPa).s,1,'V6: edit/recount logic recognizes foul tip as a strike');
   sb.S.pa=[{t:'p',text:'Foul tip'}];sb.S.balls=0;sb.S.strikes=0;sb.recountCount(sb.S.pa);
   eq(sb.S.strikes,1,'V6: live count rebuild recognizes foul tip as a strike');
+
+  /* ===== pitch hold WP/PB + uncaught third strike ===== */
+  ok(html.indexOf('data-hold-wppb="1"')>=0 &&
+     html.indexOf('id="wppbBtn"')<0 &&
+     html.indexOf('id="pitchHoldMenu"')>=0,
+    'W1: Ball/Called/Swinging use hold gesture and separate WP/PB button is gone');
+  ok(html.indexOf('slide left for Wild Pitch or right for Passed Ball')>=0,
+    'W1: hold gesture exposes Wild vs Passed selection in one continuous gesture');
+
+  newGame();
+  sb.doPitchWPPB('ball','WP');
+  eq(sb.S.balls,1,'W2: held Ball records the ball in the count');
+  ok(sb.S.pa.some(e=>e.t==='p'&&e.text==='Ball') &&
+     sb.S.pa.some(e=>e.t==='r'&&e.text==='Wild pitch'),
+    'W2: held Ball records one pitch plus Wild pitch');
+
+  newGame();
+  sb.S.strikes=1;
+  sb.doPitchWPPB('cstr','PB');
+  eq(sb.S.strikes,2,'W2: held Called strike increments strike count');
+  ok(sb.S.pa.some(e=>e.t==='p'&&e.text==='Called strike') &&
+     sb.S.pa.some(e=>e.t==='r'&&e.text==='Passed ball'),
+    'W2: held Called strike records pitch plus Passed ball');
+
+  newGame();
+  sb.S.outs=2;sb.S.strikes=2;
+  sb.doPitchWPPB('sstr','PB');
+  ok(el('#sheet').innerHTML.indexOf('Swinging strike three — Passed ball')>=0,
+    'W3: held strike three enters uncaught-third-strike placement flow');
+  el('#plDone').onclick();
+  const uk=sb.S.pas[sb.S.pas.length-1];
+  eq(uk.result,'K-PB','W3: uncaught swinging third strike records K-PB');
+  eq(sb.S.outs,2,'W3: batter reaching on uncaught third strike does not add an out');
+  ok(uk.events.some(e=>e.t==='p'&&e.text==='Swinging strike') &&
+     uk.events.some(e=>e.t==='r'&&/Passed ball/.test(e.text)),
+    'W3: uncaught third strike keeps both pitch and passed-ball events');
+  ok(sb.S.bases[0]&&sb.S.bases[0].i===0,
+    'W3: with two outs the batter can reach first on uncaught third strike');
+
+  newGame();
+  sb.S.outs=1;sb.S.strikes=2;sb.S.bases[0]={t:'away',i:4};
+  sb.doPitchWPPB('sstr','WP');
+  el('#plDone').onclick();
+  const ukBlocked=sb.S.pas[sb.S.pas.length-1];
+  eq(ukBlocked.result,'K-WP','W4: occupied-first uncaught third strike keeps K-WP notation');
+  eq(sb.S.outs,2,'W4: with fewer than two outs and first occupied, batter is out');
+
+  newGame();
+  sb.S.balls=3;
+  sb.doPitchWPPB('ball','PB');
+  el('#plDone').onclick();
+  const bbpb=sb.S.pas[sb.S.pas.length-1];
+  eq(bbpb.result,'BB','W5: held ball four remains a walk result');
+  eq(bbpb.events.filter(e=>e.t==='p').length,1,
+    'W5: held ball four counts exactly one thrown pitch');
+  ok(bbpb.events.some(e=>e.t==='r'&&e.text==='Passed ball'),
+    'W5: held ball four also records the Passed ball');
 
   /* ===== full-lineup substitution mode ===== */
   newGame();
