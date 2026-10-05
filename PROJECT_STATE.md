@@ -390,3 +390,17 @@ replacing the "visco" app she currently uses.
   Ball / Foul; Intentional Walk / Hit by Pitch. Compact called/swinging strike
   buttons use ꓘ / K with accessibility labels. App version v2026.10.05.6.
   Full harness: 177 passed, 0 failed. App commit f952c1a; regression commit f77364d.
+
+
+- 2026-10-05: Full-lineup substitution mode replaced the old substitution modal.
+  Tapping Subs now opens the lineup screen (fielding team first, with team tabs
+  available). In substitution mode, tap the outgoing player to open that exact
+  batting-order slot, then tap a roster player to fill it. Defensive positions
+  stay editable via dropdowns; position changes update fielding lookup and the
+  current-pitcher state. No-DH pitching changes now replace the old pitcher in
+  the same batting slot, so the removed pitcher cannot bat again. With a DH,
+  pitcher changes stay in the dedicated non-batting pitcher slot. Substitution
+  history is retained on the lineup slot and pitching changes are logged.
+  App version v2026.10.05.7. Full regression harness: 193 passed, 0 failed.
+  App commits 6d501d7 + f426bd4; regression commits 6540e79 + bcff4c7.
+  Worker unchanged; no Worker deployment required.
