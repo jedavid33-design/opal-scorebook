@@ -91,9 +91,10 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .luhint{opacity:.45; font-size:12px;}
 .scorehead .t{font-size:20px; font-weight:800;}
 .scorehead .s{font-size:15px; color:var(--dim);}
-.countline{display:flex; gap:14px; align-items:center; margin:8px 0;}
-.count{font-size:30px; font-weight:800; letter-spacing:2px;}
-.outs{font-size:15px; color:var(--warn);}
+.countline{display:flex; gap:14px; align-items:center; margin:8px 0; min-width:0;}
+.count{font-size:30px; font-weight:800; letter-spacing:2px; flex:0 0 auto; white-space:nowrap;}
+.outs{font-size:15px; color:var(--warn); flex:0 0 auto; white-space:nowrap;}
+.countline .grow{min-width:0;}
 .baseswrap{display:flex; justify-content:center; padding:6px 0 2px;}
 .diamond{position:relative; width:120px; height:120px;}
 .base{position:absolute; width:34px; height:34px; transform:rotate(45deg);
@@ -110,8 +111,12 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
   border-radius:50%; border:1px solid var(--line); font-size:11px; font-weight:700;
   color:var(--dim); margin-right:8px; flex:0 0 auto;}
 .events li{display:flex; align-items:center;}
-.chBtn{font-size:11px; font-weight:700; padding:3px 10px; border-radius:9px; background:transparent;
-  border:1px dashed var(--line); color:var(--dim); margin-left:8px; cursor:pointer; align-self:center;}
+.chBtn{font-size:11px; font-weight:700; min-height:30px; padding:3px 8px; border-radius:9px; background:transparent;
+  border:1px dashed var(--line); color:var(--dim); margin-left:auto; cursor:pointer; flex:0 0 auto;}
+.prevChallenge{display:flex;justify-content:flex-end;margin-top:5px;}
+.outcomeCols{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.outcomeCol{display:grid;grid-template-columns:1fr;gap:7px;align-content:start;}
+.outcomeHead{font-size:11px;text-transform:uppercase;letter-spacing:1.3px;color:var(--dim);padding:0 2px 1px;}
 .chb{font-size:10px; font-weight:700; border:1px solid var(--line); border-radius:6px; padding:1px 5px;
   margin-left:6px; color:var(--dim); flex:0 0 auto;}
 .chb.ov{border-style:dashed;}
@@ -175,30 +180,32 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 .subRow{font-size:12.5px; color:var(--dim); padding:4px 0; border-bottom:1px solid rgba(255,255,255,.05);}
 /* Runner buttons: 3-col on wide screens, regridded on small phones. */
 .rgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
-/* Small phones: bigger tap targets, compact header, less scrolling. */
+/* Narrow windows: compact scoring density without dropping below comfortable tap targets. */
 @media (max-width:700px){
   .view{padding:10px 10px 0;}
   .card{padding:10px; border-radius:15px;}
   .diamond{width:88px; height:88px;}
   .base{width:25px; height:25px; border-radius:5px;}
   #b2{left:31px; top:4px;} #b1{left:58px; top:31px;} #b3{left:4px; top:31px;}
-  .count{font-size:26px;}
-  .events{max-height:92px;}
-  .sect{margin:10px 0 6px;}
-  .pgrid{grid-template-columns:1fr 1fr;}
-  .pgrid .big{min-height:66px; font-size:18px;}
-  .pgrid2{grid-template-columns:1fr 1fr;}
-  .pgrid2 .med{min-height:62px; font-size:16px;}
-  .pgrid2 [data-p="inplay"]{grid-column:1/-1;}
-  .agrid .med{min-height:60px;}
-  .rgrid{grid-template-columns:1fr 1fr;}
-  .rgrid .med{min-height:60px; font-size:16px;}
-  #balkBtn{grid-column:1/-1;}
-  .mover .dest button{min-height:60px; min-width:64px;}
-  .fpad button{min-height:64px;}
-  .sheet .med{min-height:56px;}
-  .sheet .sml{min-height:48px;}
-  .tabs button{min-height:56px;}
+  .countline{gap:7px;margin:5px 0;}
+  .count{font-size:26px;min-width:54px;}
+  .outs{font-size:13px;}
+  .countline .sml{min-height:40px;font-size:12px;padding:4px 7px;}
+  .events{max-height:92px;margin-top:5px;}
+  .events li{padding:4px 6px;}
+  #v-score .sect{margin:7px 0 4px;}
+  #v-score .pgrid,#v-score .pgrid2,#v-score .agrid,#v-score .rgrid{gap:6px;}
+  #v-score .pgrid .big{min-height:48px;font-size:15px;}
+  #v-score .pgrid2 .med,#v-score .agrid .med,#v-score .rgrid .med{min-height:44px;font-size:13px;}
+  .sheet{padding:14px 12px calc(16px + env(safe-area-inset-bottom));}
+  .sheet h2{font-size:18px;margin-bottom:7px;}
+  .sheet .med{min-height:44px;font-size:14px;}
+  .sheet .sml{min-height:42px;font-size:13px;}
+  .outcomeCols{gap:7px;}
+  .outcomeCol{gap:6px;}
+  .mover .dest button{min-height:48px;min-width:56px;}
+  .fpad button{min-height:50px;font-size:18px;}
+  .tabs button{min-height:50px;}
   /* Roster-load row: team + date side by side, Load button full-width below. */
   .rload{grid-template-columns:1fr 1fr;}
   .rload .loadcell{grid-column:1/-1;}
@@ -211,6 +218,22 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     position:sticky; left:0; z-index:2; background:#1a1328;
     box-shadow:1px 0 0 rgba(255,255,255,.13);
   }
+}
+/* iPad split view: use the width efficiently instead of turning every scoring control into a tall phone button. */
+@media (min-width:430px) and (max-width:700px){
+  #v-score .pgrid{grid-template-columns:repeat(4,1fr);}
+  #v-score .pgrid2{grid-template-columns:repeat(3,1fr);}
+  #v-score .pgrid2 [data-p="inplay"]{grid-column:auto;}
+  #v-score .rgrid{grid-template-columns:repeat(3,1fr);}
+  #v-score #balkBtn{grid-column:auto;}
+}
+/* Phone-width scoring keeps two columns, but still uses the compact heights above. */
+@media (max-width:429px){
+  #v-score .pgrid{grid-template-columns:1fr 1fr;}
+  #v-score .pgrid2{grid-template-columns:1fr 1fr;}
+  #v-score .pgrid2 [data-p="inplay"]{grid-column:1/-1;}
+  #v-score .rgrid{grid-template-columns:1fr 1fr;}
+  #v-score #balkBtn{grid-column:1/-1;}
 }
 /* Very narrow (Slide Over): slightly smaller diamonds, less sideways scroll. */
 @media (max-width:400px){
@@ -325,7 +348,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
       <div class="s"><span id="hChal" class="chal" role="button" tabindex="0" title="Challenges remaining">CH 2&middot;2</span><span id="hInn">▲ 1</span></div>
     </div>
     <div class="countline">
-      <div class="count" id="hCount">0-0</div><button class="chBtn" id="chalBtn" hidden title="Challenge the last call">C</button>
+      <div class="count" id="hCount">0-0</div>
       <div class="outs" id="hOuts"></div>
       <div class="grow"></div>
       <button class="sml ghost" id="subBtn">⇄ Subs</button>
@@ -336,6 +359,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     </div></div>
     <div class="batter" id="hBatter">—</div>
     <ul class="events" id="hEvents"></ul>
+    <div id="hPrevChallenge"></div>
   </div>
 
   <div class="sect">Pitch</div>
@@ -407,7 +431,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.1';
+const APP_VERSION='2026.10.05.2';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -676,8 +700,7 @@ function renderScore(){
   $('#sHome').textContent=innRuns('home').reduce((x,y)=>x+y,0);
   $('#hInn').innerHTML=(S.half===0?'▲ ':'▼ ')+S.inning+' <span class="luhint">✎</span>';
   $('#hChal').textContent='CH '+(S.chal?S.chal.away:2)+'·'+(S.chal?S.chal.home:2);
-  const hcb=$('#chalBtn'),hlp=!viewing&&S.started?lastPitch():null;
-  hcb.hidden=!hlp;if(hlp)hcb.onclick=challengeSheet;
+  const hlp=!viewing&&S.started?lastPitch():null;
   $('#hCount').textContent=S.balls+'-'+S.strikes;
   $('#hOuts').textContent='● '.repeat(S.outs)+'○ '.repeat(Math.max(0,3-S.outs));
   $('#b1').classList.toggle('on',!!S.bases[0]);
@@ -686,11 +709,22 @@ function renderScore(){
   const b=curBatter();
   $('#hBatter').innerHTML=`${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
   let pitchNo=0;
-  $('#hEvents').innerHTML=S.pa.map(e=>{
+  const liveLast=hlp&&hlp.live?hlp:null;
+  const liveChTeam=liveLast?challengeTeamFor(liveLast):null;
+  $('#hEvents').innerHTML=S.pa.map((e,i)=>{
     const numbered=e.t!=='r';
     if(numbered)pitchNo++;
-    return `<li><span class="pnum${numbered?'':' eventdot'}">${numbered?pitchNo:'•'}</span>${e.text}${e.ch?` <span class="chb${e.ch.res==='overturned'?' ov':''}" title="Challenge ${e.ch.res} by ${chalTeamName(e.ch.team)}">${e.ch.res==='overturned'?'C↺':'C'}</span>`:''}</li>`;
+    const canChallenge=liveLast&&liveLast.idx===i&&!e.ch&&(!S.chal||S.chal[liveChTeam]>0);
+    return `<li><span class="pnum${numbered?'':' eventdot'}">${numbered?pitchNo:'•'}</span><span class="grow">${e.text}</span>${e.ch?` <span class="chb${e.ch.res==='overturned'?' ov':''}" title="Challenge ${e.ch.res} by ${chalTeamName(e.ch.team)}">${e.ch.res==='overturned'?'C↺':'C'}</span>`:''}${canChallenge?'<button class="chBtn" id="eventChallenge">Challenge</button>':''}</li>`;
   }).join('')||'<li style="opacity:.5">No pitches yet this PA</li>';
+  const ech=$('#eventChallenge');if(ech)ech.onclick=challengeSheet;
+  const prev=$('#hPrevChallenge');
+  if(prev){
+    const prevTeam=hlp&&!hlp.live?challengeTeamFor(hlp):null;
+    const canPrev=hlp&&!hlp.live&&!hlp.evts[hlp.idx].ch&&(!S.chal||S.chal[prevTeam]>0);
+    prev.innerHTML=canPrev?'<div class="prevChallenge"><button class="chBtn" id="prevChallengeBtn">Challenge previous call</button></div>':'';
+    const pcb=$('#prevChallengeBtn');if(pcb)pcb.onclick=challengeSheet;
+  }
   $('#hEvents').scrollTop=$('#hEvents').scrollHeight;
   const sc=$('#v-score');
   const bn=$('#scoreBanner');
@@ -840,6 +874,11 @@ function lastPitch(){
   if(f&&CHAL_PITCH(f.ev.text))return{evts:pa.events,idx:f.idx,team:pa.team,live:false,pa};
   return null;
 }
+function challengeTeamFor(lp){
+  if(!lp)return null;
+  const e=lp.evts[lp.idx],isBall=e&&e.text==='Ball';
+  return isBall?(lp.team==='away'?'home':'away'):lp.team;
+}
 function chalTeamName(t){return(t==='away'?S.away.name:S.home.name)||(t==='away'?'Away':'Home');}
 function recountCount(evts){let b=0,s=0;
   for(const x of evts){if(x.t!=='p')continue;
@@ -850,9 +889,8 @@ function recountCount(evts){let b=0,s=0;
 function challengeSheet(){
   if(viewing)return;
   const lp=lastPitch();if(!lp)return;
-  const e=lp.evts[lp.idx],isBall=e.text==='Ball';
-  const ft=lp.team==='away'?'home':'away';
-  let team=isBall?ft:lp.team; // ball challenged by the fielding team, strike by the batting team
+  const e=lp.evts[lp.idx];
+  let team=challengeTeamFor(lp); // ball challenged by fielding team, strike by batting team
   const draw=()=>{
     const already=e.ch; // A9: a pitch can only be challenged once
     const noChal=S.chal&&S.chal[team]<=0; // A6: 0 remaining = no free challenges
@@ -914,15 +952,27 @@ function chalStepper(){
 
 /* ================= in-play outcomes ================= */
 function outcomeModal(){
-  openModal(`<h2>In play — outcome</h2><div class="grid2">
-    <button class="med" data-o="1B">Single</button><button class="med" data-o="2B">Double</button>
-    <button class="med" data-o="3B">Triple</button><button class="med" data-o="HR">Home run</button>
-    <button class="med" data-o="GO">Groundout</button><button class="med" data-o="FO">Flyout</button>
-    <button class="med" data-o="POP">Pop fly</button><button class="med" data-o="LO">Lineout</button>
-    <button class="med" data-o="FL">Foul out</button><button class="med" data-o="E">Error</button>
-    <button class="med" data-o="FC">Fielder's choice</button><button class="med" data-o="SAC">Sacrifice</button>
-    <button class="med" data-o="DP">Double Play</button>
-    </div><div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+  openModal(`<h2>In play — outcome</h2>
+    <div class="outcomeCols">
+      <div class="outcomeCol"><div class="outcomeHead">On base</div>
+        <button class="med" data-o="1B">Single</button>
+        <button class="med" data-o="2B">Double</button>
+        <button class="med" data-o="3B">Triple</button>
+        <button class="med" data-o="HR">Home run</button>
+        <button class="med" data-o="E">Error</button>
+        <button class="med" data-o="FC">Fielder's choice</button>
+      </div>
+      <div class="outcomeCol"><div class="outcomeHead">Out</div>
+        <button class="med" data-o="GO">Groundout</button>
+        <button class="med" data-o="FO">Flyout</button>
+        <button class="med" data-o="POP">Pop fly</button>
+        <button class="med" data-o="LO">Lineout</button>
+        <button class="med" data-o="FL">Foul out</button>
+        <button class="med" data-o="DP">Double Play</button>
+      </div>
+    </div>
+    <button class="med" data-o="SAC" style="width:100%;margin-top:8px">Sacrifice</button>
+    <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
   $('#sheet').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>handleOutcome(b.dataset.o));
 }
 function hitMovers(n){
@@ -996,10 +1046,24 @@ function dpModal(){
     $('#dpKL').onclick=()=>go(true);
   };
 }
+function homeRunLocation(){
+  const spots=[
+    ['LF','left field'],['LCF','left-center field'],['CF','center field'],['RCF','right-center field'],['RF','right field']
+  ];
+  openModal(`<h2>Home run — where?</h2><div class="grid3">`+
+    spots.map(x=>`<button class="med" data-hr="${x[0]}">${x[0]}</button>`).join('')+
+    `</div><div style="margin-top:8px"><button class="sml ghost" id="hrBack" style="width:100%">Back</button></div>`);
+  $('#sheet').querySelectorAll('[data-hr]').forEach(b=>b.onclick=()=>{
+    const spot=spots.find(x=>x[0]===b.dataset.hr);
+    const txt='Home run to '+spot[1];
+    ev('o',txt);placementReview(hitMovers(4),'HR',txt);
+  });
+  $('#hrBack').onclick=outcomeModal;
+}
 function handleOutcome(kind){
   const HN={'1B':1,'2B':2,'3B':3,'HR':4};
   if(kind==='DP'){dpModal();return;}
-  if(kind==='HR'){ev('o','Home run');placementReview(hitMovers(4),'HR','Home run');return;}
+  if(kind==='HR'){homeRunLocation();return;}
   if(HN[kind]){hitDetail(HN[kind],kind,{1:'Singled',2:'Doubled',3:'Tripled'}[HN[kind]]);return;}
   if(kind==='GO'){fielderPad(f=>{ev('o','Grounded out '+f);
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],f,'Grounded out '+f);},'Groundout — fielders');return;}
