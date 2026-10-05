@@ -71,9 +71,11 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get pendingRemote(){return pendingRemote;},set pendingRemote(v){pendingRemote=v;},` +
   `get syncInfo(){return syncInfo;},` +
   `get corruptStashed(){return corruptStashed;},set corruptStashed(v){corruptStashed=v;},` +
+  `get substitutionMode(){return substitutionMode;},get pendingSub(){return pendingSub;},` +
   `APP_VERSION,blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
-  `batTeam,curBatter,pname,ev,innRuns,scoreRun,` +
+  `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,` +
   `demoLineups,rosterToPool,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
+  `beginLineupSub,cancelPendingSub,completeLineupSub,openSubstitutionLineup,finishSubstitutionMode,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
   `doPitch,addCountBall,addCountStrike,doWalk,` +
@@ -433,7 +435,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.6','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.7','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -517,6 +519,56 @@ async function main() {
   eq(sb.pitchCounts(ftPa).s,1,'V6: edit/recount logic recognizes foul tip as a strike');
   sb.S.pa=[{t:'p',text:'Foul tip'}];sb.S.balls=0;sb.S.strikes=0;sb.recountCount(sb.S.pa);
   eq(sb.S.strikes,1,'V6: live count rebuild recognizes foul tip as a strike');
+
+  /* ===== full-lineup substitution mode ===== */
+  newGame();
+  sb.syncPitcherFromLineup('home');
+  ok(sb.S.home.pitcher.indexOf('Rival9')>=0,
+    'S1: current pitcher is derived from the lineup position marked P');
+  sb.S.home.pool=[{name:'New Arm',num:'55',pos:'1'}];
+  sb.beginLineupSub('home',8);
+  ok(sb.pendingSub && sb.pendingSub.team==='home' && sb.pendingSub.slot===8 &&
+     sb.S.home.lineup[8].name==='',
+    'S1: tapping outgoing lineup player opens that exact batting slot');
+  sb.completeLineupSub('home',8,{name:'New Arm',num:'55',pos:'1'});
+  eq(sb.S.home.lineup[8].name,'New Arm',
+    'S1: replacement inherits the outgoing pitcher batting slot');
+  eq(sb.S.home.lineup[8].pos,'1',
+    'S1: replacement pitcher is marked P');
+  ok(sb.S.home.pitcher.indexOf('New Arm')>=0,
+    'S1: current pitcher syncs to the replacement');
+  sb.S.bat='home';sb.S.order.home=8;
+  eq(sb.curBatter().name,'New Arm',
+    'S1: old pitcher cannot return when that batting slot comes up again');
+  ok(sb.S.subLog.some(x=>x.type==='P'&&x.old==='Rival9'&&x.new==='New Arm'),
+    'S1: pitching substitution is logged');
+  ok(sb.S.home.lineup[8].hist && sb.S.home.lineup[8].hist.length===2,
+    'S1: batting-slot substitution history is retained');
+
+  newGame();
+  sb.S.home.dh=true;
+  sb.S.home.lineup.push({name:'Old DH Pitcher',num:'60',pos:'1',nb:true});
+  sb.ensureShape();sb.syncPitcherFromLineup('home');
+  sb.S.home.pool=[{name:'DH New Arm',num:'61',pos:'1'}];
+  sb.beginLineupSub('home',9);
+  sb.completeLineupSub('home',9,{name:'DH New Arm',num:'61',pos:'1'});
+  eq(sb.S.home.lineup[9].name,'DH New Arm',
+    'S2: DH pitcher replacement stays in the non-batting pitcher slot');
+  eq(sb.S.home.lineup.slice(0,9).filter(x=>x.name==='DH New Arm').length,0,
+    'S2: DH pitcher is not inserted into the batting order');
+  ok(sb.S.home.pitcher.indexOf('DH New Arm')>=0,
+    'S2: current pitcher syncs from dedicated DH pitcher slot');
+
+  newGame();
+  sb.openSubstitutionLineup();
+  ok(sb.substitutionMode===true,
+    'S3: Subs opens full lineup substitution mode');
+  ok(el('#homeLU').innerHTML.indexOf('data-f="pos"')>=0,
+    'S3: defensive positions remain dropdowns in substitution mode');
+  ok(el('#subModeBanner').hidden===false,
+    'S3: substitution instructions are visible on the lineup screen');
+  ok(html.indexOf("$('#subBtn').onclick=openSubstitutionLineup")>=0,
+    'S3: Score Subs button routes to full lineup instead of the old modal');
 
   /* ===== 2026-10-04: runner safety + undo boundaries + batting-around + lineup nav ===== */
   newGame();
