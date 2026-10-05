@@ -75,7 +75,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `APP_VERSION,blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,` +
   `demoLineups,rosterToPool,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
-  `beginLineupSub,cancelPendingSub,completeLineupSub,openSubstitutionLineup,finishSubstitutionMode,` +
+  `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
   `doPitch,addCountBall,addCountStrike,doWalk,` +
@@ -435,7 +435,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.7','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.8','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -578,6 +578,59 @@ async function main() {
     'S3: substitution instructions are visible on the lineup screen');
   ok(html.indexOf("$('#subBtn').onclick=openSubstitutionLineup")>=0,
     'S3: Score Subs button routes to full lineup instead of the old modal');
+
+  /* ===== batting-team offensive substitution filter ===== */
+  newGame();
+  sb.S.bat='away';
+  sb.S.order.away=0;
+  sb.S.bases[0]={t:'away',i:3};
+  sb.S.bases[2]={t:'away',i:5};
+  sb.openSubstitutionLineup();
+  ok(el('#homePanel').hidden===false && el('#awayPanel').hidden===true,
+    'S4: Subs automatically opens on the fielding team');
+  sb.showSetupTeam('away','lineup');
+  const offHTML=el('#awayLU').innerHTML;
+  ok(offHTML.indexOf('data-offsub="PH"')>=0 &&
+     (offHTML.match(/data-offsub="PR"/g)||[]).length===2,
+    'S4: batting team shows current batter plus only occupied-base runners');
+  ok(offHTML.indexOf('Astro1')>=0 && offHTML.indexOf('Astro4')>=0 && offHTML.indexOf('Astro6')>=0 &&
+     offHTML.indexOf('Astro2')<0 && offHTML.indexOf('Astro3')<0,
+    'S4: batting-team substitution view hides unrelated lineup players');
+  ok(el('#awayPosWarn').hidden===true,
+    'S4: defensive-position warnings are hidden in offensive-sub view');
+
+  newGame();
+  sb.S.bat='away';sb.S.order.away=2;sb.S.balls=2;sb.S.strikes=1;
+  sb.S.away.pool=[{name:'Pinch Bat',num:'90',pos:'7'}];
+  sb.openSubstitutionLineup();sb.showSetupTeam('away','lineup');
+  sb.beginOffensiveSub('away','PH',2,null);
+  sb.completeOffensiveSub('away',{name:'Pinch Bat',num:'90',pos:'7'});
+  eq(sb.S.away.lineup[2].name,'Pinch Bat',
+    'S5: pinch hitter replaces the current batter in the same batting slot');
+  eq(sb.S.balls,2,'S5: pinch hitter inherits the existing ball count');
+  eq(sb.S.strikes,1,'S5: pinch hitter inherits the existing strike count');
+  eq(sb.curBatter().name,'Pinch Bat',
+    'S5: current batter immediately becomes the pinch hitter');
+  ok(sb.S.subLog.some(x=>x.type==='PH'&&x.old==='Astro3'&&x.new==='Pinch Bat'),
+    'S5: pinch-hit substitution is logged');
+
+  newGame();
+  sb.S.bat='away';sb.S.bases[1]={t:'away',i:4};
+  sb.S.away.pool=[{name:'Fast Runner',num:'91',pos:'8'}];
+  sb.openSubstitutionLineup();sb.showSetupTeam('away','lineup');
+  sb.beginOffensiveSub('away','PR',4,1);
+  ok(sb.S.bases[1]===null && sb.S.away.lineup[4].name==='',
+    'S6: choosing a baserunner opens both the base and that batting slot');
+  sb.completeOffensiveSub('away',{name:'Fast Runner',num:'91',pos:'8'});
+  eq(sb.S.away.lineup[4].name,'Fast Runner',
+    'S6: pinch runner replaces the original player in the batting order');
+  ok(sb.S.bases[1] && sb.S.bases[1].i===4 && sb.pname(sb.S.bases[1]).indexOf('Fast Runner')>=0,
+    'S6: pinch runner occupies the same base with the replacement identity');
+  sb.S.order.away=4;
+  eq(sb.curBatter().name,'Fast Runner',
+    'S6: removed baserunner cannot return when that batting slot comes up');
+  ok(sb.S.subLog.some(x=>x.type==='PR'&&x.old==='Astro5'&&x.new==='Fast Runner'&&x.base===2),
+    'S6: pinch-runner substitution is logged with the base');
 
   /* ===== 2026-10-04: runner safety + undo boundaries + batting-around + lineup nav ===== */
   newGame();
