@@ -226,8 +226,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   grid-template-columns:repeat(6,minmax(0,1fr));
   grid-template-areas:
     "inplay inplay inplay inplay inplay inplay"
-    "called called called swing swing swing"
-    "ball ball foul foul foultip foultip"
+    "called called swing swing foultip foultip"
+    "ball ball ball foul foul foul"
     "ibb ibb ibb hbp hbp hbp";
   gap:8px;
 }
@@ -442,7 +442,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.5';
+const APP_VERSION='2026.10.05.6';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
