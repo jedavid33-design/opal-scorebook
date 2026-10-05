@@ -433,7 +433,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.3','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.4','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -462,8 +462,8 @@ async function main() {
 
   ok(html.indexOf('@media (min-width:430px) and (max-width:700px)')>=0 &&
      html.indexOf('#v-score .pgrid{grid-template-columns:repeat(4,1fr);}')>=0 &&
-     html.indexOf('#v-score .pgrid2{grid-template-columns:repeat(3,1fr);}')>=0,
-    'V4: split-view scoring uses compact 4/3-column pitch controls');
+     html.indexOf('#v-score .pgrid2{grid-template-columns:repeat(4,1fr);}')>=0,
+    'V4: split-view scoring uses compact 4/4-column pitch controls');
   ok(html.indexOf('.count{font-size:30px; font-weight:800; letter-spacing:2px; flex:0 0 auto; white-space:nowrap;}')>=0,
     'V4: count is protected from squeezing');
 
@@ -483,6 +483,30 @@ async function main() {
     'V5: intentional walk adds no pitches');
   ok(sb.S.bases[0] && sb.S.bases[1],
     'V5: intentional walk uses normal forced-runner movement');
+
+  /* ===== foul tip pitch ===== */
+  ok(html.indexOf('data-p="foultip">Foul Tip</button>')>=0,
+    'V6: Foul Tip has its own scoring button');
+
+  newGame();
+  sb.doPitch('foultip');
+  eq(sb.S.strikes,1,'V6: foul tip counts as a strike');
+  ok(sb.S.pa.some(e=>e.t==='p'&&e.text==='Foul tip'),
+    'V6: foul tip keeps distinct pitch-history text');
+
+  newGame();
+  sb.S.strikes=2;
+  sb.S.pa=[{t:'p',text:'Called strike'},{t:'p',text:'Foul ball'}];
+  sb.doPitch('foultip');
+  const ftK=sb.S.pas[sb.S.pas.length-1];
+  eq(ftK.result,'K','V6: foul tip on strike three records swinging K');
+  ok(ftK.events.some(e=>e.t==='p'&&e.text==='Foul tip'),
+    'V6: strike-three foul tip remains labeled in committed PA');
+
+  const ftPa={result:'1B',events:[{t:'p',text:'Foul tip'}]};
+  eq(sb.pitchCounts(ftPa).s,1,'V6: edit/recount logic recognizes foul tip as a strike');
+  sb.S.pa=[{t:'p',text:'Foul tip'}];sb.S.balls=0;sb.S.strikes=0;sb.recountCount(sb.S.pa);
+  eq(sb.S.strikes,1,'V6: live count rebuild recognizes foul tip as a strike');
 
   /* ===== 2026-10-04: runner safety + undo boundaries + batting-around + lineup nav ===== */
   newGame();
