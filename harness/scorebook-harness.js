@@ -435,7 +435,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.9','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.10','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -477,6 +477,13 @@ async function main() {
   ok(html.indexOf('data-p="hbp">Hit Batter</button>')<0 &&
      html.indexOf('Hit by Pitch</button>')>=0,
     'V4: HBP button uses Hit by Pitch label');
+  ok(html.indexOf('#v-score .pitchstack .ps-inplay{font-size:21px;}')>=0,
+    'V4: In Play uses the previous large strike-button text size');
+  ok(html.indexOf('#v-score .pitchstack .ps-called,')>=0 &&
+     html.indexOf('#v-score .pitchstack .ps-foul{font-size:16px;}')>=0,
+    'V4: second and third pitch rows share a consistent text size');
+  ok(html.indexOf('#v-score .pitchstack .ps-hbp{font-size:14px;}')>=0,
+    'V4: fourth pitch row is slightly smaller');
 
   /* ===== intentional walk button ===== */
   ok(html.indexOf('data-p="ibb"')>=0 &&
