@@ -208,8 +208,16 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   .events li{padding:4px 6px;}
   #v-score .sect{margin:7px 0 4px;}
   #v-score .pitchstack,#v-score .agrid,#v-score .rgrid{gap:6px;}
-  #v-score .pitchstack .big{min-height:46px;font-size:21px;}
+  #v-score .pitchstack .big{min-height:46px;}
   #v-score .pitchstack .med,#v-score .agrid .med,#v-score .rgrid .med{min-height:44px;font-size:13px;}
+  #v-score .pitchstack .ps-inplay{font-size:21px;}
+  #v-score .pitchstack .ps-called,
+  #v-score .pitchstack .ps-swing,
+  #v-score .pitchstack .ps-foultip,
+  #v-score .pitchstack .ps-ball,
+  #v-score .pitchstack .ps-foul{font-size:16px;}
+  #v-score .pitchstack .ps-ibb,
+  #v-score .pitchstack .ps-hbp{font-size:14px;}
   .sheet{padding:14px 12px calc(16px + env(safe-area-inset-bottom));}
   .sheet h2{font-size:18px;margin-bottom:7px;}
   .sheet .med{min-height:44px;font-size:14px;}
@@ -459,7 +467,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.9';
+const APP_VERSION='2026.10.05.10';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
