@@ -439,3 +439,17 @@ replacing the "visco" app she currently uses.
   already correct; this change adds explicit coverage so future pitch-total work
   cannot regress it. Full harness: 214 passed, 0 failed. Regression commit
   43d4636. App version remains v2026.10.05.10; Worker unchanged.
+
+
+- 2026-10-05: WP/PB moved from a separate runner button to pitch holds.
+  Ball, Called, and Swinging now support one continuous hold gesture: hold the
+  pitch, slide left for Wild Pitch or right for Passed Ball, then release. That
+  single gesture records both the pitch and the WP/PB event; ordinary taps
+  remain ordinary pitches. The separate Wild / Passed runner button was removed.
+  Normal strike three again commits immediately on tap. Held strike three uses
+  the uncaught-third-strike flow, including the first-base/two-out eligibility
+  rule, runner placement, batter reach, and error tagging through the placement
+  sheet. Ball four with a held WP/PB remains a BB while preserving the thrown
+  pitch and the WP/PB event. App version v2026.10.05.12. Full regression
+  harness: 230 passed, 0 failed. App commits d420098 + 0d17250; regression
+  commit 52f22ac. Worker unchanged; no Worker deployment required.
