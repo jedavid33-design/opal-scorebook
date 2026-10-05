@@ -1046,16 +1046,14 @@ function dpModal(){
     $('#dpKL').onclick=()=>go(true);
   };
 }
+const HR_SPOTS={LF:'left field',LCF:'left-center field',CF:'center field',RCF:'right-center field',RF:'right field'};
+function homeRunText(code){return HR_SPOTS[code]?'Home run to '+HR_SPOTS[code]:'Home run';}
 function homeRunLocation(){
-  const spots=[
-    ['LF','left field'],['LCF','left-center field'],['CF','center field'],['RCF','right-center field'],['RF','right field']
-  ];
   openModal(`<h2>Home run — where?</h2><div class="grid3">`+
-    spots.map(x=>`<button class="med" data-hr="${x[0]}">${x[0]}</button>`).join('')+
+    Object.keys(HR_SPOTS).map(code=>`<button class="med" data-hr="${code}">${code}</button>`).join('')+
     `</div><div style="margin-top:8px"><button class="sml ghost" id="hrBack" style="width:100%">Back</button></div>`);
   $('#sheet').querySelectorAll('[data-hr]').forEach(b=>b.onclick=()=>{
-    const spot=spots.find(x=>x[0]===b.dataset.hr);
-    const txt='Home run to '+spot[1];
+    const txt=homeRunText(b.dataset.hr);
     ev('o',txt);placementReview(hitMovers(4),'HR',txt);
   });
   $('#hrBack').onclick=outcomeModal;
