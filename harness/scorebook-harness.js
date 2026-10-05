@@ -388,6 +388,17 @@ async function main() {
   eq(fpa.errBy[1], 'Rival7', 'A16: unchanged error position keeps the stored name');
   eq(fpa.errBy[0], 'Rival1', 'A16: genuinely new error position resolves to current lineup');
 
+  /* ===== roster surname suffix sorting ===== */
+  const suffixRoster = sb.rosterToPool([
+    { person:{fullName:'Kris Bryant'}, jerseyNumber:'23', position:{abbreviation:'3B'} },
+    { person:{fullName:'Albert Almora Jr.'}, jerseyNumber:'5', position:{abbreviation:'CF'} },
+    { person:{fullName:'Luis Garcia Jr.'}, jerseyNumber:'2', position:{abbreviation:'2B'} },
+    { person:{fullName:'Will Smith'}, jerseyNumber:'16', position:{abbreviation:'C'} },
+  ]);
+  eq(suffixRoster.map(p=>p.name).join('|'),
+    'Albert Almora Jr.|Kris Bryant|Luis Garcia Jr.|Will Smith',
+    'roster: Jr./Sr./Roman numeral suffixes do not become the surname');
+
   /* ===== 2026-10-04: runner safety + undo boundaries + batting-around + lineup nav ===== */
   newGame();
   sb.renderSetup();
