@@ -503,6 +503,21 @@ async function main() {
   ok(sb.S.bases[0] && sb.S.bases[1],
     'V5: intentional walk uses normal forced-runner movement');
 
+  newGame();
+  sb.doPitch('ball');
+  sb.doPitch('ball');
+  eq(sb.S.pa.filter(e=>e.t==='p').length,2,
+    'V5: two real pitches exist before mid-PA intentional walk');
+  sb.doPitch('ibb');
+  el('#plDone').onclick();
+  const midPaIbb=sb.S.pas[sb.S.pas.length-1];
+  eq(midPaIbb.result,'IBB',
+    'V5: mid-PA intentional walk still records IBB');
+  eq(midPaIbb.events.filter(e=>e.t==='p').length,2,
+    'V5: mid-PA intentional walk preserves prior pitches and adds none');
+  ok(midPaIbb.events.filter(e=>e.t==='p').every(e=>e.text==='Ball'),
+    'V5: preserved pitch events remain the two thrown balls');
+
   /* ===== foul tip pitch ===== */
   ok(html.indexOf('data-p="foultip"')>=0 && html.indexOf('Foul Tip</button>')>=0,
     'V6: Foul Tip has its own scoring button');
