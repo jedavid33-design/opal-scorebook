@@ -536,10 +536,16 @@ function demoLineups(){
 /* ================= MLB roster pool ================= */
 const MLB_TEAMS=[[108,'Angels'],[109,'D-backs'],[110,'Orioles'],[111,'Red Sox'],[112,'Cubs'],[113,'Reds'],[114,'Guardians'],[115,'Rockies'],[116,'Tigers'],[117,'Astros'],[118,'Royals'],[119,'Dodgers'],[120,'Nationals'],[121,'Mets'],[133,'Athletics'],[134,'Pirates'],[135,'Padres'],[136,'Mariners'],[137,'Giants'],[138,'Cardinals'],[139,'Rays'],[140,'Rangers'],[141,'Blue Jays'],[142,'Twins'],[143,'Phillies'],[144,'Braves'],[145,'White Sox'],[146,'Marlins'],[147,'Yankees'],[158,'Brewers']];
 const MLB_POS={'P':'1','C':'2','1B':'3','2B':'4','3B':'5','SS':'6','LF':'7','CF':'8','RF':'9','DH':'10'};
+function rosterSortLastName(name){
+  const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+  const suffix=/^(jr\.?|sr\.?|ii|iii|iv|v)$/i;
+  while(parts.length>1&&suffix.test(parts[parts.length-1]))parts.pop();
+  return parts.length?parts[parts.length-1]:'';
+}
 function rosterToPool(roster){
   return (roster||[]).map(r=>({name:(r.person&&r.person.fullName)||'',num:r.jerseyNumber||'',pos:MLB_POS[(r.position&&r.position.abbreviation)]||''}))
     .filter(p=>p.name)
-    .sort((a,b)=>a.name.split(' ').slice(-1)[0].localeCompare(b.name.split(' ').slice(-1)[0]));
+    .sort((a,b)=>rosterSortLastName(a.name).localeCompare(rosterSortLastName(b.name))||a.name.localeCompare(b.name));
 }
 function poolMsg(team,txt){const el=$('#'+team+'PoolMsg');if(el)el.textContent=txt||'';}
 function poolRemove(T,name){T.pool=T.pool.filter(b=>b.name!==name);}
