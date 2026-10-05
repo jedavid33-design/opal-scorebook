@@ -354,3 +354,15 @@ replacing the "visco" app she currently uses.
   and a discreet fixed build label, v2026.10.05.1. Full regression harness:
   154 passed, 0 failed. App commit 574339a; regression commit c6da1c2. Worker
   unchanged; no Worker deployment required.
+
+
+- 2026-10-05: Compact split-view scoring pass. Protected the count from
+  squeezing in narrow windows; moved challenge action off the count row and onto
+  the currently challengeable pitch (with a small previous-call fallback after
+  a terminal PA); compacted Score controls for iPad Split View while keeping
+  comfortable tap targets; reorganized In Play into On base vs Out columns with
+  Sacrifice separate; added HR location picker for LF / LCF / CF / RCF / RF
+  while preserving result code HR. Bumped discreet app version to
+  v2026.10.05.2. Full regression harness: 164 passed, 0 failed. App commits
+  97ad4d1 + b5df501; regression commit 8745d73. Worker unchanged; no Worker
+  deployment required.
