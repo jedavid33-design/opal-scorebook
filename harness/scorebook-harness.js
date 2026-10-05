@@ -435,7 +435,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.8','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.9','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -471,9 +471,9 @@ async function main() {
   ok(html.indexOf('.count{font-size:30px; font-weight:800; letter-spacing:2px; flex:0 0 auto; white-space:nowrap;}')>=0,
     'V4: count is protected from squeezing');
 
-  ok(html.indexOf('data-p="cstr" aria-label="Called strike" title="Called strike">ꓘ</button>')>=0 &&
-     html.indexOf('data-p="sstr" aria-label="Swinging strike" title="Swinging strike">K</button>')>=0,
-    'V4: compact strike row uses backwards K for called strike and K for swinging strike');
+  ok(html.indexOf('data-p="cstr" aria-label="Called strike" title="Called strike">Called</button>')>=0 &&
+     html.indexOf('data-p="sstr" aria-label="Swinging strike" title="Swinging strike">Swinging</button>')>=0,
+    'V4: compact strike row uses Called and Swinging labels');
   ok(html.indexOf('data-p="hbp">Hit Batter</button>')<0 &&
      html.indexOf('Hit by Pitch</button>')>=0,
     'V4: HBP button uses Hit by Pitch label');
