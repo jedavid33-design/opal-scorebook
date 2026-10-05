@@ -371,7 +371,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   </div>
   <div class="grid3 pgrid2" style="margin-top:8px">
     <button class="med pitch" data-p="inplay">In Play</button>
-    <button class="med pitch" data-p="pitchout">Pitchout</button>
+    <button class="med pitch" data-p="ibb">Intentional Walk</button>
     <button class="med pitch" data-p="hbp">Hit Batter</button>
   </div>
   <div class="sect">Automatic calls</div>
@@ -431,7 +431,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.2';
+const APP_VERSION='2026.10.05.3';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -841,6 +841,7 @@ function doPitch(kind){
   else if(kind==='foul'){ev('p','Foul ball');if(S.strikes<2)S.strikes++;}
   else if(kind==='pitchout'){addCountBall('Pitchout (ball)');} // A18: one event per pitch
   else if(kind==='hbp'){doWalk('HBP','Hit by pitch',true);}
+  else if(kind==='ibb'){doWalk('IBB','Intentional walk',true);}
   else if(kind==='autoball'){addCountBall('Automatic ball — pitch timer violation');} // A5: single p event
   else if(kind==='autostrike'){addCountStrike('Automatic strike — batter timer violation',true);}
   else if(kind==='illegal'){ // A5: single p event — was 2, which double-counted balls on overturns
