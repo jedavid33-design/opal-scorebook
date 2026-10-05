@@ -476,7 +476,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.12';
+const APP_VERSION='2026.10.05.13';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -833,7 +833,13 @@ function rosterSortLastName(name){
   const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
   const suffix=/^(jr\.?|sr\.?|ii|iii|iv|v)$/i;
   while(parts.length>1&&suffix.test(parts[parts.length-1]))parts.pop();
-  return parts.length?parts[parts.length-1]:'';
+  if(!parts.length)return'';
+  // Keep common surname particles attached for alphabetizing:
+  // Tommy La Stella -> La Stella, Elly De La Cruz -> De La Cruz.
+  const particle=/^(da|de|del|della|den|der|di|dos|du|la|le|san|santa|st\.?|van|von)$/i;
+  let start=parts.length-1;
+  while(start>0&&particle.test(parts[start-1]))start--;
+  return parts.slice(start).join(' ');
 }
 function rosterToPool(roster){
   return (roster||[]).map(r=>({name:(r.person&&r.person.fullName)||'',num:r.jerseyNumber||'',pos:MLB_POS[(r.position&&r.position.abbreviation)]||''}))
