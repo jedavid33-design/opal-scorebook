@@ -383,3 +383,10 @@ replacing the "visco" app she currently uses.
   secondary pitch row is now four compact columns; phone-width remains 2x2.
   App version v2026.10.05.4. Full harness: 175 passed, 0 failed. App commit
   1b19623; regression commit 64fd0e7.
+
+
+- 2026-10-05: Foul Tip moved onto the strike row in the compact pitch stack.
+  Narrow scoring order is now In Play; called strike / swinging strike / Foul Tip;
+  Ball / Foul; Intentional Walk / Hit by Pitch. Compact called/swinging strike
+  buttons use ꓘ / K with accessibility labels. App version v2026.10.05.6.
+  Full harness: 177 passed, 0 failed. App commit f952c1a; regression commit f77364d.
