@@ -81,7 +81,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,homeRunText,homeRunLocation,hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,homeRunText,homeRunLocation,hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
   `actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,` +
@@ -401,6 +401,16 @@ async function main() {
     'Albert Almora Jr.|Kris Bryant|Luis Garcia Jr.|Will Smith',
     'roster: Jr./Sr./Roman numeral suffixes do not become the surname');
 
+  const compoundRoster = sb.rosterToPool([
+    { person:{fullName:'Tommy La Stella'}, jerseyNumber:'2', position:{abbreviation:'2B'} },
+    { person:{fullName:'Adam Lind'}, jerseyNumber:'26', position:{abbreviation:'1B'} },
+    { person:{fullName:'Elly De La Cruz'}, jerseyNumber:'44', position:{abbreviation:'SS'} },
+    { person:{fullName:'Sam Dyson'}, jerseyNumber:'49', position:{abbreviation:'P'} },
+  ]);
+  eq(compoundRoster.map(p=>p.name).join('|'),
+    'Elly De La Cruz|Tommy La Stella|Adam Lind|Sam Dyson',
+    'roster: compound surnames sort under the leading surname particle');
+
   /* ===== 2026-10-05 scoring usability batch ===== */
   newGame();
   sb.S.away.lineup[0] = { name:'A', num:'1', pos:'6' };
@@ -435,7 +445,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.12','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.14','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -599,6 +609,25 @@ async function main() {
     'W5: held ball four counts exactly one thrown pitch');
   ok(bbpb.events.some(e=>e.t==='r'&&e.text==='Passed ball'),
     'W5: held ball four also records the Passed ball');
+
+  /* ===== catcher's interference ===== */
+  newGame();
+  sb.S.bases[0]={t:'away',i:4};
+  sb.handleOutcome('CI');
+  ok(el('#sheet').innerHTML.indexOf("Catcher's interference · E2")>=0,
+    'C1: catcher interference opens placement review with automatic E2');
+  el('#plDone').onclick();
+  const ci=sb.S.pas[sb.S.pas.length-1];
+  eq(ci.result,'CI','C1: catcher interference records distinct CI result');
+  eq(ci.err,'E2','C1: catcher interference charges E2 to the catcher');
+  eq(ci.errBy&&ci.errBy[0],'Rival8','C1: E2 is attributed to the point-in-time catcher');
+  ok(sb.S.bases[0]&&sb.S.bases[0].i===0,
+    'C1: batter is awarded first on catcher interference');
+  ok(sb.S.bases[1]&&sb.S.bases[1].i===4,
+    'C1: runner on first is forced to second');
+  eq(sb.S.outs,0,'C1: catcher interference does not record an out');
+  eq(sb.teamHits('away'),0,'C1: catcher interference does not count as a hit');
+  eq(sb.teamErrs('home'),1,'C1: catcher interference counts as a fielding error');
 
   /* ===== full-lineup substitution mode ===== */
   newGame();
