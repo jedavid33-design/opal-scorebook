@@ -374,3 +374,12 @@ replacing the "visco" app she currently uses.
   remains readable internally for compatibility with existing game data, but
   there is no Pitchout scoring button. App version v2026.10.05.3. Full harness:
   168 passed, 0 failed. App commit 22aef62; regression commit 9375f5a.
+
+
+- 2026-10-05: Foul Tip now has its own pitch control. It counts exactly like
+  a swinging strike, including recording strike three as a swinging K, while
+  retaining "Foul tip" in pitch history. Count-rebuild, pitch-count, and
+  add-missed-pitch logic also recognize foul tips correctly. Narrow split-view
+  secondary pitch row is now four compact columns; phone-width remains 2x2.
+  App version v2026.10.05.4. Full harness: 175 passed, 0 failed. App commit
+  1b19623; regression commit 64fd0e7.
