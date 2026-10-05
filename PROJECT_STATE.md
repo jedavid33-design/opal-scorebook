@@ -417,3 +417,9 @@ replacing the "visco" app she currently uses.
   section. Removed players are not returned to the eligible roster pool.
   App version v2026.10.05.8. Full regression harness: 207 passed, 0 failed.
   App commit 5e2d894; regression commit a2f3a88. Worker unchanged.
+
+
+- 2026-10-05: Called and Swinging labels replaced the compact K symbols in
+  the strike row. Scoring behavior is unchanged; this is a clarity-only UI
+  change. App version v2026.10.05.9. Full regression harness: 207 passed,
+  0 failed. App commit afcdef3; regression commit 32b0c90. Worker unchanged.
