@@ -423,3 +423,11 @@ replacing the "visco" app she currently uses.
   the strike row. Scoring behavior is unchanged; this is a clarity-only UI
   change. App version v2026.10.05.9. Full regression harness: 207 passed,
   0 failed. App commit afcdef3; regression commit 32b0c90. Worker unchanged.
+
+
+- 2026-10-05: Pitch-button typography hierarchy refined for narrow split-screen scoring.
+  In Play now uses the former large Called/Swinging text size (21px); Called,
+  Swinging, Foul Tip, Ball, and Foul use a consistent 16px; Intentional Walk
+  and Hit by Pitch use a slightly smaller 14px. Layout and scoring behavior are
+  unchanged. App version v2026.10.05.10. Full regression harness: 210 passed,
+  0 failed. App commit 2e5996e; regression commit c51384b. Worker unchanged.
