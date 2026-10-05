@@ -404,3 +404,16 @@ replacing the "visco" app she currently uses.
   App version v2026.10.05.7. Full regression harness: 193 passed, 0 failed.
   App commits 6d501d7 + f426bd4; regression commits 6540e79 + bcff4c7.
   Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-05: Batting-team substitution view is now filtered. Subs opens on
+  the fielding team automatically. Switching to the batting team shows only the
+  current batter (pinch hitter target) and occupied-base runners (pinch runner
+  targets), hiding the rest of the lineup and defensive-position warnings.
+  Pinch hitters replace the current batting-order slot while inheriting the
+  count. Pinch runners replace both the runner on base and that player's
+  batting-order slot, preventing removed runners from batting again. Team-tab
+  switches in substitution mode jump directly to the relevant lineup/target
+  section. Removed players are not returned to the eligible roster pool.
+  App version v2026.10.05.8. Full regression harness: 207 passed, 0 failed.
+  App commit 5e2d894; regression commit a2f3a88. Worker unchanged.
