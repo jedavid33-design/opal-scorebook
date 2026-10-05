@@ -66,6 +66,13 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .lu-row.sel{border-color:var(--plum); box-shadow:0 0 0 1px var(--plum); background:rgba(201,160,232,.07);}
 .lu-row.posdup{border-color:rgba(255,212,121,.72); background:rgba(255,212,121,.055);}
 .lu-row.posdup select{border-color:var(--warn); box-shadow:0 0 0 1px rgba(255,212,121,.28);}
+.lu-row.submode{align-items:center;cursor:default;}
+.luSlot{font-size:13px;font-weight:800;text-align:center;color:var(--dim);padding:10px 2px;}
+.subPlayer{width:100%;min-height:44px;text-align:left;padding:9px 10px;border-radius:10px;font-size:14px;}
+.subPlayer.empty{border-style:dashed;color:var(--dim);background:rgba(255,255,255,.035);}
+.subModeBanner{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:9px 10px;border-radius:12px;
+  background:rgba(201,160,232,.11);border:1px solid rgba(201,160,232,.35);font-size:13px;color:var(--dim);}
+.subModeBanner b{color:var(--ink);}
 .poswarn{font-size:12px;color:var(--warn);margin:4px 0 8px;padding:7px 9px;border:1px solid rgba(255,212,121,.32);
   border-radius:10px;background:rgba(255,212,121,.06);}
 .pool{display:grid; grid-template-columns:1fr; gap:6px; margin:6px 0;}
@@ -284,7 +291,11 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 
 <div id="v-setup" class="view">
   <h1>Lineup</h1>
-  <p class="sub">Set teams &amp; lineups. Big taps, no tiny typing marathons. (Tap the score line on the Score tab to come back here.)</p>
+  <div id="subModeBanner" class="subModeBanner" hidden>
+    <span><b>Substitution mode.</b> Tap the outgoing player, then tap the replacement from the roster. Change defensive positions with the dropdowns.</span>
+    <span class="grow"></span><button class="sml accent" id="subDone" type="button">Done → Score</button>
+  </div>
+  <p class="sub" id="setupIntro">Set teams &amp; lineups. Big taps, no tiny typing marathons. (Tap the score line on the Score tab to come back here.)</p>
   <div class="card">
     <div class="grid2">
       <div><label>Away team</label><input id="awayName" value="Astros" maxlength="24">
@@ -442,7 +453,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.6';
+const APP_VERSION='2026.10.05.7';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -461,6 +472,8 @@ let viewing=null; // {gid,name,score,date} while browsing a past game (read-only
 let liveS=null;    // stashed live game while viewing
 let localSavedAt=0;
 let setupTeam='away'; // lineup view: show one team at a time to keep iPad navigation short
+let substitutionMode=false; // live-game lineup replacement mode
+let pendingSub=null; // {team,slot,old} while an outgoing player is waiting for a replacement
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 let toastTimer=null;
 function toast(msg){const t=$('#toast');if(!t)return;t.textContent=msg;t.classList.add('on');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('on'),2600);}
@@ -520,6 +533,14 @@ function ev(t,x){S.pa.push(typeof x==='string'?{t,text:x}:Object.assign({t},x));
 function innRuns(t){let a=S.runs[t];while(a.length<S.inning)a.push(0);return a;}
 function scoreRun(t){innRuns(t)[S.inning-1]++;}
 
+function syncPitcherFromLineup(team){
+  const T=S[team];if(!T)return;
+  let p=null;
+  if(T.dh&&T.lineup[9]&&T.lineup[9].name)p=T.lineup[9];
+  if(!p)p=(T.lineup||[]).find(x=>x&&x.name&&String(x.pos)==='1')||null;
+  T.pitcher=p?(p.name+(p.num?' #'+p.num:'')):'';
+}
+
 /* ================= setup view ================= */
 function duplicatePositions(team){
   const by={};
@@ -540,50 +561,144 @@ function renderPositionWarning(t){
 function lineupHTML(el,team){
   const tk=team===S.away?'away':'home';
   const dup=new Set(duplicatePositions(team).flatMap(x=>x.idxs));
-  el.innerHTML=team.lineup.map((p,i)=>{
-    const sel=S.selSlot&&S.selSlot.t===tk&&S.selSlot.i===i;
-    const isP=team.dh&&i===9;
-    return `<div class="lu-row${sel?' sel':''}${dup.has(i)?' posdup':''}" data-slot="${tk}" data-i="${i}">
-      <div><label>#</label><input inputmode="numeric" data-t="${tk}" data-i="${i}" data-f="num" value="${p.num||''}" placeholder="${isP?'P':i+1}"></div>
-      <div><label>Pos</label>${isP?'<div style="padding:10px 8px;color:var(--dim)">P</div>':`<select data-t="${tk}" data-i="${i}" data-f="pos">
-        <option value="">–</option>${Object.entries(POS).map(([k,v])=>`<option value="${k}"${String(p.pos)===k?' selected':''}>${v}</option>`).join('')}
-      </select>`}</div>
-      <div><label>${isP?"P · doesn't bat":(i+1)+' · Name'}</label><input data-t="${tk}" data-i="${i}" data-f="name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="${isP?'Pitcher name':'Player name'}"></div>
-    </div>`;}).join('');
+  if(substitutionMode){
+    el.innerHTML=team.lineup.map((p,i)=>{
+      const isP=team.dh&&i===9,selected=pendingSub&&pendingSub.team===tk&&pendingSub.slot===i;
+      const posSelect=isP
+        ?'<div style="padding:10px 8px;color:var(--dim)">P</div>'
+        :`<select data-t="${tk}" data-i="${i}" data-f="pos" aria-label="Defensive position for ${esc(p.name||'open slot')}">
+          <option value="">–</option>${Object.entries(POS).map(([k,v])=>`<option value="${k}"${String(p.pos)===k?' selected':''}>${v}</option>`).join('')}
+        </select>`;
+      return `<div class="lu-row submode${selected?' sel':''}${dup.has(i)?' posdup':''}" data-slot="${tk}" data-i="${i}">
+        <div class="luSlot">${isP?'P':i+1}</div>
+        <div>${posSelect}</div>
+        <button class="subPlayer${p.name?'':' empty'}" type="button" data-subslot="${tk}" data-i="${i}">
+          ${p.name?`${p.num?'#'+esc(p.num)+' ':''}${esc(p.name)}`:(selected?'Open slot · choose replacement':'Open slot')}
+        </button>
+      </div>`;}).join('');
+  }else{
+    el.innerHTML=team.lineup.map((p,i)=>{
+      const sel=S.selSlot&&S.selSlot.t===tk&&S.selSlot.i===i;
+      const isP=team.dh&&i===9;
+      return `<div class="lu-row${sel?' sel':''}${dup.has(i)?' posdup':''}" data-slot="${tk}" data-i="${i}">
+        <div><label>#</label><input inputmode="numeric" data-t="${tk}" data-i="${i}" data-f="num" value="${p.num||''}" placeholder="${isP?'P':i+1}"></div>
+        <div><label>Pos</label>${isP?'<div style="padding:10px 8px;color:var(--dim)">P</div>':`<select data-t="${tk}" data-i="${i}" data-f="pos">
+          <option value="">–</option>${Object.entries(POS).map(([k,v])=>`<option value="${k}"${String(p.pos)===k?' selected':''}>${v}</option>`).join('')}
+        </select>`}</div>
+        <div><label>${isP?"P · doesn't bat":(i+1)+' · Name'}</label><input data-t="${tk}" data-i="${i}" data-f="name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="${isP?'Pitcher name':'Player name'}"></div>
+      </div>`;}).join('');
+  }
   el.querySelectorAll('input,select').forEach(inp=>{
     inp.addEventListener('change',()=>{
-      const t=inp.dataset.t,i=+inp.dataset.i,f=inp.dataset.f;
-      S[t].lineup[i][f]=inp.value;save();
+      const t=inp.dataset.t,i=+inp.dataset.i,f=inp.dataset.f,old=S[t].lineup[i][f]||'';
+      if(inp.value===old)return;
+      if(S.started&&substitutionMode)snap();
+      S[t].lineup[i][f]=inp.value;
+      if(f==='pos'){
+        syncPitcherFromLineup(t);
+        if(S.started&&substitutionMode&&S[t].lineup[i].name){
+          S.subLog.push({inn:S.inning,half:S.half,team:t,slot:i,type:'DEF',
+            old:S[t].lineup[i].name+' '+(POS[old]||old||'—'),
+            new:S[t].lineup[i].name+' '+(POS[inp.value]||inp.value||'—')});
+        }
+      }else if(f==='name'||f==='num')syncPitcherFromLineup(t);
+      save();renderPositionWarning(t);
     });
   });
-  el.querySelectorAll('.lu-row').forEach(row=>{
-    row.addEventListener('click',e=>{
-      if(e.target.closest('input,select,button'))return;
-      const t=row.dataset.slot,i=+row.dataset.i;
-      S.selSlot=(S.selSlot&&S.selSlot.t===t&&S.selSlot.i===i)?null:{t,i};
-      save();renderSetup();
+  if(substitutionMode){
+    el.querySelectorAll('[data-subslot]').forEach(btn=>btn.onclick=()=>{
+      const t=btn.dataset.subslot,i=+btn.dataset.i;
+      beginLineupSub(t,i);
     });
-  });
+  }else{
+    el.querySelectorAll('.lu-row').forEach(row=>{
+      row.addEventListener('click',e=>{
+        if(e.target.closest('input,select,button'))return;
+        const t=row.dataset.slot,i=+row.dataset.i;
+        S.selSlot=(S.selSlot&&S.selSlot.t===t&&S.selSlot.i===i)?null:{t,i};
+        save();renderSetup();
+      });
+    });
+  }
 }
 function renderSetupNav(){
   const filled=t=>S[t].lineup.slice(0,9).filter(p=>p&&p.name).length;
   const a=$('#setupAwayTab'),h=$('#setupHomeTab');
   if(a){a.innerHTML='Away<small>'+esc(S.away.name)+' · '+filled('away')+'/9 set</small>';a.classList.toggle('accent',setupTeam==='away');}
   if(h){h.innerHTML='Home<small>'+esc(S.home.name)+' · '+filled('home')+'/9 set</small>';h.classList.toggle('accent',setupTeam==='home');}
-  const top=$('#playBtnTop'),bot=$('#playBtn'),txt=S.started?'Back to score →':'Start scoring →';
+  const top=$('#playBtnTop'),bot=$('#playBtn'),txt=substitutionMode?'Done → Score':(S.started?'Back to score →':'Start scoring →');
   if(top)top.textContent=txt;if(bot)bot.textContent=txt;
+  const banner=$('#subModeBanner'),intro=$('#setupIntro');
+  if(banner)banner.hidden=!substitutionMode;
+  if(intro)intro.hidden=!!substitutionMode;
+  const ac=$('#awayClearLU'),hc=$('#homeClearLU');
+  if(ac)ac.hidden=!!substitutionMode;if(hc)hc.hidden=!!substitutionMode;
 }
 function applySetupTeam(){
   ['away','home'].forEach(t=>{const p=$('#'+t+'Panel');if(p)p.hidden=t!==setupTeam;});
   renderSetupNav();
 }
 function showSetupTeam(team,jump){
+  if(substitutionMode&&pendingSub&&team!==pendingSub.team){toast('Finish or cancel this substitution first.');return;}
   setupTeam=team==='home'?'home':'away';
   applySetupTeam();
   if(jump){
     const id='#'+setupTeam+(jump==='lineup'?'LineupArea':'RosterArea'),target=$(id);
     if(target&&target.scrollIntoView)target.scrollIntoView({behavior:'smooth',block:'start'});
   }
+}
+function beginLineupSub(team,slot){
+  if(!substitutionMode)return;
+  if(pendingSub){
+    if(pendingSub.team===team&&pendingSub.slot===slot)return;
+    toast('Choose a replacement or cancel the current substitution first.');return;
+  }
+  const T=S[team],old=T.lineup[slot];
+  if(!old||!old.name){S.selSlot={t:team,i:slot};renderSetup();showSetupTeam(team,'roster');return;}
+  snap();
+  pendingSub={team,slot,old:JSON.parse(JSON.stringify(old))};
+  poolAdd(T,old);
+  T.lineup[slot]=(slot===9&&T.dh)?{name:'',num:'',pos:'1',nb:true}:{name:'',num:'',pos:old.pos||''};
+  S.selSlot={t:team,i:slot};
+  syncPitcherFromLineup(team);
+  save();renderSetup();showSetupTeam(team,'roster');
+}
+function cancelPendingSub(){
+  if(!pendingSub)return;
+  const {team,slot,old}=pendingSub,T=S[team];
+  T.lineup[slot]=old;
+  poolRemove(T,old.name);
+  pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
+  // beginLineupSub created exactly one snapshot for this unfinished substitution.
+  if(undoStack.length){undoStack.pop();undoMeta.pop();persistUndo();}
+  save();renderSetup();showSetupTeam(team,'lineup');
+}
+function completeLineupSub(team,slot,p){
+  const T=S[team],ctx=pendingSub&&pendingSub.team===team&&pendingSub.slot===slot?pendingSub:null;
+  const old=ctx?ctx.old:T.lineup[slot];
+  const hist=old&&old.hist?old.hist.slice():(old&&old.name?[{name:old.name,num:old.num||''}]:[]);
+  if(hist.length)hist.push({name:p.name,num:p.num||''});
+  T.lineup[slot]={name:p.name,num:p.num||'',pos:p.pos||((old&&old.pos)||''),...(hist.length?{hist}:{}),...(slot===9&&T.dh?{nb:true}: {})};
+  poolRemove(T,p.name);
+  if(ctx){
+    const oldName=old.name||('Slot '+(slot+1));
+    const type=String(T.lineup[slot].pos)==='1'?'P':'SUB';
+    const msg=(type==='P'?'Pitching change: ':'Substitution: ')+p.name+(p.num?' #'+p.num:'')+' for '+oldName;
+    if(S.pa.length)ev('o',msg);
+    S.subLog.push({inn:S.inning,half:S.half,team,slot,type,old:oldName,new:p.name});
+  }
+  pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
+  save();renderSetup();showSetupTeam(team,'lineup');
+}
+function openSubstitutionLineup(){
+  if(viewing)return;
+  substitutionMode=true;pendingSub=null;S.selSlot=null;
+  setupTeam=S.bat==='away'?'home':'away'; // defense first; team tabs remain available for offensive subs
+  renderSetup();showView('setup');showSetupTeam(setupTeam,'lineup');
+}
+function finishSubstitutionMode(){
+  if(pendingSub){toast('Choose a replacement or cancel the open substitution first.');return false;}
+  substitutionMode=false;S.selSlot=null;renderSetup();renderAll();showView('score');return true;
 }
 function renderSetup(){
   $('#awayName').value=S.away.name; $('#homeName').value=S.home.name;
@@ -663,6 +778,10 @@ function renderPool(team){
 function tapPoolPlayer(team,pi){
   const T=S[team],p=T.pool[pi];if(!p)return;
   if(T.lineup.some(s=>s.name===p.name)){poolMsg(team,p.name+' is already in the lineup.');return;}
+  if(substitutionMode){
+    if(!S.selSlot||S.selSlot.t!==team){poolMsg(team,'Tap the outgoing lineup player first.');return;}
+    completeLineupSub(team,S.selSlot.i,p);poolMsg(team,'');return;
+  }
   let i=-1;
   if(S.selSlot&&S.selSlot.t===team)i=S.selSlot.i;
   else if(T.dh&&p.pos==='1')i=9;
@@ -672,17 +791,24 @@ function tapPoolPlayer(team,pi){
   T.lineup[i]={name:p.name,num:p.num||'',pos:p.pos||T.lineup[i].pos||''};
   poolRemove(T,p.name);
   poolAdd(T,old);
+  syncPitcherFromLineup(team);
   S.selSlot=null;poolMsg(team,'');save();renderSetup();
 }
 function renderSlotBar(team){
   const el=$('#'+team+'SlotBar');if(!el)return;
-  const s=S.selSlot;
-  if(!s||s.t!==team){el.innerHTML='';return;}
-  const p=S[team].lineup[s.i];
-  el.innerHTML=`<div class="slotbar">Slot ${s.i+1}${p.name?': '+p.name:''} selected — tap a player above to fill it.
+  if(substitutionMode&&pendingSub&&pendingSub.team===team){
+    const s=pendingSub,p=s.old;
+    el.innerHTML=`<div class="slotbar">Slot ${s.slot+1} open · ${esc(p.name)} removed. Tap a roster player to replace them.
+      <button class="sml ghost" id="${team}CancelSub">Cancel substitution</button></div>`;
+    $('#'+team+'CancelSub').onclick=cancelPendingSub;return;
+  }
+  const sel=S.selSlot;
+  if(!sel||sel.t!==team){el.innerHTML='';return;}
+  const p=S[team].lineup[sel.i];
+  el.innerHTML=`<div class="slotbar">Slot ${sel.i+1}${p.name?': '+p.name:''} selected — tap a player above to fill it.
     ${p.name?`<button class="sml" id="${team}Clear">Clear</button>`:''}
     <button class="sml ghost" id="${team}Desel">Done</button></div>`;
-  const c=$('#'+team+'Clear');if(c)c.onclick=()=>clearSlot(team,s.i);
+  const c=$('#'+team+'Clear');if(c)c.onclick=()=>clearSlot(team,sel.i);
   $('#'+team+'Desel').onclick=()=>{S.selSlot=null;save();renderSetup();};
 }
 function clearLineup(team){
@@ -1833,17 +1959,18 @@ function init(){
   $('#setupAwayTab').onclick=()=>showSetupTeam('away');
   $('#setupHomeTab').onclick=()=>showSetupTeam('home');
   document.querySelectorAll('[data-setupjump]').forEach(b=>b.onclick=()=>showSetupTeam(setupTeam,b.dataset.setupjump));
-  const startScoring=()=>{S.started=true;save();renderAll();showView('score');};
+  const startScoring=()=>{if(substitutionMode){finishSubstitutionMode();return;}S.started=true;save();renderAll();showView('score');};
   $('#demoBtn').onclick=demoLineups;
   $('#playBtn').onclick=startScoring;
   $('#playBtnTop').onclick=startScoring;
+  $('#subDone').onclick=finishSubstitutionMode;
   $('#newGameBtn').onclick=()=>{if(viewing)return;if(confirm('End this game and start over? It will be kept under Games.'))endGame();};
   document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
   $('#stealBtn').onclick=actSteal;$('#diBtn').onclick=actDI;$('#pickBtn').onclick=actPick;
   $('#wppbBtn').onclick=actWPPB;$('#balkBtn').onclick=actBalk;
   $('#undoBtn').onclick=undo;
-  $('#subBtn').onclick=subModal;
-  $('#tab-score').onclick=()=>showView('score');$('#tab-book').onclick=()=>showView('book');$('#tab-games').onclick=()=>{renderGames();showView('games');};
+  $('#subBtn').onclick=openSubstitutionLineup;
+  $('#tab-score').onclick=()=>{if(substitutionMode){finishSubstitutionMode();return;}showView('score');};$('#tab-book').onclick=()=>showView('book');$('#tab-games').onclick=()=>{renderGames();showView('games');};
   const goSetup=()=>{if(viewing){toast('Viewing a past game — read only');return;}setupTeam=S.bat;renderSetup();showView('setup');};
   $('#scorehead').onclick=goSetup;
   $('#scorehead').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();goSetup();}});
