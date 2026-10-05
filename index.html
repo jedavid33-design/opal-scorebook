@@ -64,10 +64,10 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .lu-row{display:grid; grid-template-columns:52px 56px 1fr; gap:6px; margin-bottom:6px; align-items:end;
   border:1px solid transparent; border-radius:12px; padding:4px;}
 .lu-row.sel{border-color:var(--plum); box-shadow:0 0 0 1px var(--plum); background:rgba(201,160,232,.07);}
-.pool{display:flex; flex-wrap:wrap; gap:6px; margin:6px 0;}
-.chip{background:rgba(255,255,255,.07); border:1px solid var(--line); color:var(--ink);
-  border-radius:999px; padding:9px 13px; font-size:14px; font-family:inherit;}
-.chip small{opacity:.6;}
+.pool{display:grid; grid-template-columns:1fr; gap:6px; margin:6px 0;}
+.chip{display:block; width:100%; min-height:46px; background:rgba(255,255,255,.07); border:1px solid var(--line); color:var(--ink);
+  border-radius:12px; padding:10px 13px; font-size:14px; font-family:inherit; text-align:left;}
+.chip small{float:right; opacity:.6;}
 .chip:active{background:rgba(201,160,232,.25);}
 .slotbar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:rgba(201,160,232,.1);
   border:1px solid var(--plum); border-radius:10px; padding:8px 10px; margin:6px 0; font-size:14px;}
