@@ -366,3 +366,11 @@ replacing the "visco" app she currently uses.
   v2026.10.05.2. Full regression harness: 164 passed, 0 failed. App commits
   97ad4d1 + b5df501; regression commit 8745d73. Worker unchanged; no Worker
   deployment required.
+
+
+- 2026-10-05: Intentional Walk now replaces Pitchout in the scoring controls.
+  IBB is a one-tap terminal PA result, uses the normal forced-runner movement,
+  records result code IBB, and adds no pitch events. The old pitchout handling
+  remains readable internally for compatibility with existing game data, but
+  there is no Pitchout scoring button. App version v2026.10.05.3. Full harness:
+  168 passed, 0 failed. App commit 22aef62; regression commit 9375f5a.
