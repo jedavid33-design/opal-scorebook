@@ -1,6 +1,6 @@
 # Opal Scorebook — PROJECT_STATE.md
 
-Authoritative project state. Updated 2026-09-30.
+Authoritative project state. Updated 2026-10-04.
 
 ## What it is
 Mobile-first tap-flow baseball scorebook web app (vanilla HTML/CSS/JS, GitHub Pages,
@@ -325,3 +325,21 @@ replacing the "visco" app she currently uses.
   reports ver 2026-10-01-rev1, verified live). Git: local checkout had no
   .git — recovered via init/fetch/reset to origin/main (e581da1), committed,
   pushed; Pages auto-deploys.
+
+
+- 2026-10-04: Rowan audit/fix pass. Fixed standalone runner-action base
+  collisions so Steal / Defensive Indifference / Wild Pitch / Passed Ball can
+  no longer silently overwrite a runner already occupying the destination;
+  coordinated multi-runner advances remain legal. Normalized undo transaction
+  boundaries: opening In Play no longer burns a snapshot, and HBP / ball four
+  plus their runner-placement commit now consume one undo step rather than two;
+  redundant pre-choice snapshots were removed from steal, DI, pickoff, and
+  WP/PB flows. Fixed batting-around display in the classic Book: an inning cell
+  now stacks every PA for that batting-order slot instead of showing only the
+  first. Reworked Lineup navigation for iPad/phone: sticky Away/Home team
+  switcher, per-team 9-slot completion count, one team panel visible at a time,
+  quick Roster/Lineup jumps, and Start/Back-to-score control in the sticky bar;
+  tapping the score header opens the currently batting team's lineup. Added
+  regression coverage for all four areas. Full harness: 147 passed, 0 failed.
+  Commits 32b36d6 (app) + 0b1135c (regressions). Worker unchanged; no Worker
+  deployment required.
