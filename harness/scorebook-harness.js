@@ -433,7 +433,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.2','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.3','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -466,6 +466,23 @@ async function main() {
     'V4: split-view scoring uses compact 4/3-column pitch controls');
   ok(html.indexOf('.count{font-size:30px; font-weight:800; letter-spacing:2px; flex:0 0 auto; white-space:nowrap;}')>=0,
     'V4: count is protected from squeezing');
+
+  /* ===== intentional walk button ===== */
+  ok(html.indexOf('data-p="ibb">Intentional Walk</button>')>=0 &&
+     html.indexOf('data-p="pitchout">Pitchout</button>')<0,
+    'V5: Intentional Walk replaces Pitchout in the scoring controls');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:1};
+  const beforeIbbPitches=sb.S.pa.filter(e=>e.t==='p').length;
+  sb.doPitch('ibb');
+  el('#plDone').onclick();
+  const ibb=sb.S.pas[sb.S.pas.length-1];
+  eq(ibb.result,'IBB','V5: intentional walk records IBB result');
+  eq(ibb.events.filter(e=>e.t==='p').length,beforeIbbPitches,
+    'V5: intentional walk adds no pitches');
+  ok(sb.S.bases[0] && sb.S.bases[1],
+    'V5: intentional walk uses normal forced-runner movement');
 
   /* ===== 2026-10-04: runner safety + undo boundaries + batting-around + lineup nav ===== */
   newGame();
