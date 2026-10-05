@@ -526,6 +526,7 @@ async function main() {
   ok(sb.S.home.pitcher.indexOf('Rival9')>=0,
     'S1: current pitcher is derived from the lineup position marked P');
   sb.S.home.pool=[{name:'New Arm',num:'55',pos:'1'}];
+  sb.openSubstitutionLineup();
   sb.beginLineupSub('home',8);
   ok(sb.pendingSub && sb.pendingSub.team==='home' && sb.pendingSub.slot===8 &&
      sb.S.home.lineup[8].name==='',
@@ -558,6 +559,14 @@ async function main() {
     'S2: DH pitcher is not inserted into the batting order');
   ok(sb.S.home.pitcher.indexOf('DH New Arm')>=0,
     'S2: current pitcher syncs from dedicated DH pitcher slot');
+
+  newGame();
+  sb.S.home.lineup[8].pos='9';
+  sb.S.home.lineup[0].pos='1';
+  sb.syncPitcherFromLineup('home');
+  ok(sb.S.home.pitcher.indexOf('Rival1')>=0 &&
+     sb.fielderName('home','1')==='Rival1',
+    'S3: changing defensive position to P updates current pitcher and fielding lookup');
 
   newGame();
   sb.openSubstitutionLineup();
