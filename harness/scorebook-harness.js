@@ -433,7 +433,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.5','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.05.6','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -462,10 +462,10 @@ async function main() {
 
   ok(html.indexOf('.pitchstack{')>=0 &&
      html.indexOf('"inplay inplay inplay inplay inplay inplay"')>=0 &&
-     html.indexOf('"called called called swing swing swing"')>=0 &&
-     html.indexOf('"ball ball foul foul foultip foultip"')>=0 &&
+     html.indexOf('"called called swing swing foultip foultip"')>=0 &&
+     html.indexOf('"ball ball ball foul foul foul"')>=0 &&
      html.indexOf('"ibb ibb ibb hbp hbp hbp"')>=0,
-    'V4: pitch controls follow In Play / K / ball-foul-tip / IBB-HBP rows');
+    'V4: pitch controls follow In Play / strike+foul-tip / ball+foul / IBB-HBP rows');
   ok(html.indexOf('.count{font-size:30px; font-weight:800; letter-spacing:2px; flex:0 0 auto; white-space:nowrap;}')>=0,
     'V4: count is protected from squeezing');
 
