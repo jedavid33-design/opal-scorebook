@@ -2452,14 +2452,32 @@ function bindPitchGestures(){
     });
   });
 }
-function renderAll(){renderScore();renderBook();}
+function applyScoreProportionalScale(){
+  const v=$('#v-score'),stage=$('#scoreScaleStage'),canvas=$('#scoreScaleCanvas');
+  if(!v||!stage||!canvas)return;
+  v.classList.remove('score-proportional');
+  canvas.style.transform='';stage.style.height='';
+  const w=window&&window.innerWidth?window.innerWidth:0;
+  if(!w)return;
+  const base=620,minScale=.86,usable=Math.max(0,w-20);
+  const scale=Math.min(1,usable/base);
+  if(scale<1&&scale>=minScale){
+    v.classList.add('score-proportional');
+    canvas.style.transform='scale('+scale+')';
+    stage.style.height=(canvas.scrollHeight*scale)+'px';
+  }
+}
+function renderAll(){renderScore();renderBook();applyScoreProportionalScale();}
 function showView(v){['setup','score','book','games'].forEach(x=>{
   $('#v-'+x).classList.toggle('on',x===v);
-  const t=$('#tab-'+x);if(t)t.classList.toggle('on',x===v);});}
+  const t=$('#tab-'+x);if(t)t.classList.toggle('on',x===v);});
+  if(v==='score'&&window&&window.requestAnimationFrame)window.requestAnimationFrame(applyScoreProportionalScale);
+}
 function init(){
   load();if(!S)S=blank();ensureShape();
   const av=$('#appVersion');if(av)av.textContent='v'+APP_VERSION;
   initPullToRefresh();
+  if(window&&window.addEventListener)window.addEventListener('resize',applyScoreProportionalScale);
   $('#awayName').addEventListener('change',e=>{S.away.name=e.target.value||'Away';save();renderSetupNav();});
   $('#homeName').addEventListener('change',e=>{S.home.name=e.target.value||'Home';save();renderSetupNav();});
   document.querySelectorAll('.mlbSel').forEach(sel=>{
