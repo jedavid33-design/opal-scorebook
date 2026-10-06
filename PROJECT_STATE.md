@@ -532,3 +532,17 @@ replacing the "visco" app she currently uses.
   291 passed, 0 failed. App commits acda34c, a440d8e, eb872e9, a0cb04a,
   4004fbb, 8c29731, c76914f; regression commits eb97f05, 24e47ef.
   Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Terminal ABS review now covers both ball four and called strike
+  three. Ball-four placement exposes Challenge last pitch directly; upheld or
+  canceled challenges return to the same placement sheet. Called strike three
+  now pauses on a Strikeout review sheet with Challenge last pitch and Done.
+  The half-inning is intentionally held open until that review is resolved, so
+  even a third-out called strike can be overturned safely. An overturned
+  strike three restores the live PA, prior out count, batting-order position,
+  and corrected count. An upheld challenge returns to the review with the
+  challenge marked resolved; Done then finalizes the half-inning if needed.
+  App version v2026.10.06.8. Full regression harness: 311 passed, 0 failed.
+  App commits a8553c7, 41278e8, ffec847; regression commits 20e6bdc, 4f10acf.
+  Worker unchanged; no Worker deployment required.
