@@ -511,3 +511,24 @@ replacing the "visco" app she currently uses.
   next time that team bats. App version v2026.10.06.5. Full regression harness:
   276 passed, 0 failed. App commit 2fb4778; regression commit 832ee0d.
   Worker unchanged.
+
+
+- 2026-10-06: Game Complete flow added with W/L/SV decisions and finished-game
+  official scoring edits. The Scorebook now has a Game Complete button that
+  requires a winning pitcher and losing pitcher and accepts an optional save
+  pitcher. Pitcher suggestions are reconstructed from the current pitcher,
+  pitching substitutions, and pitcher-slot history, while names can always be
+  typed manually. Completing a game stores decisions in the archived game,
+  displays them in the Scorebook/Past Games, marks the state completed, pushes
+  the finished state through the existing sync path, and starts a fresh game.
+  Past games now have Edit official scoring mode. Finished plays can receive
+  non-destructive official ruling changes among hit/error/FC plus notation,
+  fielder, and missed-pitch corrections; runner locations, runs, and outs stay
+  fixed. Past edits persist to the local archive and sync on Done editing,
+  without overwriting the current live-game save. The old E-result display bug
+  was also fixed so E5/E6/etc. are no longer classified visually as outs.
+  Retroactive substitution insertion is not yet part of this finished-game
+  correction mode. App version v2026.10.06.6. Full regression harness:
+  291 passed, 0 failed. App commits acda34c, a440d8e, eb872e9, a0cb04a,
+  4004fbb, 8c29731, c76914f; regression commits eb97f05, 24e47ef.
+  Worker unchanged; no Worker deployment required.
