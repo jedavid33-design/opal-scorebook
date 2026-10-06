@@ -483,3 +483,11 @@ replacing the "visco" app she currently uses.
   notation. Both remain editable later and classify correctly as outs. App
   version v2026.10.06.2. Full regression harness: 254 passed, 0 failed.
   App commit ea9a0a5; regression commit de9dbce. Worker unchanged.
+
+
+- 2026-10-06: In Play Out menu reordered to Groundout / Lineout / Fly out /
+  Pop fly / Bunt / Foul out / Double Play. The Bunt control remains a single
+  clean button with its Ground Out / Pop Out choices hidden behind the existing
+  hold-and-slide interaction. Scoring logic is unchanged. App version
+  v2026.10.06.3. Full regression harness: 255 passed, 0 failed. App commit
+  902da3d; regression commit 5012404. Worker unchanged.
