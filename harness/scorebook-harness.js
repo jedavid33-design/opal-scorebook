@@ -211,6 +211,10 @@ async function main() {
     'PATH1: batter taking second after a single still needs an advancement reason');
   ok(!sb.needsAdvanceReason({who:'R',from:1,defaultTo:1,to:2,out:null,adv:null,err:null},'FC'),
     'PATH1: surviving runner advancing on a fielder\'s choice does not need an advancement reason');
+  ok(!sb.needsAdvanceReason({who:'R',from:1,defaultTo:1,to:2,out:null,adv:null,err:null},'SAC'),
+    'PATH1: runner advancing on a sacrifice bunt does not need an advancement reason');
+  ok(!sb.needsAdvanceReason({who:'R',from:3,defaultTo:3,to:4,out:null,adv:null,err:null},'SF'),
+    'PATH1: runner advancing on a sacrifice fly does not need an advancement reason');
   ok(sb.needsAdvanceReason({who:'BR',from:0,award:1,defaultTo:1,to:2,out:null,adv:null,err:null},'FC'),
     'PATH1: batter taking second after a fielder\'s choice still needs an advancement reason');
   const fcRunnerMove={who:'R',label:'Runner',from:1,defaultTo:1,to:2,out:null,adv:null,err:null,r:{t:'away',i:0,rid:'r-fc-extra'}};
@@ -219,6 +223,10 @@ async function main() {
     'PATH1: ordinary surviving-runner advancement on a fielder\'s choice is stored as caused by the FC');
   ok(sb.advanceReasonChoices('SF').tag && !sb.advanceReasonChoices('SF').sb,
     'PATH1: sacrifice fly offers tagged up but not stolen base');
+  const autoSfMove={who:'R',label:'Runner',from:3,defaultTo:3,to:4,out:null,adv:'tag',err:null,r:{t:'away',i:0,rid:'r-sf-auto'}};
+  const autoSfEvt=sb.moveRunnerEvents(autoSfMove,'SF')[0][1];
+  eq(autoSfEvt.advance.reason,'tag',
+    'PATH1: sacrifice-fly advancement can be stored automatically as tagged up');
   ok(sb.advanceReasonChoices('F8').tag && !sb.advanceReasonChoices('F8').sb,
     'PATH1: ordinary flyout offers tagged up but not stolen base');
   ok(sb.advanceReasonChoices('L6').tag && sb.advanceReasonChoices('P5').tag &&
@@ -625,7 +633,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.32','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.33','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
