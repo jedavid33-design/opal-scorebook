@@ -465,3 +465,11 @@ replacing the "visco" app she currently uses.
   remains intact. App version v2026.10.05.14. Full regression harness:
   240 passed, 0 failed. App commits c3d8d03 + 8cbd0d7; regression commits
   a9b1fbd + 5466823. Worker unchanged.
+
+
+- 2026-10-06: Hit-type menus reordered to Ground / Line / Fly / Pop Up / Bunt.
+  The shared hit-detail picker now uses that order everywhere it appears
+  (single/double/triple detail and hit-notation editing), and Pop Up is now
+  available as a hit type. Scoring logic is unchanged. App version
+  v2026.10.06.1. Full regression harness: 242 passed, 0 failed. App commit
+  da6321d; regression commit f16a4df. Worker unchanged.
