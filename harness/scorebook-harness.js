@@ -84,7 +84,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
-  `paAt,pasAt,clsOf,isSacrificeDoublePlay,paResultDisplay,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
+  `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
   `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
@@ -244,10 +244,14 @@ async function main() {
   ]};
   ok(sb.isSacrificeDoublePlay(sacDpPa),
     'PATH1: sac fly with a runner out on the same play is recognized as a sacrifice double play');
-  eq(sb.paResultDisplay(sacDpPa),'SF-DP',
-    'PATH1: scorebook notation labels sacrifice double play as SF-DP');
-  eq(sb.paResultDisplay(sacDpPa,true),'Sacrifice double play',
-    'PATH1: long-form display names the sacrifice double play');
+  eq(sb.sacrificeDoublePlayFielding(sacDpPa).catcher,'8',
+    'PATH1: sacrifice double play preserves the sacrifice catch fielder');
+  eq(sb.sacrificeDoublePlayFielding(sacDpPa).runnerOut,'8-4-3',
+    'PATH1: sacrifice double play preserves the separate runner-out fielding sequence');
+  eq(sb.paResultDisplay(sacDpPa),'SF8-DP 8-4-3',
+    'PATH1: scorebook notation shows both SF8 and 8-4-3 DP');
+  eq(sb.paResultDisplay(sacDpPa,true),'Sacrifice double play · SF8 · 8-4-3 DP',
+    'PATH1: long-form display shows both sacrifice and runner-out fielding');
   eq(sacDpPa.result,'SF',
     'PATH1: sacrifice double play display does not overwrite the batter\'s underlying SF result');
   const plainSf={result:'SF',events:[{t:'o',text:'Sac fly F8'},{t:'o',text:'Batter out F8'}]};
@@ -621,7 +625,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.28','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.29','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
