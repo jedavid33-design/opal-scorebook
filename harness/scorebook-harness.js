@@ -625,7 +625,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.30','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.31','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -819,6 +819,20 @@ async function main() {
     'V4b: bunt ground-out notation can be repaired later');
   eq(sb.applyNotationFix('BPOP',null,'2').result,'BPO2',
     'V4b: bunt pop-out notation can be repaired later');
+  const bfpop=sb.buntOutNotation('BFPOP','2');
+  eq(bfpop.code,'BPOF2','V4b: foul bunt pop out keeps a distinct combined result code');
+  eq(bfpop.text,'Bunt pop out in foul territory P2','V4b: foul bunt pop out keeps combined play text');
+  eq(sb.clsOf('BPOF2'),'out','V4b: foul bunt pop out classifies as an out');
+  eq(sb.paKind('BPOF2'),'BFPOP','V4b: edit flow preserves foul bunt pop-out identity');
+  eq(sb.applyNotationFix('BFPOP',null,'2').result,'BPOF2',
+    'V4b: foul bunt pop-out notation can be repaired without losing foul status');
+  ok(sb.advanceReasonChoices('BPOF2').tag,
+    'V4b: runners advancing after a caught foul bunt pop can be marked tagged up');
+  newGame();
+  sb.scoreBuntOut('BPOP');
+  ok(el('#sheet').innerHTML.indexOf('id="bpopFair"')>=0 &&
+     el('#sheet').innerHTML.indexOf('id="bpopFoul"')>=0,
+    'V4b: bunt pop-out flow asks Fair or Foul before choosing the fielder');
 
   /* ===== foul-out slide selector ===== */
   newGame();
