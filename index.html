@@ -487,7 +487,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.8';
+const APP_VERSION='2026.10.06.9';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -848,6 +848,15 @@ function demoLineups(){
 
 /* ================= MLB roster pool ================= */
 const MLB_TEAMS=[[108,'Angels'],[109,'D-backs'],[110,'Orioles'],[111,'Red Sox'],[112,'Cubs'],[113,'Reds'],[114,'Guardians'],[115,'Rockies'],[116,'Tigers'],[117,'Astros'],[118,'Royals'],[119,'Dodgers'],[120,'Nationals'],[121,'Mets'],[133,'Athletics'],[134,'Pirates'],[135,'Padres'],[136,'Mariners'],[137,'Giants'],[138,'Cardinals'],[139,'Rays'],[140,'Rangers'],[141,'Blue Jays'],[142,'Twins'],[143,'Phillies'],[144,'Braves'],[145,'White Sox'],[146,'Marlins'],[147,'Yankees'],[158,'Brewers']];
+const MLB_BROADCAST_ABBR={108:'LAA',109:'ARI',110:'BAL',111:'BOS',112:'CHC',113:'CIN',114:'CLE',115:'COL',116:'DET',117:'HOU',118:'KC',119:'LAD',120:'WSH',121:'NYM',133:'ATH',134:'PIT',135:'SD',136:'SEA',137:'SF',138:'STL',139:'TB',140:'TEX',141:'TOR',142:'MIN',143:'PHI',144:'ATL',145:'CWS',146:'MIA',147:'NYY',158:'MIL'};
+const MLB_NAME_ABBR={'Angels':'LAA','D-backs':'ARI','Diamondbacks':'ARI','Orioles':'BAL','Red Sox':'BOS','Cubs':'CHC','Reds':'CIN','Guardians':'CLE','Rockies':'COL','Tigers':'DET','Astros':'HOU','Royals':'KC','Dodgers':'LAD','Nationals':'WSH','Mets':'NYM','Athletics':'ATH','Pirates':'PIT','Padres':'SD','Mariners':'SEA','Giants':'SF','Cardinals':'STL','Rays':'TB','Rangers':'TEX','Blue Jays':'TOR','Twins':'MIN','Phillies':'PHI','Braves':'ATL','White Sox':'CWS','Marlins':'MIA','Yankees':'NYY','Brewers':'MIL'};
+function scoreTeamAbbr(T,fallback){
+  const id=T&&T.poolMeta&&T.poolMeta.mlbId;
+  if(id&&MLB_BROADCAST_ABBR[id])return MLB_BROADCAST_ABBR[id];
+  const n=(T&&T.name)||'';
+  if(MLB_NAME_ABBR[n])return MLB_NAME_ABBR[n];
+  return n.toUpperCase().slice(0,4)||(fallback||'');
+}
 const MLB_POS={'P':'1','C':'2','1B':'3','2B':'4','3B':'5','SS':'6','LF':'7','CF':'8','RF':'9','DH':'10'};
 function rosterSortLastName(name){
   const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
@@ -970,8 +979,8 @@ function setDH(team,on){
 /* ================= score view ================= */
 function renderScore(){
   const a=S.away,h=S.home;
-  $('#hAway').textContent=a.name.toUpperCase().slice(0,4)||'AWY';
-  $('#hHome').textContent=h.name.toUpperCase().slice(0,4)||'HME';
+  $('#hAway').textContent=scoreTeamAbbr(a,'AWY');
+  $('#hHome').textContent=scoreTeamAbbr(h,'HME');
   $('#sAway').textContent=innRuns('away').reduce((x,y)=>x+y,0);
   $('#sHome').textContent=innRuns('home').reduce((x,y)=>x+y,0);
   $('#hInn').innerHTML=(S.half===0?'▲ ':'▼ ')+S.inning+' <span class="luhint">✎</span>';
