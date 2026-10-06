@@ -199,6 +199,26 @@ async function main() {
   eq(sb.S.chal.away, 2, 'overturned challenge is kept');
 
   newGame();
+  sb.S.chal={away:2,home:2};sb.S.bat='away';
+  sb.S.pa=[{t:'p',text:'Ball'}];
+  eq(sb.challengeTeamFor(sb.lastPitch()),'home','challenge UI: defense is inferred for a called ball');
+  sb.challengeSheet();
+  ok(el('#sheet').innerHTML.indexOf('Who challenged?')<0 &&
+     el('#sheet').innerHTML.indexOf('data-ct=')<0,
+    'challenge UI: challenger picker is removed');
+  el('#chUp').onclick();
+  eq(sb.S.chal.home,1,'challenge UI: upheld ball challenge charges the defense automatically');
+  eq(sb.S.chal.away,2,'challenge UI: ball challenge does not charge the offense');
+
+  newGame();
+  sb.S.chal={away:2,home:2};sb.S.bat='away';
+  sb.S.pa=[{t:'p',text:'Called strike'}];
+  eq(sb.challengeTeamFor(sb.lastPitch()),'away','challenge UI: offense is inferred for a called strike');
+  sb.challengeSheet();
+  el('#chUp').onclick();
+  eq(sb.S.chal.away,1,'challenge UI: upheld strike challenge charges the offense automatically');
+  eq(sb.S.chal.home,2,'challenge UI: strike challenge does not charge the defense');
+  newGame();
   sb.S.chal = { away: 0, home: 0 }; sb.S.bat = 'home'; sb.S.half = 1; sb.S.inning = 9; sb.S.outs = 3;
   sb.endHalfCheck();
   eq(sb.S.inning, 10, 'half-inning rolls to the 10th');
@@ -490,7 +510,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.9','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.10','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
