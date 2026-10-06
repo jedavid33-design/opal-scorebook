@@ -821,3 +821,11 @@ replacing the "visco" app she currently uses.
   half until Done is tapped. Foul-tip strikeouts and held WP/PB third-strike
   flows retain their existing behavior. App version v2026.10.06.34. Worker
   unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Game Complete pitching decisions now have explicit tap pickers
+  for Winning pitcher, Losing pitcher, and Save. Each field keeps manual text
+  entry but adds a Pick button that opens the pitchers reconstructed for the
+  appropriate team from the scored game. The save picker uses the winning
+  team's pitchers and includes an explicit No save option. App version
+  v2026.10.06.35. Worker unchanged; no Worker deployment required.
