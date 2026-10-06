@@ -192,11 +192,24 @@ button.pitchchip{font-family:inherit;cursor:pointer;}
 table.book{border-collapse:collapse; width:100%; font-size:12px;}
 table.book th, table.book td{border:1px solid rgba(255,255,255,.14); padding:2px; text-align:center;}
 table.book th{background:rgba(255,255,255,.06); font-size:11px;}
-.dcell{width:44px; height:44px; margin:2px auto; position:relative;}
-.dcell .d{position:absolute; inset:6px; transform:rotate(45deg); border:1.5px solid rgba(255,255,255,.4); border-radius:4px; background:rgba(255,255,255,.04);}
-.dcell.hit .d{background:rgba(127,224,178,.25); border-color:var(--good);}
-.dcell.out .d{background:rgba(255,157,157,.18); border-color:var(--out);}
-.dcell span{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:11px;}
+.dcell{width:60px; height:62px; margin:2px auto; position:relative;}
+.bookDia{position:absolute;left:4px;top:2px;width:52px;height:52px;overflow:visible;}
+.bookDia .bdOutline{fill:rgba(255,255,255,.025);stroke:rgba(255,255,255,.38);stroke-width:1.4;}
+.dcell.hit .bookDia .bdOutline{stroke:var(--good);}
+.dcell.out .bookDia .bdOutline{stroke:var(--out);}
+.bookDia .bdScoreFill{fill:rgba(127,224,178,.12);stroke:none;}
+.bookDia .bdRoute{stroke:var(--plum);stroke-width:3.2;stroke-linecap:round;fill:none;}
+.bookDia .bdEnd{fill:var(--plum);stroke:#fff;stroke-width:1;}
+.bookDia .bdStrand{fill:#171020;stroke:var(--plum);stroke-width:2;}
+.bookDia .bdOut{stroke:var(--out);stroke-width:2.4;stroke-linecap:round;}
+.dcell .resultCode{position:absolute;left:7px;right:7px;top:20px;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:10px;line-height:1;text-align:center;pointer-events:none;text-shadow:0 1px 2px #120a1f;}
+.dcell .journeyStatus{position:absolute;right:1px;bottom:0;font-size:7.5px;font-weight:900;line-height:1;
+  padding:2px 3px;border-radius:5px;background:rgba(18,10,31,.84);color:var(--dim);letter-spacing:.2px;pointer-events:none;}
+.dcell .journeyStatus.run{color:var(--good);}
+.dcell .journeyStatus.out{color:var(--out);}
+.dcell .journeyStatus.lob{color:var(--plum);}
+.dcell .journeyStatus.base{color:#fff;}
 .paStack{display:flex;flex-direction:column;align-items:center;gap:2px;padding:1px 0;}
 .plname{text-align:left !important; font-size:11px; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .ls{font-size:14px; margin-top:10px;}
@@ -265,7 +278,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   /* iPad narrow windows (Slide Over / Split View): book + linescore scroll
      sideways with a sticky name column instead of crushing the diamonds. */
   #linescore{overflow-x:auto; -webkit-overflow-scrolling:touch;}
-  table.book{min-width:560px;}
+  table.book{min-width:680px;}
   table.book th:first-child, table.book td:first-child{
     position:sticky; left:0; z-index:2; background:#1a1328;
     box-shadow:1px 0 0 rgba(255,255,255,.13);
@@ -302,10 +315,11 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 }
 /* Very narrow (Slide Over): slightly smaller diamonds, less sideways scroll. */
 @media (max-width:400px){
-  .dcell{width:36px; height:36px;}
-  .dcell .d{inset:5px;}
-  .dcell span{font-size:10px;}
-  table.book{min-width:500px;}
+  .dcell{width:50px;height:54px;}
+  .bookDia{left:4px;top:2px;width:42px;height:42px;}
+  .dcell .resultCode{top:17px;font-size:9px;}
+  .dcell .journeyStatus{font-size:6.8px;}
+  table.book{min-width:620px;}
   .plname{max-width:76px;}
   #linescore{overflow-x:auto; -webkit-overflow-scrolling:touch;}
   table.book th:first-child, table.book td:first-child{
@@ -2233,6 +2247,71 @@ function paResultDisplay(pa,longForm){
   }
   return pa&&pa.result||'';
 }
+function paBatterIsOut(pa){
+  if(!pa)return false;
+  if(resultAwardBase(pa.result)>0)return false;
+  if(pa.result==='SAC'||pa.result==='SF'||pa.result==='DP')return true;
+  return clsOf(pa.result)==='out';
+}
+function paInningEnded(pa){
+  if(!pa)return false;
+  if(S.completed)return true;
+  if(S.inning>pa.inning)return true;
+  return S.inning===pa.inning&&S.half>pa.half;
+}
+function legacyRunnerNamedOut(pa){
+  if(!pa||!pa.runnerId)return false;
+  const oi=S.pas.indexOf(pa),needle=String(pa.batter||'').replace(/\s+#\S+$/,'').trim();
+  if(oi<0||!needle)return false;
+  for(let i=oi+1;i<S.pas.length;i++){
+    const q=S.pas[i];if(q.team!==pa.team||q.inning!==pa.inning||q.half!==pa.half)continue;
+    if((q.events||[]).some(e=>e.t==='o'&&/^(Caught stealing|Picked off)/.test(e.text||'')&&(e.text||'').includes(needle)))return true;
+  }
+  return false;
+}
+function paBookJourney(pa){
+  if(!pa)return{status:'none',base:0,routeTo:0,steps:[]};
+  if(!pa.runnerId){
+    return{status:paBatterIsOut(pa)?'out':'none',base:0,routeTo:0,steps:[]};
+  }
+  const path=runnerPathById(pa.runnerId),steps=path&&path.steps||[];
+  let routeTo=resultAwardBase(pa.result)||0;
+  steps.forEach(st=>{if(st&&st.to>routeTo)routeTo=Math.min(4,st.to);});
+  const stored=runnerEndFor(pa.runnerId);
+  if(stored)return{status:stored.status,base:stored.base||routeTo,routeTo,steps};
+  if(steps.some(st=>st&&st.to>=4))return{status:'scored',base:4,routeTo:4,steps};
+  const live=currentRunnerBase(pa.runnerId);
+  if(live)return{status:'onbase',base:live,routeTo:Math.max(routeTo,live),steps};
+  if(paInningEnded(pa)){
+    if(legacyRunnerNamedOut(pa))return{status:'out',base:routeTo,routeTo,steps,legacy:true};
+    return{status:'stranded',base:routeTo,routeTo,steps,legacy:true};
+  }
+  return{status:'onbase',base:routeTo,routeTo,steps};
+}
+function bookDiamondHTML(pa){
+  const j=paBookJourney(pa),pts={0:[30,52],1:[52,30],2:[30,8],3:[8,30],4:[30,52]};
+  let route='';
+  for(let b=0;b<Math.min(4,j.routeTo);b++){
+    const a=pts[b],z=pts[b+1];route+='<path class="bdRoute" d="M '+a[0]+' '+a[1]+' L '+z[0]+' '+z[1]+'"/>';
+  }
+  let marker='',status='',sc='';
+  const ep=pts[j.status==='scored'?4:(j.base||0)]||pts[0];
+  if(j.status==='scored'){
+    marker='<circle class="bdEnd" cx="30" cy="52" r="3.5"/>';status='R';sc=' run';
+  }else if(j.status==='out'){
+    marker='<path class="bdOut" d="M '+(ep[0]-3)+' '+(ep[1]-3)+' L '+(ep[0]+3)+' '+(ep[1]+3)+' M '+(ep[0]+3)+' '+(ep[1]-3)+' L '+(ep[0]-3)+' '+(ep[1]+3)+'"/>';
+    status='OUT';sc=' out';
+  }else if(j.status==='stranded'){
+    marker='<circle class="bdStrand" cx="'+ep[0]+'" cy="'+ep[1]+'" r="3.5"/>';status='LOB';sc=' lob';
+  }else if(j.status==='onbase'&&j.base){
+    marker='<circle class="bdEnd" cx="'+ep[0]+'" cy="'+ep[1]+'" r="3.2"/>';status=baseName(j.base).replace('First','1B').replace('Second','2B').replace('Third','3B');sc=' base';
+  }
+  const fill=j.status==='scored'?'<path class="bdScoreFill" d="M30 52 L52 30 L30 8 L8 30 Z"/>':'';
+  const code=paResultDisplay(pa)+(paErrDisp(pa)?', '+paErrDisp(pa):'');
+  return '<svg class="bookDia" viewBox="0 0 60 60" aria-hidden="true">'+fill+
+    '<path class="bdOutline" d="M30 52 L52 30 L30 8 L8 30 Z"/>'+route+marker+'</svg>'+
+    '<span class="resultCode">'+esc(code)+'</span>'+(status?'<span class="journeyStatus'+sc+'">'+status+'</span>':'');
+}
 function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;}
 /* Errors belong to the fielding team — the opponent of the batting team in p.team.
    Counts distinct fielder errors per PA: an E-type outcome plus any extra tags. */
@@ -2259,7 +2338,7 @@ function bookTable(t){
   team.lineup.forEach((p,i)=>{
     h+=`<tr><td class="plname">${p.num?'#'+p.num+' ':''}${p.name||'—'}${p.hist&&p.hist.length>1?' ⇄':''}</td>`;
     for(let n=1;n<=nInn;n++){const ps=pasAt(t,i,n);
-      h+=`<td>${ps.length?'<div class="paStack">'+ps.map(pa=>`<div class="dcell ${clsOf(pa.result)}" data-pa-audit="${S.pas.indexOf(pa)}" role="button" tabindex="0" title="View pitches"><div class="d"></div><span>${paResultDisplay(pa)}${paErrDisp(pa)?', '+paErrDisp(pa):''}</span></div>`).join('')+'</div>':''}</td>`;}
+      h+=`<td>${ps.length?'<div class="paStack">'+ps.map(pa=>`<div class="dcell ${clsOf(pa.result)}" data-pa-audit="${S.pas.indexOf(pa)}" role="button" tabindex="0" title="View pitches">${bookDiamondHTML(pa)}</div>`).join('')+'</div>':''}</td>`;}
     h+=`</tr>`;});
   return h+'</table>';
 }
