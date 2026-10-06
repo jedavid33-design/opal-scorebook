@@ -2400,6 +2400,7 @@ function paKind(r){
   if(/^L\d/.test(r))return 'LO';
   if(/^P\d/.test(r))return 'POP';
   if(/^BGO/.test(r))return 'BGO';
+  if(/^BPOF/.test(r))return 'BFPOP';
   if(/^BPO/.test(r))return 'BPOP';
   if(/^E\d/.test(r))return 'E';
   if(r==='FC')return 'FC';
@@ -2419,6 +2420,7 @@ function applyNotationFix(kind,ht,f,wasFoul){
   if(kind==='POP')return{result:'P'+f,text:'Popped out P'+f};
   if(kind==='BGO'){const n=buntOutNotation('BGO',f);return{result:n.code,text:n.text};}
   if(kind==='BPOP'){const n=buntOutNotation('BPOP',f);return{result:n.code,text:n.text};}
+  if(kind==='BFPOP'){const n=buntOutNotation('BFPOP',f);return{result:n.code,text:n.text};}
   if(kind==='LO')return{result:'L'+f,text:'Lined out to '+f};
   if(kind==='E')return{result:'E'+f,text:'Reached on error E'+f};
   if(kind==='FC')return{result:'FC',text:"Fielder's choice "+f};
