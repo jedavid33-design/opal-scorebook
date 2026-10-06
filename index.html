@@ -578,7 +578,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.27';
+const APP_VERSION='2026.10.06.28';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1871,6 +1871,8 @@ function placementReview(movers,code,text,alreadySnapped){
     });
     S.bases=nb;closeModal();
     commitPA(code,paErrTag(movers));
+    const committed=S.pas[S.pas.length-1];
+    if(committed&&code==='SF'&&movers.filter(m=>m.out).length>1)committed.sacDP=true;
     const br=movers.find(m=>m.who==='BR'&&m.r);
     if(br&&S.pas[S.pas.length-1])S.pas[S.pas.length-1].runnerId=br.r.rid;
     S.order[S.bat]++;S.balls=0;S.strikes=0;
@@ -2078,6 +2080,13 @@ function pasAt(t,i,n){const half=t==='away'?0:1;return S.pas.filter(p=>p.team===
 function paAt(t,i,n){return pasAt(t,i,n)[0]||null;}
 function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
   if(/^(BGO|BPO)/.test(r)||/^(K|ꓘ)$/.test(r)||/^[FLPf]/.test(r)||/^\d/.test(r))return'out';return'';}
+function isSacrificeDoublePlay(pa){
+  return !!(pa&&pa.result==='SF'&&(pa.sacDP||(pa.events||[]).some(e=>e.t==='o'&&/^Runner out /.test(e.text||''))));
+}
+function paResultDisplay(pa,longForm){
+  if(isSacrificeDoublePlay(pa))return longForm?'Sacrifice double play':'SF-DP';
+  return pa&&pa.result||'';
+}
 function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;}
 /* Errors belong to the fielding team — the opponent of the batting team in p.team.
    Counts distinct fielder errors per PA: an E-type outcome plus any extra tags. */
@@ -2104,7 +2113,7 @@ function bookTable(t){
   team.lineup.forEach((p,i)=>{
     h+=`<tr><td class="plname">${p.num?'#'+p.num+' ':''}${p.name||'—'}${p.hist&&p.hist.length>1?' ⇄':''}</td>`;
     for(let n=1;n<=nInn;n++){const ps=pasAt(t,i,n);
-      h+=`<td>${ps.length?'<div class="paStack">'+ps.map(pa=>`<div class="dcell ${clsOf(pa.result)}" data-pa-audit="${S.pas.indexOf(pa)}" role="button" tabindex="0" title="View pitches"><div class="d"></div><span>${pa.result}${paErrDisp(pa)?', '+paErrDisp(pa):''}</span></div>`).join('')+'</div>':''}</td>`;}
+      h+=`<td>${ps.length?'<div class="paStack">'+ps.map(pa=>`<div class="dcell ${clsOf(pa.result)}" data-pa-audit="${S.pas.indexOf(pa)}" role="button" tabindex="0" title="View pitches"><div class="d"></div><span>${paResultDisplay(pa)}${paErrDisp(pa)?', '+paErrDisp(pa):''}</span></div>`).join('')+'</div>':''}</td>`;}
     h+=`</tr>`;});
   return h+'</table>';
 }
@@ -2155,7 +2164,7 @@ function renderPbp(){
   el.innerHTML=S.pas.map((p,idx)=>{
     const e0=p.events.length?p.events[0].text:'';
     const pc=paPitchAudit(p).credited;
-    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div><div class="pbpActions"><button class="sml ghost" data-audit="${idx}">${pc} pitch${pc===1?'':'es'}</button>${viewing&&!viewing.editing?'':`<button class="sml" data-edit="${idx}">Edit</button>`}</div></div>`;
+    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${paResultDisplay(p,true)}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div><div class="pbpActions"><button class="sml ghost" data-audit="${idx}">${pc} pitch${pc===1?'':'es'}</button>${viewing&&!viewing.editing?'':`<button class="sml" data-edit="${idx}">Edit</button>`}</div></div>`;
   }).join('')||'<p class="sub">No plays yet.</p>';
   el.querySelectorAll('[data-audit]').forEach(b=>b.onclick=()=>pitchAuditModal(+b.dataset.audit));
   el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editPA(+b.dataset.edit));
@@ -2286,7 +2295,7 @@ function confirmEditPA(idx){
 
 /* ================= edit past plays ================= */
 function outcomeIdx(pa){for(let i=pa.events.length-1;i>=0;i--)if(pa.events[i].t==='o')return i;return -1;}
-function describePA(pa){return `${pa.half?'B':'T'}${pa.inning} · ${pa.batter||''} · ${pa.result}`;}
+function describePA(pa){return `${pa.half?'B':'T'}${pa.inning} · ${pa.batter||''} · ${paResultDisplay(pa,true)}`;}
 function paKind(r){
   if(/^(1B|2B|3B)$/.test(r))return r;
   if(/^fP\d/.test(r))return 'FPOP';
