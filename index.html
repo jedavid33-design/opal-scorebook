@@ -213,6 +213,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   border:1px solid var(--line);color:var(--dim);font-size:11px;font-weight:800;}
 .auditMeta{font-size:11px;color:var(--dim);margin-top:2px;}
 .auditCount{font-weight:800;white-space:nowrap;}
+.auditRight{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.auditDelete{font-size:10px;padding:4px 7px;min-height:0;}
 .auditNoPitch{font-size:10px;color:var(--warn);font-weight:800;text-transform:uppercase;letter-spacing:.4px;}
 .auditSummary{padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.035);font-size:12.5px;margin-bottom:10px;}
 .dcell[data-pa-audit]{cursor:pointer;}
@@ -567,7 +569,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.20';
+const APP_VERSION='2026.10.06.21';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2018,7 +2020,7 @@ function terminalPitchLabel(pa){
 function paPitchAudit(pa){
   let b=0,s=0,no=0,credited=0,stored=0;
   const rows=[],notes=[];
-  for(const e of pa.events||[]){
+  for(const [eventIndex,e] of (pa.events||[]).entries()){
     if(e.t==='p'){
       stored++;no++;
       const before=b+'-'+s,c=countAfterPitch(e.text,b,s);b=c.b;s=c.s;
@@ -2029,34 +2031,78 @@ function paPitchAudit(pa){
           ?'ABS overturned · effective call shown'
           :'ABS upheld';
       }
-      rows.push({n:no,text:e.text,count:b+'-'+s,before,physical,inferred:false,pitcher:e.pitcher||pa.pitcher||'',detail});
+      rows.push({n:no,text:e.text,count:b+'-'+s,before,physical,inferred:false,eventIndex,pitcher:e.pitcher||pa.pitcher||'',detail});
     }else notes.push(e.text||'');
   }
   if(contactPitchBonus(pa.result)){
     no++;credited++;
-    rows.push({n:no,text:terminalPitchLabel(pa),count:b+'-'+s,before:b+'-'+s,physical:true,inferred:true,pitcher:pa.pitcher||'',detail:'Credited from PA result'});
+    rows.push({n:no,text:terminalPitchLabel(pa),count:b+'-'+s,before:b+'-'+s,physical:true,inferred:true,pitcher:pa.pitcher||'',detail:'from PA result'});
   }
   return{rows,notes,stored,credited,final:{b,s}};
 }
+function beginPastEditIfNeeded(){
+  if(viewing&&!viewing.editing){
+    viewing.editing=true;
+    persistViewedGameEdit();
+    renderAll();renderGames();
+  }
+}
+function deleteStoredPitch(idx,eventIndex){
+  const pa=S.pas[idx];
+  if(!pa||!pa.events||!pa.events[eventIndex]||pa.events[eventIndex].t!=='p')return false;
+  beginPastEditIfNeeded();
+  snap();
+  pa.events.splice(eventIndex,1);
+  save();renderAll();
+  return true;
+}
+function deletePitchPicker(idx,onDone){
+  const pa=S.pas[idx];if(!pa)return;
+  const pitches=(pa.events||[]).map((e,i)=>({e,i})).filter(x=>x.e.t==='p');
+  openModal(`<h2>Delete extra pitch</h2>
+    <p class="sub">${esc(describePA(pa))} · choose the pitch that was entered by mistake. The PA result, runners, and score stay unchanged.</p>
+    ${pitches.length?pitches.map((x,n)=>`<button class="med" data-del-pitch="${x.i}" style="width:100%;margin-bottom:6px">${n+1}. ${esc(x.e.text)}${x.e.ch?' · challenge '+esc(x.e.ch.res):''}</button>`).join(''):'<p class="sub">No stored pitches to delete.</p>'}
+    <div style="margin-top:8px"><button class="sml ghost" id="delPitchCancel" style="width:100%">Cancel</button></div>`);
+  $('#delPitchCancel').onclick=()=>{closeModal();if(onDone)onDone();};
+  $('#sheet').querySelectorAll('[data-del-pitch]').forEach(b=>b.onclick=()=>{
+    deleteStoredPitch(idx,+b.dataset.delPitch);
+    closeModal();
+    if(onDone)onDone();else renderAll();
+  });
+}
+function auditEditPA(idx){
+  beginPastEditIfNeeded();
+  editPA(idx);
+}
 function pitchAuditModal(idx){
   const pa=S.pas[idx];if(!pa)return;
-  const a=paPitchAudit(pa),inferred=a.rows.filter(r=>r.inferred).length,nonPitch=a.rows.filter(r=>!r.physical).length;
+  const a=paPitchAudit(pa),fromResult=a.rows.filter(r=>r.inferred).length,nonPitch=a.rows.filter(r=>!r.physical).length;
   openModal(`<h2>Pitch audit</h2>
     <p class="sub">${esc(describePA(pa))}</p>
     <div class="auditSummary">
       <b>${a.credited} pitch${a.credited===1?'':'es'} credited to pitcher</b> · ${a.stored} stored pitch event${a.stored===1?'':'s'}
-      ${inferred?' · '+inferred+' terminal pitch inferred from result':''}
+      ${fromResult?' · '+fromResult+' terminal pitch from PA result':''}
       ${nonPitch?' · '+nonPitch+' automatic/no-pitch event'+(nonPitch===1?'':'s'):''}
       ${pa.pitcher?'<br>PA pitcher at finish: <b>'+esc(pa.pitcher)+'</b>':''}
     </div>
     <div>${a.rows.map(r=>`<div class="auditPitch">
       <div class="auditNum">${r.n}</div>
-      <div><b>${esc(r.text)}</b>${r.inferred?' <span class="auditNoPitch" style="color:var(--plum)">inferred</span>':''}
+      <div><b>${esc(r.text)}</b>
         <div class="auditMeta">${r.pitcher?'P: '+esc(r.pitcher)+' · ':''}${r.detail?esc(r.detail):r.physical?'counts as pitch thrown':'automatic call / no pitch thrown'}</div></div>
-      <div class="auditCount">${esc(r.count)}${r.physical?'':'<br><span class="auditNoPitch">no pitch</span>'}</div>
+      <div class="auditRight">
+        <div class="auditCount">${esc(r.count)}${r.physical?'':'<br><span class="auditNoPitch">no pitch</span>'}</div>
+        ${r.inferred?'':`<button class="sml ghost auditDelete" data-audit-delete="${r.eventIndex}">Delete</button>`}
+      </div>
     </div>`).join('')||'<p class="sub">No pitch events stored for this PA.</p>'}</div>
     ${a.notes.length?'<div class="sect">Other PA events</div>'+a.notes.map(n=>'<div class="subRow">'+esc(n)+'</div>').join(''):''}
-    <div style="margin-top:10px"><button class="med accent" id="auditDone" style="width:100%">Done</button></div>`);
+    <div class="grid2" style="margin-top:10px">
+      <button class="med" id="auditEdit">Edit PA</button>
+      <button class="med accent" id="auditDone">Done</button>
+    </div>`);
+  $('#sheet').querySelectorAll('[data-audit-delete]').forEach(b=>b.onclick=()=>{
+    if(deleteStoredPitch(idx,+b.dataset.auditDelete))pitchAuditModal(idx);
+  });
+  $('#auditEdit').onclick=()=>auditEditPA(idx);
   $('#auditDone').onclick=closeModal;
 }
 
@@ -2139,11 +2185,13 @@ function editPA(idx){
     ${pastEdit&&clsOf(pa.result)!=='out'?'<button class="med accent" id="epRuling" style="width:100%;margin-bottom:6px">Official scoring change — hit / error / FC</button>':''}
     <button class="med" id="epFix" style="width:100%;margin-bottom:6px">${pastEdit?'Fix notation / fielders':'Fix notation — outcome was right, details wrong'}</button>
     <button class="med" id="epPitch" style="width:100%;margin-bottom:6px">Add missed pitch — a pitch wasn't entered</button>
+    <button class="med" id="epDeletePitch" style="width:100%;margin-bottom:6px">Delete extra pitch — a pitch was entered twice</button>
     ${pastEdit?'':`<button class="med" id="epRescore" style="width:100%;margin-bottom:6px">Re-score play — the outcome itself was wrong</button>`}
     <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
   const er=$('#epRuling');if(er)er.onclick=()=>officialRuling(idx);
   $('#epFix').onclick=()=>fixNotation(idx);
   $('#epPitch').onclick=()=>addPitchPA(idx);
+  $('#epDeletePitch').onclick=()=>deletePitchPicker(idx,()=>editPA(idx));
   const rr=$('#epRescore');if(rr)rr.onclick=()=>confirmEditPA(idx);
 }
 function fixNotation(idx){
