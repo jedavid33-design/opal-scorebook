@@ -82,7 +82,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
@@ -171,12 +171,52 @@ async function main() {
   ok(!sb.S.bases[0] && !!sb.S.bases[1], 'balk advances runner 1st->2nd');
 
   newGame();
-  eq(JSON.stringify(sb.moveRunnerEvents({ who: 'BR', label: 'B', from: 0, to: 4, out: null })),
-    JSON.stringify([['r', 'B scores']]), 'moveRunnerEvents: BR scores');
-  eq(sb.moveRunnerEvents({ who: 'R', label: 'R', from: 1, to: 1, out: null }).length, 0,
+  const scoredRunner={t:'away',i:0,rid:'r-score'};
+  const scoreEvents=sb.moveRunnerEvents({who:'BR',label:'B',from:0,award:1,to:4,out:null,r:scoredRunner},'1B');
+  eq(scoreEvents.length,1,'moveRunnerEvents: BR extra movement creates one structured event');
+  eq(scoreEvents[0][1].advance.from,1,'moveRunnerEvents: BR extra movement starts at awarded base');
+  eq(scoreEvents[0][1].advance.to,4,'moveRunnerEvents: BR score path ends at home');
+  eq(sb.moveRunnerEvents({ who: 'R', label: 'R', from: 1, to: 1, out: null, r:{t:'away',i:0,rid:'r-hold'} }).length, 0,
     'moveRunnerEvents: hold is silent');
   const hm = sb.hitMovers(2);
   eq(hm[0].to, 2, 'hitMovers: BR to 2nd on a double');
+  eq(hm[0].award,2,'hitMovers: double remembers 2B was the awarded base');
+
+  const singleThrow=sb.hitMovers(1)[0];
+  singleThrow.r={t:'away',i:0,rid:'r-throw'};singleThrow.to=2;singleThrow.adv='throw';
+  const throwEvt=sb.moveRunnerEvents(singleThrow,'1B')[0][1];
+  eq(throwEvt.advance.from,1,'PATH1: single plus extra advance starts path at first');
+  eq(throwEvt.advance.to,2,'PATH1: single plus extra advance ends at second');
+  eq(throwEvt.advance.reason,'throw','PATH1: single advanced to second preserves on-throw reason');
+  ok(/on throw/.test(throwEvt.text),'PATH1: on-throw advancement stays readable in play text');
+
+  let advanceRedraws=0;
+  sb.extraAdvanceReason({label:'Batter',award:1,to:2,adv:null,err:null},()=>{advanceRedraws++;});
+  ok(el('#sheet').innerHTML.indexOf('On throw')>=0 &&
+     el('#sheet').innerHTML.indexOf('Error')>=0 &&
+     el('#sheet').innerHTML.indexOf('Other')>=0,
+    'PATH1: extra-base placement asks why the batter advanced beyond the hit');
+
+  newGame();
+  sb.doWalk('BB','Walk',true);
+  el('#plDone').onclick();
+  const walked=sb.S.bases[0];
+  ok(walked&&walked.rid,'PATH2: walked batter receives stable runner identity');
+  eq(sb.S.pas[0].runnerId,walked.rid,'PATH2: walk PA is linked to that runner identity');
+  // Put the same runner on second to model the current-game state, then steal third.
+  sb.S.bases[0]=null;sb.S.bases[1]=walked;
+  const runnerBtn={dataset:{b:'1'},onclick:null},destBtn={dataset:{d:'3'},onclick:null};
+  el('#sheet').querySelectorAll=sel=>sel==='[data-b]'?[runnerBtn]:sel==='[data-d]'?[destBtn]:[];
+  sb.actSteal();runnerBtn.onclick();el('#stSafe').onclick();destBtn.onclick();
+  ok(!sb.S.bases[1]&&sb.S.bases[2]===walked,'PATH2: runner on second steals third');
+  const stealEvt=sb.S.pa.find(e=>e.advance&&e.advance.reason==='SB');
+  ok(!!stealEvt,'PATH2: stolen-base movement is stored structurally');
+  eq(stealEvt.advance.from,2,'PATH2: stolen-base path starts at second');
+  eq(stealEvt.advance.to,3,'PATH2: stolen-base path ends at third');
+  const walkedPath=sb.runnerPathById(walked.rid);
+  eq(walkedPath.steps[0].reason,'BB','PATH2: path begins with the walk to first');
+  ok(walkedPath.steps.some(x=>x.reason==='SB'&&x.from===2&&x.to===3),
+    'PATH2: path carries the same walked runner through the steal of third');
 
   newGame();
   sb.S.pa = [{ t: 'p', text: 'Ball' }, { t: 'p', text: 'Called strike' }, { t: 'p', text: 'Foul ball' }];
@@ -510,7 +550,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.22','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.23','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
