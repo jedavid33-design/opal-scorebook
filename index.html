@@ -1978,6 +1978,81 @@ function addPitchPA(idx){
   draw('');$('#modal').classList.add('on');
 }
 
+/* ================= completed-game decisions + archive corrections ================= */
+function teamRunTotal(t){return ((S.runs&&S.runs[t])||[]).reduce((n,x)=>n+(+x||0),0);}
+function cleanPitcherName(v){
+  return String(v||'').replace(/^#\S+\s+/,'').replace(/\s+#\S+$/,'').replace(/^—$/,'').trim();
+}
+function pitcherCandidates(team){
+  const T=S[team],seen=new Set(),out=[];
+  const add=v=>{const n=cleanPitcherName(v);if(n&&!seen.has(n)){seen.add(n);out.push(n);}};
+  add(T&&T.pitcher);
+  (S.subLog||[]).filter(x=>x.team===team&&x.type==='P').forEach(x=>{add(x.old);add(x.new);});
+  ((T&&T.lineup)||[]).forEach((p,i)=>{
+    if(String(p.pos)==='1'||(T.dh&&i===9)){add(p.name);(p.hist||[]).forEach(h=>add(h.name));}
+  });
+  return out;
+}
+function decisionList(id,names){
+  return '<datalist id="'+id+'">'+names.map(n=>'<option value="'+esc(n)+'"></option>').join('')+'</datalist>';
+}
+function gameDecisionSheet(finishGame){
+  const ar=teamRunTotal('away'),hr=teamRunTotal('home');
+  if(ar===hr){toast('The score is tied — correct the score before completing the game.');return;}
+  const wt=ar>hr?'away':'home',lt=wt==='away'?'home':'away',d=S.decisions||{};
+  const wins=pitcherCandidates(wt),losses=pitcherCandidates(lt);
+  openModal('<h2>'+(finishGame?'Game Complete':'Edit pitching decisions')+'</h2>'+
+    '<p class="sub"><b>'+esc(S[wt].name)+'</b> won '+ar+'–'+hr+'. Type a name if a pitcher is not in the suggestions.</p>'+
+    '<label>Winning pitcher</label><input id="gcWP" list="gcWPList" value="'+esc(d.wp||'')+'" autocomplete="off">'+decisionList('gcWPList',wins)+
+    '<label>Losing pitcher</label><input id="gcLP" list="gcLPList" value="'+esc(d.lp||'')+'" autocomplete="off">'+decisionList('gcLPList',losses)+
+    '<label>Save <span class="sub">(optional)</span></label><input id="gcSV" list="gcSVList" value="'+esc(d.sv||'')+'" autocomplete="off">'+decisionList('gcSVList',wins)+
+    '<div style="margin-top:12px"><button class="med accent" id="gcDone" style="width:100%">'+(finishGame?'Complete & archive game':'Save decisions')+'</button></div>'+
+    '<div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>');
+  $('#gcDone').onclick=async()=>{
+    const wp=$('#gcWP').value.trim(),lp=$('#gcLP').value.trim(),sv=$('#gcSV').value.trim();
+    if(!wp||!lp){toast('Pick both the winning and losing pitchers.');return;}
+    if(sv&&sv===wp){toast('The winning pitcher cannot also receive the save.');return;}
+    S.decisions={wp,lp,sv:sv||null,winner:wt,loser:lt};
+    if(finishGame){S.completed=true;S.completedAt=Date.now();closeModal();await endGame();}
+    else{save();closeModal();renderAll();}
+  };
+}
+function officialRuling(idx){
+  const pa=S.pas[idx];
+  openModal('<h2>Official scoring change</h2><p class="sub">Change the ruling without changing the physical play, runs, outs or runner locations.</p>'+
+    '<div class="grid2"><button class="med" data-or="1B">Single</button><button class="med" data-or="2B">Double</button>'+
+    '<button class="med" data-or="3B">Triple</button><button class="med" data-or="E">Error</button>'+
+    '<button class="med" data-or="FC">Fielder\'s choice</button><button class="med ghost" onclick="closeModal()">Cancel</button></div>');
+  $('#sheet').querySelectorAll('[data-or]').forEach(b=>b.onclick=()=>{
+    const k=b.dataset.or;
+    if(k==='1B'||k==='2B'||k==='3B'){
+      hitPicker(HITVERB[k],(ht,f)=>{const m=applyNotationFix(k,ht,f);applyFixNotation(pa,m.result,m.text);closeModal();renderAll();});
+    }else if(k==='E'){
+      fielderPad(f=>{applyFixNotation(pa,'E'+f,'Reached on error E'+f);renderAll();},'Official error — fielder');
+    }else if(k==='FC'){
+      fielderPad(f=>{applyFixNotation(pa,'FC',"Fielder's choice "+f);renderAll();},'Official FC — fielders');
+    }
+  });
+}
+function persistViewedGameEdit(){
+  if(!viewing||!viewing.editing)return;
+  viewing.name=gameName(S);viewing.score=gameScore(S);
+  const old=getArchive().find(x=>x.gid===viewing.gid);
+  addToArchive({gid:viewing.gid,name:viewing.name,score:viewing.score,date:viewing.date||(old&&old.date)||Date.now(),state:JSON.parse(JSON.stringify(S)),pendingFinish:false});
+}
+function startPastGameEdit(){
+  if(!viewing)return;
+  viewing.editing=true;persistViewedGameEdit();renderAll();renderGames();
+}
+async function finishPastGameEdit(back){
+  if(!viewing)return;
+  persistViewedGameEdit();
+  const edited=JSON.parse(JSON.stringify(S));
+  if(syncCfg())await pushGame(true,edited,true);
+  viewing.editing=false;
+  if(back){backToLive();return;}
+  renderAll();renderGames();toast('Official scoring changes saved.');
+}
 /* ================= sync between devices ================= */
 const SYNC_URL='https://opal-scorebook-sync.4d8v7jw78c.workers.dev';
 let syncInfo={state:'off',msg:''}; // off|ok|pending|error
