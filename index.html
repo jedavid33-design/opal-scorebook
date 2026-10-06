@@ -114,8 +114,7 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
   border:2px solid rgba(255,255,255,.35); background:rgba(255,255,255,.05); border-radius:6px;}
 .base.on{background:var(--plum); border-color:#fff; box-shadow:0 0 12px var(--plum);}
 #b2{left:43px; top:6px;} #b1{left:80px; top:43px;} #b3{left:6px; top:43px;}
-.pitcherline{font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;text-align:left;margin:2px 0 4px;}
-.pitcherline small{font-size:12px;color:var(--dim);font-weight:700;margin-left:5px;}
+.pitcherline{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;text-align:right;margin:0 0 4px auto;max-width:74%;overflow:hidden;text-overflow:ellipsis;}
 .basebatterrow{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;align-items:center;min-width:0;}
 .basebatterrow .baseswrap{justify-content:center;padding:2px 0;}
 .batter{font-size:19px;font-weight:700;min-width:0;line-height:1.25;}
@@ -453,7 +452,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
       <button class="sml ghost" id="subBtn">⇄ Subs</button>
       <button class="sml ghost" id="undoBtn">↩ Undo</button>
     </div>
-    <div class="pitcherline" id="hPitcher">P: — <small>PC 0</small></div>
+    <div class="pitcherline" id="hPitcher">P: — · 0 pitches</div>
     <div class="basebatterrow">
       <div class="baseswrap"><div class="diamond">
         <div class="base" id="b2"></div><div class="base" id="b1"></div><div class="base" id="b3"></div>
@@ -536,7 +535,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.12';
+const APP_VERSION='2026.10.06.13';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1097,7 +1096,7 @@ function renderScore(){
   const b=curBatter();
   $('#hBatter').innerHTML=`B: ${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
   const ft=fieldingTeam(),pl=activePitcherLabel(ft),pc=pitcherPitchCount(ft);
-  $('#hPitcher').innerHTML=`P: ${esc(pl||'—')} <small>PC ${pc}</small>`;
+  $('#hPitcher').textContent='P: '+(pl||'—')+' · '+pc+' '+(pc===1?'pitch':'pitches');
   let pitchNo=0;
   const liveLast=hlp&&hlp.live?hlp:null;
   const liveChTeam=liveLast?challengeTeamFor(liveLast):null;
