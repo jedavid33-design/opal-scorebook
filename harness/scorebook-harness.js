@@ -71,12 +71,12 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get pendingRemote(){return pendingRemote;},set pendingRemote(v){pendingRemote=v;},` +
   `get syncInfo(){return syncInfo;},` +
   `get corruptStashed(){return corruptStashed;},set corruptStashed(v){corruptStashed=v;},` +
-  `get substitutionMode(){return substitutionMode;},get pendingSub(){return pendingSub;},` +
+  `get substitutionMode(){return substitutionMode;},get pendingSub(){return pendingSub;},get subIncoming(){return subIncoming;},` +
   `get viewing(){return viewing;},set viewing(v){viewing=v;},` +
   `APP_VERSION,blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,fieldingTeam,activePitcherLabel,pitchCountsAsThrown,contactPitchBonus,pitcherAppearanceOrder,pitcherPitchSummary,pitcherPitchCount,` +
   `demoLineups,rosterToPool,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
-  `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,` +
+  `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,selectIncomingSub,cancelIncomingSub,applyIncomingLineupSub,applyIncomingOffensiveSub,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,tapPoolPlayer,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
@@ -625,7 +625,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.29','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.30','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1233,6 +1233,46 @@ async function main() {
     'S3: substitution instructions are visible on the lineup screen');
   ok(html.indexOf("$('#subBtn').onclick=openSubstitutionLineup")>=0,
     'S3: Score Subs button routes to full lineup instead of the old modal');
+
+  newGame();
+  sb.S.home.pool=[{name:'Player First Arm',num:'77',pos:'1'}];
+  sb.openSubstitutionLineup();
+  sb.selectIncomingSub('home',sb.S.home.pool[0]);
+  ok(sb.subIncoming&&sb.subIncoming.player.name==='Player First Arm',
+    'S3a: live substitution selects the incoming roster player first');
+  eq(sb.S.home.lineup[8].name,'Rival9',
+    'S3a: selecting incoming player does not remove the outgoing lineup player yet');
+  sb.applyIncomingLineupSub('home',8);
+  eq(sb.S.home.lineup[8].name,'Player First Arm',
+    'S3a: tapping the lineup spot second completes the defensive substitution');
+  ok(sb.S.subLog.some(x=>x.old==='Rival9'&&x.new==='Player First Arm'),
+    'S3a: player-first defensive substitution is logged incoming-for-outgoing');
+
+  newGame();
+  sb.S.bat='away';sb.S.order.away=2;sb.S.balls=2;sb.S.strikes=1;
+  sb.S.away.pool=[{name:'Player First PH',num:'92',pos:'7'}];
+  sb.openSubstitutionLineup();sb.showSetupTeam('away','roster');
+  sb.selectIncomingSub('away',sb.S.away.pool[0]);
+  eq(sb.S.away.lineup[2].name,'Astro3',
+    'S3b: selecting a pinch hitter first leaves the current batter untouched until target tap');
+  sb.applyIncomingOffensiveSub('away','PH',2,null);
+  eq(sb.S.away.lineup[2].name,'Player First PH',
+    'S3b: tapping Batter second completes player-first pinch-hit substitution');
+  eq(sb.S.balls,2,'S3b: player-first pinch hitter inherits ball count');
+  eq(sb.S.strikes,1,'S3b: player-first pinch hitter inherits strike count');
+
+  newGame();
+  sb.S.bat='away';sb.S.bases[1]={t:'away',i:4};
+  sb.S.away.pool=[{name:'Player First PR',num:'93',pos:'8'}];
+  sb.openSubstitutionLineup();sb.showSetupTeam('away','roster');
+  sb.selectIncomingSub('away',sb.S.away.pool[0]);
+  ok(sb.S.bases[1]&&sb.S.away.lineup[4].name==='Astro5',
+    'S3c: selecting a pinch runner first leaves runner and batting slot intact until target tap');
+  sb.applyIncomingOffensiveSub('away','PR',4,1);
+  eq(sb.S.away.lineup[4].name,'Player First PR',
+    'S3c: tapping runner second completes player-first pinch-runner substitution');
+  ok(sb.S.bases[1]&&sb.pname(sb.S.bases[1]).indexOf('Player First PR')>=0,
+    'S3c: player-first pinch runner occupies the selected base');
 
   /* ===== batting-team offensive substitution filter ===== */
   newGame();
