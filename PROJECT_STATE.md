@@ -473,3 +473,13 @@ replacing the "visco" app she currently uses.
   available as a hit type. Scoring logic is unchanged. App version
   v2026.10.06.1. Full regression harness: 242 passed, 0 failed. App commit
   da6321d; regression commit f16a4df. Worker unchanged.
+
+
+- 2026-10-06: Bunt out slide selector added to In Play. The Out column now
+  includes a Bunt control that uses the same hold-and-slide interaction pattern
+  as WP/PB: hold Bunt, slide left for Ground Out or right for Pop Out, then
+  release. Bunt ground outs use the normal multi-fielder picker and record
+  BGO... notation; bunt pop outs use a single-fielder picker and record BPO...
+  notation. Both remain editable later and classify correctly as outs. App
+  version v2026.10.06.2. Full regression harness: 254 passed, 0 failed.
+  App commit ea9a0a5; regression commit de9dbce. Worker unchanged.
