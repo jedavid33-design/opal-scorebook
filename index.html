@@ -485,7 +485,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.3';
+const APP_VERSION='2026.10.06.4';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1268,6 +1268,9 @@ function hitMovers(n){
   return mv;
 }
 function holdMovers(){const mv=[];[2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});return mv;}
+function sacrificeMovers(outF){
+  return [{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f:outF}},...holdMovers()];
+}
 function hitPicker(verb,cb){
   let ht=null,f=null;
   const cap=h=>h[0].toUpperCase()+h.slice(1);
@@ -1432,13 +1435,9 @@ function handleOutcome(kind){
     <button class="med" id="sacB">Sac bunt</button><button class="med" id="sacF">Sac fly</button></div>
     <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
     $('#sacB').onclick=()=>fielderPad(f=>{ev('o','Sac bunt '+f);
-      const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}}];
-      [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+2;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
-      placementReview(mv,'SAC','Sac bunt '+f);},'Sac bunt — fielders');
+      placementReview(sacrificeMovers(f),'SAC','Sac bunt '+f);},'Sac bunt — fielders');
     $('#sacF').onclick=()=>fielderPad(f=>{ev('o','Sac fly F'+f);
-      const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}}];
-      [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+2;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
-      placementReview(mv,'SF','Sac fly F'+f);},'Sac fly — fielder');
+      placementReview(sacrificeMovers('F'+f),'SF','Sac fly F'+f);},'Sac fly — fielder');
     return;}
 }
 
