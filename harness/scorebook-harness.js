@@ -613,7 +613,7 @@ async function main() {
     'V4: count is protected from squeezing');
 
   ok(html.indexOf('data-p="cstr" data-hold-wppb="1" aria-label="Called strike"')>=0 &&
-     html.indexOf('data-p="sstr" data-hold-wppb="1" data-variant="swing"')>=0 &&
+     html.indexOf('data-p="sstr" data-hold-wppb="1" data-hold-down="missbunt"')>=0 &&
      html.indexOf('>Called</button>')>=0 && html.indexOf('>Swinging</button>')>=0,
     'V4: compact strike row uses Called and Swinging labels, with Swinging retaining hold support');
   ok(html.indexOf('data-p="hbp">Hit Batter</button>')<0 &&
@@ -731,8 +731,9 @@ async function main() {
      html.indexOf('id="wppbBtn"')<0 &&
      html.indexOf('id="pitchHoldMenu"')>=0,
     'W1: Ball/Called/Swinging use hold gesture and separate WP/PB button is gone');
-  ok(html.indexOf('slide left for Wild Pitch or right for Passed Ball')>=0,
-    'W1: hold gesture exposes Wild vs Passed selection in one continuous gesture');
+  ok(html.indexOf('Slide left for Wild Pitch, right for Passed Ball, or down for Missed Bunt.')>=0 &&
+     html.indexOf('Slide down for Foul Bunt.')>=0,
+    'W1: hold gesture exposes horizontal uncaught-pitch choices plus downward bunt choices');
 
   newGame();
   sb.doPitchWPPB('ball','WP');
