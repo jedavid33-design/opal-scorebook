@@ -655,3 +655,20 @@ replacing the "visco" app she currently uses.
   App version v2026.10.06.19. Full regression harness: 355 passed, 0 failed.
   App commit 99db3f4; regression commits 82645e9, 0e4dd6e. Worker unchanged; no
   Worker deployment required.
+
+
+- 2026-10-06: Per-PA pitch audit added to the Book view to diagnose pitch-count
+  drift. Every completed PA in Play-by-play now shows its credited pitch total
+  and a Pitches button; scorebook diamond cells are also tappable. The audit
+  sheet shows each recorded pitch in order, reconstructed count after each
+  pitch, pitcher identity when stored, ABS challenge status, automatic/no-pitch
+  calls, non-pitch PA events, and any terminal physical pitch inferred from the
+  final result (e.g. ball put in play/HBP). It summarizes stored pitch events
+  versus physical pitches credited to the pitcher so missed taps and counting
+  logic can be distinguished. Count reconstruction is now shared with edit
+  validation and correctly handles missed bunt/foul bunt. During this audit
+  work a real pitch-count bug was found and fixed: DP outcomes were not
+  receiving their terminal physical pitch credit. App version v2026.10.06.20.
+  Full regression harness: 369 passed, 0 failed. App commit 008fe1f;
+  regression commits 9b20ead, 9b1e0f0. Worker unchanged; no Worker deployment
+  required.
