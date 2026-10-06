@@ -487,7 +487,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.7';
+const APP_VERSION='2026.10.06.8';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1114,10 +1114,22 @@ function commitPA(result,err){
 /* ================= pitches ================= */
 function addCountBall(txt){ev('p',txt||'Ball');S.balls++;
   if(S.balls>=4){doWalk('BB','Walk',true);}}
+function calledStrikeoutReview(){
+  const pa=S.pas[S.pas.length-1];
+  if(!pa||pa.result!=='ꓘ'){closeModal();return;}
+  openModal(`<h2>Called strike three</h2>
+    <p class="sub">Strikeout recorded. Challenge the called strike before moving on, or tap Done.</p>
+    <button class="med" id="kChallenge" style="width:100%;margin-bottom:8px">Challenge last pitch</button>
+    <button class="med accent" id="kDone" style="width:100%">Done</button>`);
+  $('#kChallenge').onclick=()=>challengeSheet(calledStrikeoutReview);
+  $('#kDone').onclick=()=>{closeModal();endHalfCheck();save();renderAll();};
+}
 function commitCaughtStrikeout(looking){
   ev('o',looking?'Struck out looking':'Struck out swinging');
   S.outs++;commitPA(looking?'ꓘ':'K');S.order[S.bat]++;S.balls=0;S.strikes=0;
-  closeModal();save();renderAll();endHalfCheck();save();renderAll();
+  save();renderAll();
+  if(looking){calledStrikeoutReview();return;}
+  closeModal();endHalfCheck();save();renderAll();
 }
 function uncaughtThirdStrike(kind,looking){
   const label=kind==='PB'?'Passed ball':'Wild pitch';
