@@ -500,3 +500,14 @@ replacing the "visco" app she currently uses.
   will advance. App version v2026.10.06.4. Full regression harness:
   259 passed, 0 failed. App commit 1ddd839; regression commit b3f24be.
   Worker unchanged.
+
+
+- 2026-10-06: Inning-ending pickoffs and caught stealing now advance the
+  half-inning atomically. A runner out that becomes out #3 immediately clears
+  the bases/count, switches batting teams, and advances the inning when
+  appropriate. If the third out happens during an unfinished PA, that PA is
+  preserved in interruptedPAs so its real pitches remain available for future
+  pitcher totals, while the batter is not charged with a PA and stays due up
+  next time that team bats. App version v2026.10.06.5. Full regression harness:
+  276 passed, 0 failed. App commit 2fb4778; regression commit 832ee0d.
+  Worker unchanged.
