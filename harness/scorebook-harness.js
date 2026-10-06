@@ -613,9 +613,9 @@ async function main() {
     'V4: count is protected from squeezing');
 
   ok(html.indexOf('data-p="cstr" data-hold-wppb="1" aria-label="Called strike"')>=0 &&
-     html.indexOf('data-p="sstr" data-hold-wppb="1" aria-label="Swinging strike"')>=0 &&
+     html.indexOf('data-p="sstr" data-hold-wppb="1" data-variant="swing"')>=0 &&
      html.indexOf('>Called</button>')>=0 && html.indexOf('>Swinging</button>')>=0,
-    'V4: compact strike row uses Called and Swinging labels with hold support');
+    'V4: compact strike row uses Called and Swinging labels, with Swinging retaining hold support');
   ok(html.indexOf('data-p="hbp">Hit Batter</button>')<0 &&
      html.indexOf('Hit by Pitch</button>')>=0,
     'V4: HBP button uses Hit by Pitch label');
