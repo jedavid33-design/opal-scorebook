@@ -485,7 +485,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.2';
+const APP_VERSION='2026.10.06.3';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1249,12 +1249,12 @@ function outcomeModal(){
       </div>
       <div class="outcomeCol"><div class="outcomeHead">Out</div>
         <button class="med" data-o="GO">Groundout</button>
-        <button class="med" data-o="FO">Flyout</button>
-        <button class="med" data-o="POP">Pop fly</button>
         <button class="med" data-o="LO">Lineout</button>
+        <button class="med" data-o="FO">Fly out</button>
+        <button class="med" data-o="POP">Pop fly</button>
+        <button class="med" id="buntOutBtn" type="button">Bunt</button>
         <button class="med" data-o="FL">Foul out</button>
         <button class="med" data-o="DP">Double Play</button>
-        <button class="med" id="buntOutBtn" type="button">Bunt</button>
       </div>
     </div>
     <button class="med" data-o="SAC" style="width:100%;margin-top:8px">Sacrifice</button>
