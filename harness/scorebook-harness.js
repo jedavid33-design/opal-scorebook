@@ -72,6 +72,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get syncInfo(){return syncInfo;},` +
   `get corruptStashed(){return corruptStashed;},set corruptStashed(v){corruptStashed=v;},` +
   `get substitutionMode(){return substitutionMode;},get pendingSub(){return pendingSub;},` +
+  `get viewing(){return viewing;},set viewing(v){viewing=v;},` +
   `APP_VERSION,blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,` +
   `demoLineups,rosterToPool,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
@@ -83,9 +84,9 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
-  `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,` +
-  `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,` +
-  `pitchCounts,tryAddPitch,` +
+  `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,` +
+  `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
+  `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
   `getArchive,updateArchive,addToArchive,archiveCurrentGame,endGame,` +
   `renderGames,renderPendingCard,renderSyncCard,renderPastList,bindPitchGestures,renderAll,showView,initPullToRefresh,toast,esc,genId` +
@@ -478,7 +479,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.5','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.6','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -729,6 +730,53 @@ async function main() {
      hitMenu.indexOf('>Pop Up</button>')>=0 &&
      hitMenu.indexOf('>Bunt</button>')>=0,
     'H1: hit type labels use the requested compact wording');
+
+  /* ===== completed game decisions + past-game official scoring ===== */
+  newGame();
+  eq(sb.S.decisions,null,'G1: new game starts without pitching decisions');
+  eq(sb.S.completed,false,'G1: new game is not completed');
+  sb.S.runs.away=[9];sb.S.runs.home=[8];
+  sb.S.away.pitcher='Carl Edwards Jr. #6';
+  sb.S.home.pitcher='Max Scherzer #31';
+  sb.S.subLog=[
+    {team:'away',type:'P',old:'Kyle Hendricks',new:'José Quintana'},
+    {team:'away',type:'P',old:'José Quintana',new:'Carl Edwards Jr.'},
+    {team:'home',type:'P',old:'Gio Gonzalez',new:'Max Scherzer'}
+  ];
+  const awayPitchers=sb.pitcherCandidates('away');
+  ok(awayPitchers.includes('Kyle Hendricks')&&awayPitchers.includes('José Quintana')&&awayPitchers.includes('Carl Edwards Jr.'),
+    'G1: completion picker reconstructs pitchers from current pitcher and pitching changes');
+  sb.gameDecisionSheet(true);
+  ok(el('#sheet').innerHTML.indexOf('Winning pitcher')>=0 &&
+     el('#sheet').innerHTML.indexOf('Losing pitcher')>=0 &&
+     el('#sheet').innerHTML.indexOf('Save')>=0,
+    'G1: Game Complete sheet asks for W, L and optional save');
+  el('#gcWP').value='Brian Duensing';el('#gcLP').value='Max Scherzer';el('#gcSV').value='Wade Davis';
+  await el('#gcDone').onclick();
+  const completedArchive=sb.getArchive();
+  ok(completedArchive.length===1&&completedArchive[0].state.completed===true,
+    'G1: completing game archives a completed state');
+  eq(completedArchive[0].state.decisions.wp,'Brian Duensing','G1: winning pitcher is archived');
+  eq(completedArchive[0].state.decisions.lp,'Max Scherzer','G1: losing pitcher is archived');
+  eq(completedArchive[0].state.decisions.sv,'Wade Davis','G1: save pitcher is archived');
+
+  newGame();
+  sb.S.runs.away=[1];sb.S.runs.home=[0];
+  sb.S.pas=[{team:'away',b:0,inning:1,half:0,result:'E5',batter:'Astro1',events:[{t:'o',text:'Reached on error E5'}],errBy:['Rival5']}];
+  const pastGid=sb.S.gid;
+  sb.viewing={gid:pastGid,name:'Astros @ Rivals',score:'1-0',date:12345,editing:true,local:true};
+  sb.applyFixNotation(sb.S.pas[0],'1B','Singled on a ground ball to 3B');
+  eq(sb.S.pas[0].result,'1B','G2: finished-game ruling can change error to hit');
+  eq(sb.teamHits('away'),1,'G2: official ruling change recalculates team hits');
+  eq(sb.teamErrs('home'),0,'G2: official ruling change removes the fielding error');
+  const corrected=sb.getArchive().find(x=>x.gid===pastGid);
+  ok(corrected&&corrected.state.pas[0].result==='1B',
+    'G2: finished-game scoring change persists to Past games');
+  sb.editPA(0);
+  ok(el('#sheet').innerHTML.indexOf('Official scoring change')>=0 &&
+     el('#sheet').innerHTML.indexOf('Re-score play')<0,
+    'G2: archived edit mode offers official ruling changes without destructive rewind');
+  sb.viewing=null;
 
   /* ===== full-lineup substitution mode ===== */
   newGame();
