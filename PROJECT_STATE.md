@@ -811,3 +811,13 @@ replacing the "visco" app she currently uses.
   fly establishes the tag; sac-bunt advancement is stored as part of the SAC.
   Errors can still be marked explicitly from the placement screen. App version
   v2026.10.06.33. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: A normal Swinging tap that becomes strike three now pauses on a
+  Strikeout confirmation sheet before advancing to the next batter/half-inning,
+  matching the terminal confirmation behavior used for called strike three and
+  ball four. The sheet has Done but no ABS Challenge action because a swinging
+  strike is not challengeable. Third-out swinging Ks are held in the current
+  half until Done is tapped. Foul-tip strikeouts and held WP/PB third-strike
+  flows retain their existing behavior. App version v2026.10.06.34. Worker
+  unchanged; no Worker deployment required.
