@@ -611,3 +611,13 @@ replacing the "visco" app she currently uses.
   events. App version v2026.10.06.14. Full regression harness: 339 passed,
   0 failed. App commit 7c3e597; regression commit bf97030. Worker unchanged;
   no Worker deployment required.
+
+
+- 2026-10-06: Previous-call challenge control removed from the Score view now
+  that terminal ball-four and called-strike-three calls pause for review before
+  the PA/half-inning can move on. The live PA area now always renders the same
+  35px pitch-rail footprint, including before pitch one, so "No pitches yet
+  this PA" no longer causes the score card to jump when the first event appears.
+  App version v2026.10.06.15. Full regression harness: 341 passed, 0 failed.
+  App commit 481eb48; regression commit 526dac1. Worker unchanged; no Worker
+  deployment required.
