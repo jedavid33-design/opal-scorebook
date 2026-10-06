@@ -579,7 +579,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.30';
+const APP_VERSION='2026.10.06.31';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1660,6 +1660,7 @@ function homeRunLocation(){
 }
 function buntOutNotation(kind,f){
   if(kind==='BGO')return{code:'BGO'+f,text:'Bunt ground out '+f};
+  if(kind==='BFPOP')return{code:'BPOF'+f,text:'Bunt pop out in foul territory P'+f};
   return{code:'BPO'+f,text:'Bunt pop out P'+f};
 }
 function scoreBuntOut(kind){
@@ -1670,10 +1671,19 @@ function scoreBuntOut(kind){
       placementReview([{who:'BR',label:br(),from:0,to:0,out:{f}},...holdMovers()],n.code,n.text);
     },'Bunt ground out — fielders');return;
   }
-  fielderSingle(f=>{
-    const n=buntOutNotation('BPOP',f);ev('o',n.text);
+  const pop=foul=>fielderSingle(f=>{
+    const n=buntOutNotation(foul?'BFPOP':'BPOP',f);ev('o',n.text);
     placementReview([{who:'BR',label:br(),from:0,to:0,out:{f:'P'+f}},...holdMovers()],n.code,n.text);
-  },'Bunt pop out — fielder');
+  },foul?'Foul bunt pop out — fielder':'Bunt pop out — fielder');
+  if(kind==='BFPOP'){pop(true);return;}
+  if(kind==='BPOP'){
+    openModal(`<h2>Bunt pop out</h2><p class="sub">Was the caught bunt fair or foul?</p>
+      <div class="grid2"><button class="med" id="bpopFair">Fair</button><button class="med" id="bpopFoul">Foul</button></div>
+      <div style="margin-top:8px"><button class="sml ghost" id="bpopBack" style="width:100%">Back</button></div>`);
+    $('#bpopFair').onclick=()=>pop(false);
+    $('#bpopFoul').onclick=()=>pop(true);
+    $('#bpopBack').onclick=outcomeModal;
+  }
 }
 function bindBuntOutGesture(){
   const btn=$('#buntOutBtn'),menu=$('#buntHoldMenu');if(!btn||!menu)return;
@@ -1875,7 +1885,7 @@ function needsAdvanceReason(m,playCode){
 function advanceReasonChoices(playCode){
   const c=String(playCode||'');
   return{
-    tag:/^(SF|F\\d+|L\\d+|P\\d+|fP?\\d+|BPO\\d+)/.test(c),
+    tag:/^(SF|F\\d+|L\\d+|P\\d+|fP?\\d+|BPO(?:F)?\\d+)/.test(c),
     sb:/^(BB|IBB)$/.test(c)||/^(K|ꓘ)(?:-|$)/.test(c)
   };
 }
