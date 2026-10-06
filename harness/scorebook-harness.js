@@ -82,7 +82,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,extraAdvanceReason,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
@@ -217,6 +217,25 @@ async function main() {
   const fcRunnerEvt=sb.moveRunnerEvents(fcRunnerMove,'FC')[0][1];
   eq(fcRunnerEvt.advance.reason,'FC',
     'PATH1: ordinary surviving-runner advancement on a fielder\'s choice is stored as caused by the FC');
+  ok(sb.advanceReasonChoices('SF').tag && !sb.advanceReasonChoices('SF').sb,
+    'PATH1: sacrifice fly offers tagged up but not stolen base');
+  ok(sb.advanceReasonChoices('F8').tag && !sb.advanceReasonChoices('F8').sb,
+    'PATH1: ordinary flyout offers tagged up but not stolen base');
+  ok(sb.advanceReasonChoices('L6').tag && sb.advanceReasonChoices('P5').tag &&
+     sb.advanceReasonChoices('f9').tag && sb.advanceReasonChoices('fP5').tag,
+    'PATH1: caught line, pop, and foul outs support tagged-up advancement');
+  ok(!sb.advanceReasonChoices('6-3').tag && !sb.advanceReasonChoices('SAC').tag,
+    'PATH1: groundouts and sacrifice bunts do not offer tagged up');
+  ok(sb.advanceReasonChoices('BB').sb && sb.advanceReasonChoices('IBB').sb &&
+     sb.advanceReasonChoices('K-WP').sb && sb.advanceReasonChoices('ꓘ-PB').sb,
+    'PATH1: stolen base is available for walk and strikeout contexts');
+  ok(!sb.advanceReasonChoices('1B').sb && !sb.advanceReasonChoices('FC').sb &&
+     !sb.advanceReasonChoices('SF').sb && !sb.advanceReasonChoices('HBP').sb,
+    'PATH1: stolen base is hidden outside walks and strikeouts');
+  const tagMove={who:'R',label:'Runner',from:3,defaultTo:3,to:4,out:null,adv:'tag',err:null,r:{t:'away',i:0,rid:'r-tag'}};
+  const tagEvt=sb.moveRunnerEvents(tagMove,'SF')[0][1];
+  eq(tagEvt.advance.reason,'tag','PATH1: tagged-up advancement is stored structurally');
+  ok(/tags up and scores/.test(tagEvt.text),'PATH1: tagged-up score is readable in play events');
   const hitRunnerMove={who:'R',label:'Runner',from:1,defaultTo:2,to:3,out:null,adv:null,err:null,r:{t:'away',i:0,rid:'r-hit-extra'}};
   const hitRunnerEvt=sb.moveRunnerEvents(hitRunnerMove,'1B')[0][1];
   eq(hitRunnerEvt.advance.reason,'1B',
@@ -583,7 +602,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.26','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.27','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
