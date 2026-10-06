@@ -2067,7 +2067,7 @@ function gameStarted(st){st=st||S;return !!(st&&(st.started||(st.pas&&st.pas.len
 function queuePush(){const c=syncCfg();if(!c||viewing||!gameStarted())return;syncInfo={state:'pending',msg:'Syncing…'};renderSyncCard();clearTimeout(pushTimer);pushTimer=setTimeout(()=>pushGame(false,S),2500);}
 let pushInflight=false,pushQueued=false;
 async function pushGame(finished,st,force){
-  const c=syncCfg();if(!c||viewing)return false;st=st||S;
+  const c=syncCfg();if(!c||(viewing&&!viewing.editing))return false;st=st||S;
   if(!finished&&!gameStarted(st))return false;
   if(pushInflight&&!finished){pushQueued=true;return false;} // serialize; re-queue after
   pushInflight=true;
@@ -2095,7 +2095,7 @@ async function pushGame(finished,st,force){
       let resp={};try{resp=await r.json();}catch(e){}
       if(typeof resp.rev==='number')st.rev=resp.rev;
       if(typeof resp.updated_at==='number')st.serverUpdatedAt=resp.updated_at;
-      if(st===S)persistLocal(); // don't re-queue: the push itself isn't a local change
+      if(st===S&&!viewing)persistLocal(); // don't overwrite the live save while viewing a past game
       syncInfo={state:'ok',msg:'Synced '+new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})};
       ok=true;
     }
@@ -2166,20 +2166,20 @@ function addToArchive(entry){const a=getArchive().filter(x=>x.gid!==entry.gid);a
   try{localStorage.setItem('osb1-archive',JSON.stringify(a));}catch(e){}}
 async function endGame(){
   if(gameStarted()){const st=S;
-    addToArchive({gid:st.gid,name:gameName(st),score:gameScore(st),date:Date.now(),state:st,pendingFinish:true});
+    addToArchive({gid:st.gid,name:gameName(st),score:gameScore(st),date:st.completedAt||Date.now(),state:st,pendingFinish:true});
     const ok=await pushGame(true,st); // A12: on failure the entry keeps pendingFinish and is retried on next pull
     if(ok)updateArchive(st.gid,{pendingFinish:false,state:st});}
   S=blank();undoStack.length=0;undoMeta.length=0;persistUndo();save();renderSetup();renderGames();showView('setup');
 }
 function viewGame(src){
   if(!liveS)liveS=S;
-  const done=st=>{viewing={gid:src.gid,name:src.name,score:src.score,date:src.date};S=st;ensureShape();renderAll();renderGames();showView('book');window.scrollTo(0,0);};
+  const done=st=>{viewing={gid:src.gid,name:src.name,score:src.score,date:src.date,editing:false,local:!!src.local};S=JSON.parse(JSON.stringify(st));ensureShape();renderAll();renderGames();showView('book');window.scrollTo(0,0);};
   if(src.state){done(typeof src.state==='string'?JSON.parse(src.state):src.state);return;}
   const c=syncCfg();if(!c){toast('Sync is off — that game has no saved state');return;}
   fetch(SYNC_URL+'/api/games/'+src.gid+'?code='+encodeURIComponent(c.code)).then(r=>{if(!r.ok)throw 0;return r.json();})
     .then(g=>done(JSON.parse(g.state))).catch(()=>toast('Could not load that game'));
 }
-function backToLive(){if(liveS){S=liveS;liveS=null;}viewing=null;ensureShape();renderSetup();renderAll();renderGames();showView('score');}
+function backToLive(){if(liveS){S=liveS;liveS=null;}viewing=null;ensureShape();renderSetup();renderAll();renderGames();showView(S.started?'score':'setup');}
 async function deletePastGame(gid,remote){
   if(!confirm('Delete this past game?'))return;
   const a=getArchive().filter(x=>x.gid!==gid);
