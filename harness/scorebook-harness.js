@@ -75,7 +75,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get viewing(){return viewing;},set viewing(v){viewing=v;},` +
   `APP_VERSION,blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,` +
-  `demoLineups,rosterToPool,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
+  `demoLineups,rosterToPool,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
@@ -445,6 +445,17 @@ async function main() {
     'Elly De La Cruz|Sam Dyson|Tommy La Stella|Adam Lind',
     'roster: compound surnames sort under the leading surname particle');
 
+  /* ===== MLB broadcast abbreviations in scoring header ===== */
+  newGame();
+  sb.S.away.name='Red Sox';sb.S.away.poolMeta={mlbId:111};
+  sb.S.home.name='Blue Jays';sb.S.home.poolMeta={mlbId:141};
+  sb.renderScore();
+  eq(el('#hAway').textContent,'BOS','ABBR1: Red Sox use BOS broadcast abbreviation');
+  eq(el('#hHome').textContent,'TOR','ABBR1: Blue Jays use TOR broadcast abbreviation');
+  eq(sb.scoreTeamAbbr({name:'Astros',poolMeta:{mlbId:117}},'AWY'),'HOU','ABBR1: Astros use HOU');
+  eq(sb.scoreTeamAbbr({name:'Cubs'},'AWY'),'CHC','ABBR1: manual Cubs name falls back to CHC');
+  eq(sb.scoreTeamAbbr({name:'Queens'},'AWY'),'QUEE','ABBR1: non-MLB team keeps existing short-name fallback');
+
   /* ===== 2026-10-05 scoring usability batch ===== */
   newGame();
   sb.S.away.lineup[0] = { name:'A', num:'1', pos:'6' };
@@ -479,7 +490,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.8','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.9','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
