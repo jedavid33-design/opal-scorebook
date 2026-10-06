@@ -510,7 +510,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.14','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.15','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -568,6 +568,14 @@ async function main() {
   ok(el('#hEvents').innerHTML.indexOf('class="pitchrail"')>=0 &&
      el('#hEvents').innerHTML.indexOf('class="pitchchip challengeable"')>=0,
     'V1: live PA renders as a compact horizontal pitch-chip rail');
+  newGame();
+  sb.renderScore();
+  ok(el('#hEvents').innerHTML.indexOf('class="pitchrail"')>=0 &&
+     el('#hEvents').innerHTML.indexOf('No pitches yet this PA')>=0,
+    'V1: empty PA keeps the same pitch-rail footprint before pitch one');
+  ok(html.indexOf('id="hPrevChallenge"')<0 &&
+     html.indexOf('Challenge previous call')<0,
+    'V1: previous-call challenge control is removed now that terminal calls pause for review');
   ok(html.indexOf('.eventnotes{display:flex;flex-wrap:wrap')>=0,
     'V1: non-pitch PA events use a separate compact notes row');
 
