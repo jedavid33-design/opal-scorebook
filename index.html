@@ -476,7 +476,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.05.14';
+const APP_VERSION='2026.10.06.1';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1264,8 +1264,14 @@ function hitPicker(verb,cb){
     const ready=ht&&f;
     $('#sheet').innerHTML=`<h2>${verb} — how, and who played it?</h2>
       <div class="sect" style="margin-top:0">Hit type</div>
-      <div class="grid2">${['line drive','ground ball','fly ball','bunt'].map(h=>
-        `<button class="med${ht===h?' accent':''}" data-ht="${h}">${cap(h)}</button>`).join('')}</div>
+      <div class="grid2">${[
+        ['ground ball','Ground'],
+        ['line drive','Line'],
+        ['fly ball','Fly'],
+        ['pop up','Pop Up'],
+        ['bunt','Bunt']
+      ].map(([h,label])=>
+        `<button class="med${ht===h?' accent':''}" data-ht="${h}">${label}</button>`).join('')}</div>
       <div class="sect">Played by</div>
       ${fieldSVG(f?[+f]:[])}
       <div class="fread" style="font-size:16px;min-height:30px">${ready?`${verb} on a ${ht} to ${POS[f]}`:'Pick a hit type and a fielder'}</div>
