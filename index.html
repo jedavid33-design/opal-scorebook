@@ -205,6 +205,17 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   padding:8px 10px; border:1px solid var(--line); border-radius:12px; margin-bottom:6px;
   background:rgba(255,255,255,.03); font-size:13px;}
 .pbpRow small{font-size:11px;}
+.pbpActions{display:flex;gap:6px;align-items:center;flex:0 0 auto;}
+.auditPitch{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;
+  padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:13px;}
+.auditPitch:last-child{border-bottom:none;}
+.auditNum{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--line);color:var(--dim);font-size:11px;font-weight:800;}
+.auditMeta{font-size:11px;color:var(--dim);margin-top:2px;}
+.auditCount{font-weight:800;white-space:nowrap;}
+.auditNoPitch{font-size:10px;color:var(--warn);font-weight:800;text-transform:uppercase;letter-spacing:.4px;}
+.auditSummary{padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.035);font-size:12.5px;margin-bottom:10px;}
+.dcell[data-pa-audit]{cursor:pointer;}
 .subRow{font-size:12.5px; color:var(--dim); padding:4px 0; border-bottom:1px solid rgba(255,255,255,.05);}
 /* Runner buttons: 3-col on wide screens, regridded on small phones. */
 .rgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
@@ -556,7 +567,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.19';
+const APP_VERSION='2026.10.06.20';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -671,7 +682,7 @@ function pitchCountsAsThrown(e){
 function contactPitchBonus(result){
   if(!result)return 0;
   if(result==='HBP'||result==='CI')return 1;
-  if(/^(1B|2B|3B|HR|E\d+|FC|SAC|SF|BGO|BPO)/.test(result))return 1;
+  if(/^(1B|2B|3B|HR|E\d+|FC|SAC|SF|BGO|BPO|DP)/.test(result))return 1;
   if(/^[FfLP]\d/.test(result)||/^\d/.test(result))return 1;
   return 0;
 }
@@ -1358,11 +1369,16 @@ function challengeTeamFor(lp){
   return isBall?(lp.team==='away'?'home':'away'):lp.team;
 }
 function chalTeamName(t){return(t==='away'?S.away.name:S.home.name)||(t==='away'?'Away':'Home');}
+function countAfterPitch(text,b,s){
+  let nb=b,ns=s;const t=String(text||'');
+  if(t==='Foul bunt')ns++;
+  else if(t==='Foul ball'){if(ns<2)ns++;}
+  else if(t==='Missed bunt'||t==='Called strike'||t==='Swinging strike'||t==='Foul tip'||t.indexOf('Automatic strike')===0)ns++;
+  else if(t==='Ball'||t==='Pitchout (ball)'||t.indexOf('Automatic ball')===0||t.indexOf('Illegal pitch')===0)nb++;
+  return{b:nb,s:ns};
+}
 function recountCount(evts){let b=0,s=0;
-  for(const x of evts){if(x.t!=='p')continue;
-    if(/^foul/i.test(x.text)){if(s<2)s++;}
-    else if(/ball/i.test(x.text))b++;
-    else if(/strike/i.test(x.text)||x.text==='Foul tip')s++;}
+  for(const x of evts){if(x.t!=='p')continue;const c=countAfterPitch(x.text,b,s);b=c.b;s=c.s;}
   S.balls=b;S.strikes=s;}
 function challengeSheet(onReturn){
   if(viewing)return;
@@ -1929,7 +1945,7 @@ function bookTable(t){
   team.lineup.forEach((p,i)=>{
     h+=`<tr><td class="plname">${p.num?'#'+p.num+' ':''}${p.name||'—'}${p.hist&&p.hist.length>1?' ⇄':''}</td>`;
     for(let n=1;n<=nInn;n++){const ps=pasAt(t,i,n);
-      h+=`<td>${ps.length?'<div class="paStack">'+ps.map(pa=>`<div class="dcell ${clsOf(pa.result)}"><div class="d"></div><span>${pa.result}${paErrDisp(pa)?', '+paErrDisp(pa):''}</span></div>`).join('')+'</div>':''}</td>`;}
+      h+=`<td>${ps.length?'<div class="paStack">'+ps.map(pa=>`<div class="dcell ${clsOf(pa.result)}" data-pa-audit="${S.pas.indexOf(pa)}" role="button" tabindex="0" title="View pitches"><div class="d"></div><span>${pa.result}${paErrDisp(pa)?', '+paErrDisp(pa):''}</span></div>`).join('')+'</div>':''}</td>`;}
     h+=`</tr>`;});
   return h+'</table>';
 }
@@ -1962,6 +1978,10 @@ function renderBook(){
   const gc=$('#gameCompleteBtn');if(gc)gc.style.display=viewing?'none':'';
   $('#bookAwayT').textContent=S.away.name+' — away';$('#bookHomeT').textContent=S.home.name+' — home';
   $('#bookAway').innerHTML=bookTable('away');$('#bookHome').innerHTML=bookTable('home');
+  document.querySelectorAll('[data-pa-audit]').forEach(x=>{
+    x.onclick=()=>pitchAuditModal(+x.dataset.paAudit);
+    x.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pitchAuditModal(+x.dataset.paAudit);}};
+  });
   const nInn=Math.max(9,S.inning);
   const H=teamHits;
   const E=teamErrs;
@@ -1975,8 +1995,10 @@ function renderPbp(){
   const el=$('#pbp');if(!el)return;
   el.innerHTML=S.pas.map((p,idx)=>{
     const e0=p.events.length?p.events[0].text:'';
-    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div>${viewing&&!viewing.editing?'':`<button class="sml" data-edit="${idx}">Edit</button>`}</div>`;
+    const pc=paPitchAudit(p).credited;
+    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div><div class="pbpActions"><button class="sml ghost" data-audit="${idx}">${pc} pitch${pc===1?'':'es'}</button>${viewing&&!viewing.editing?'':`<button class="sml" data-edit="${idx}">Edit</button>`}</div></div>`;
   }).join('')||'<p class="sub">No plays yet.</p>';
+  el.querySelectorAll('[data-audit]').forEach(b=>b.onclick=()=>pitchAuditModal(+b.dataset.audit));
   el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editPA(+b.dataset.edit));
 }
 function renderSubLog(){
@@ -1984,6 +2006,60 @@ function renderSubLog(){
   const nm=t=>t==='away'?S.away.name:S.home.name;
   el.innerHTML=S.subLog.map(s=>`<div class="subRow">${s.half?'B':'T'}${s.inn} ${nm(s.team)}: <b>${s.type}</b> ${s.new} for ${s.old}${s.slot!=null?' (slot '+(s.slot+1)+')':''}${s.base?' ('+['1st','2nd','3rd'][s.base-1]+')':''}</div>`).join('')||'<p class="sub">No substitutions.</p>';
 }
+function terminalPitchLabel(pa){
+  if(pa.result==='HBP')return 'Hit by pitch';
+  if(pa.result==='CI')return 'Catcher interference';
+  if(pa.result==='DP'){
+    const o=(pa.events||[]).find(e=>e.t==='o');
+    return o&&/^Struck out/i.test(o.text||'')?'Strikeout + caught stealing':'Ball put in play';
+  }
+  return 'Ball put in play';
+}
+function paPitchAudit(pa){
+  let b=0,s=0,no=0,credited=0,stored=0;
+  const rows=[],notes=[];
+  for(const e of pa.events||[]){
+    if(e.t==='p'){
+      stored++;no++;
+      const before=b+'-'+s,c=countAfterPitch(e.text,b,s);b=c.b;s=c.s;
+      const physical=pitchCountsAsThrown(e);if(physical)credited++;
+      let detail='';
+      if(e.ch){
+        detail=e.ch.res==='overturned'
+          ?'ABS overturned · effective call shown'
+          :'ABS upheld';
+      }
+      rows.push({n:no,text:e.text,count:b+'-'+s,before,physical,inferred:false,pitcher:e.pitcher||pa.pitcher||'',detail});
+    }else notes.push(e.text||'');
+  }
+  if(contactPitchBonus(pa.result)){
+    no++;credited++;
+    rows.push({n:no,text:terminalPitchLabel(pa),count:b+'-'+s,before:b+'-'+s,physical:true,inferred:true,pitcher:pa.pitcher||'',detail:'Credited from PA result'});
+  }
+  return{rows,notes,stored,credited,final:{b,s}};
+}
+function pitchAuditModal(idx){
+  const pa=S.pas[idx];if(!pa)return;
+  const a=paPitchAudit(pa),inferred=a.rows.filter(r=>r.inferred).length,nonPitch=a.rows.filter(r=>!r.physical).length;
+  openModal(`<h2>Pitch audit</h2>
+    <p class="sub">${esc(describePA(pa))}</p>
+    <div class="auditSummary">
+      <b>${a.credited} pitch${a.credited===1?'':'es'} credited to pitcher</b> · ${a.stored} stored pitch event${a.stored===1?'':'s'}
+      ${inferred?' · '+inferred+' terminal pitch inferred from result':''}
+      ${nonPitch?' · '+nonPitch+' automatic/no-pitch event'+(nonPitch===1?'':'s'):''}
+      ${pa.pitcher?'<br>PA pitcher at finish: <b>'+esc(pa.pitcher)+'</b>':''}
+    </div>
+    <div>${a.rows.map(r=>`<div class="auditPitch">
+      <div class="auditNum">${r.n}</div>
+      <div><b>${esc(r.text)}</b>${r.inferred?' <span class="auditNoPitch" style="color:var(--plum)">inferred</span>':''}
+        <div class="auditMeta">${r.pitcher?'P: '+esc(r.pitcher)+' · ':''}${r.detail?esc(r.detail):r.physical?'counts as pitch thrown':'automatic call / no pitch thrown'}</div></div>
+      <div class="auditCount">${esc(r.count)}${r.physical?'':'<br><span class="auditNoPitch">no pitch</span>'}</div>
+    </div>`).join('')||'<p class="sub">No pitch events stored for this PA.</p>'}</div>
+    ${a.notes.length?'<div class="sect">Other PA events</div>'+a.notes.map(n=>'<div class="subRow">'+esc(n)+'</div>').join(''):''}
+    <div style="margin-top:10px"><button class="med accent" id="auditDone" style="width:100%">Done</button></div>`);
+  $('#auditDone').onclick=closeModal;
+}
+
 /* A4: is the target PA reachable by popping snapshots? Walks the parallel
    undoMeta (no full parses) — the rewind loop would otherwise silently stop
    at the 80-cap or on an empty stack, leaving a half-rewound game. */
@@ -2108,11 +2184,7 @@ function fixNotation(idx){
 }
 function pitchCounts(pa){
   let b=0,s=0;
-  for(const e of pa.events){
-    if(e.t!=='p')continue;const t=e.text;
-    if(t==='Ball'||t==='Pitchout (ball)'||t==='Ball (illegal pitch)'||t.indexOf('Automatic ball')===0||t.indexOf('Illegal pitch')===0)b++;
-    else if(t==='Called strike'||t==='Swinging strike'||t==='Foul tip'||t.indexOf('Automatic strike')===0)s++;
-  }
+  for(const e of pa.events||[]){if(e.t!=='p')continue;const c=countAfterPitch(e.text,b,s);b=c.b;s=c.s;}
   return{b,s};
 }
 // Returns '' on success, or a plain-English reason the pitch can't be added.
