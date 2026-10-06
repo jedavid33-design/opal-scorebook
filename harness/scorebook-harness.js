@@ -201,6 +201,18 @@ async function main() {
     'PATH1: existing runner moved beyond default placement requires an advancement reason');
   ok(!sb.needsAdvanceReason({who:'R',from:2,defaultTo:3,to:3,out:null,adv:null,err:null}),
     'PATH1: runner at the play-default destination does not get an unnecessary reason prompt');
+  ok(!sb.needsAdvanceReason({who:'R',from:1,defaultTo:2,to:3,out:null,adv:null,err:null},'1B'),
+    'PATH1: runner going first-to-third on a single does not need an advancement reason');
+  ok(!sb.needsAdvanceReason({who:'R',from:2,defaultTo:3,to:4,out:null,adv:null,err:null},'1B'),
+    'PATH1: runner going second-to-home on a single does not need an advancement reason');
+  ok(!sb.needsAdvanceReason({who:'R',from:1,defaultTo:3,to:4,out:null,adv:null,err:null},'2B'),
+    'PATH1: runner going first-to-home on a double does not need an advancement reason');
+  ok(sb.needsAdvanceReason({who:'BR',from:0,award:1,defaultTo:1,to:2,out:null,adv:null,err:null},'1B'),
+    'PATH1: batter taking second after a single still needs an advancement reason');
+  const hitRunnerMove={who:'R',label:'Runner',from:1,defaultTo:2,to:3,out:null,adv:null,err:null,r:{t:'away',i:0,rid:'r-hit-extra'}};
+  const hitRunnerEvt=sb.moveRunnerEvents(hitRunnerMove,'1B')[0][1];
+  eq(hitRunnerEvt.advance.reason,'1B',
+    'PATH1: ordinary extra baserunner advancement on a hit is stored as caused by the hit');
   const runnerMove={who:'R',label:'Walked runner',from:2,defaultTo:2,to:3,out:null,adv:null,err:null,r:{t:'away',i:0,rid:'r-placement-sb'}};
   sb.extraAdvanceReason(runnerMove,()=>{advanceRedraws++;});
   el('#advSB').onclick();
@@ -563,7 +575,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.24','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.25','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
