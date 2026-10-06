@@ -774,3 +774,13 @@ replacing the "visco" app she currently uses.
   `Sacrifice double play · SF8 · 8-4-3 DP` in long-form views. Underlying
   batter result remains SF. App version v2026.10.06.29. Worker unchanged; no
   Worker deployment required.
+
+
+- 2026-10-06: Live substitution interaction is now player-first, matching the
+  natural/MLB-style read order: tap the incoming roster player, then tap the
+  lineup spot or active offensive target they replace. The incoming selection
+  is highlighted and does not alter the lineup, batter, or baserunner until the
+  second tap commits the substitution. Defensive replacements, pinch hitters,
+  and pinch runners all use the same order. After a completed substitution the
+  view returns to the roster for the next incoming player. App version
+  v2026.10.06.30. Worker unchanged; no Worker deployment required.
