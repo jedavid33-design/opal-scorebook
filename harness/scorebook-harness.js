@@ -510,7 +510,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.12','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.13','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -524,8 +524,8 @@ async function main() {
   sb.doPitch('autoball');
   eq(sb.pitcherPitchCount('home'),3,'PC1: automatic ball does not increment physical pitch count');
   sb.renderScore();
-  ok(el('#hPitcher').innerHTML.indexOf('Rival9')>=0 && el('#hPitcher').innerHTML.indexOf('PC 3')>=0,
-    'PC1: scoring matchup strip shows pitcher and running pitch count');
+  ok(el('#hPitcher').textContent.indexOf('Rival9')>=0 && el('#hPitcher').textContent.indexOf('3 pitches')>=0,
+    'PC1: scoring matchup strip shows pitcher and running pitch count as N pitches');
   sb.applySub('home','P',null,null,{name:'Reliever',num:'55'});
   sb.doPitch('ball');
   eq(sb.pitcherPitchCount('home'),1,'PC1: pitching change starts the new pitcher at his own pitch count');
@@ -550,6 +550,10 @@ async function main() {
   ok(scoreMarkup.indexOf('class="baseswrap"',baseRowPos)>=0&&
      scoreMarkup.indexOf('id="hBatter"',baseRowPos)>=0,
     'LAY1: bases and batter share the same side-by-side row');
+  ok(html.indexOf('.pitcherline{font-size:14px')>=0 &&
+     html.indexOf('text-align:right')>=0 &&
+     html.indexOf('white-space:nowrap')>=0,
+    'LAY1: pitcher and pitch count stay on one right-aligned line under Undo');
   ok(html.indexOf('.basebatterrow{display:grid;grid-template-columns:150px minmax(0,1fr)')>=0,
     'LAY1: score card reserves a compact left column for the bases');
 
