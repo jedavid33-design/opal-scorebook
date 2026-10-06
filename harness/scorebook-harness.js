@@ -82,7 +82,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
-  `actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
+  `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,` +
   `pitchCounts,tryAddPitch,` +
@@ -203,6 +203,39 @@ async function main() {
   eq(sb.S.inning, 10, 'half-inning rolls to the 10th');
   eq(sb.S.chal.away, 1, 'extras grant 0->1 at the 10th');
   eq(sb.S.chal.home, 1, 'extras grant 0->1 for both teams');
+
+  newGame();
+  sb.S.inning=5;sb.S.half=0;sb.S.bat='away';sb.S.outs=2;
+  sb.S.order.away=3;sb.S.balls=2;sb.S.strikes=1;
+  sb.S.pa=[{t:'p',text:'Ball'},{t:'p',text:'Called strike'}];
+  sb.S.bases[0]={t:'away',i:1};
+  sb.S.bases[0]=null;
+  sb.recordRunnerOut('Picked off 1-3 — #11 Astro2');
+  eq(sb.S.half,1,'runner-out third out advances top half to bottom half');
+  eq(sb.S.inning,5,'runner-out third out stays in same inning after top half');
+  eq(sb.S.bat,'home','runner-out third out switches batting team');
+  eq(sb.S.outs,0,'runner-out third out resets outs');
+  eq(sb.S.balls,0,'runner-out third out resets balls');
+  eq(sb.S.strikes,0,'runner-out third out resets strikes');
+  eq(sb.S.order.away,3,'runner-out third out does not advance unfinished batter');
+  eq(sb.S.pa.length,0,'runner-out third out clears live PA from next half');
+  eq(sb.S.interruptedPAs.length,1,'runner-out third out preserves interrupted PA');
+  eq(sb.S.interruptedPAs[0].events.filter(e=>e.t==='p').length,2,
+    'runner-out third out preserves real pitches for future totals');
+  ok(sb.S.interruptedPAs[0].events.some(e=>/Picked off/.test(e.text)),
+    'runner-out third out preserves pickoff event');
+
+  newGame();
+  sb.S.inning=5;sb.S.half=1;sb.S.bat='home';sb.S.outs=2;
+  sb.S.order.home=6;sb.S.pa=[{t:'p',text:'Swinging strike'}];
+  sb.recordRunnerOut('Caught stealing 2-6 — #12 Rival3');
+  eq(sb.S.inning,6,'caught-stealing third out advances to next inning');
+  eq(sb.S.half,0,'caught-stealing third out advances bottom half to next top');
+  eq(sb.S.bat,'away','caught-stealing third out switches batting team');
+  eq(sb.S.order.home,6,'caught-stealing third out leaves unfinished batter due next time');
+  eq(sb.S.interruptedPAs.length,1,'caught-stealing third out preserves interrupted PA');
+  ok(sb.S.interruptedPAs[0].events.some(e=>/Caught stealing/.test(e.text)),
+    'caught-stealing third out preserves runner-out event');
 
   newGame();
   sb.S.away.pool = [{ name: 'Sub Guy', num: '99', pos: '7' }];
@@ -445,7 +478,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.4','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.5','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
