@@ -582,3 +582,12 @@ replacing the "visco" app she currently uses.
   Full regression harness: 333 passed, 0 failed. App commits 7b9cb42, abd15e7,
   f3ce952, 04eb045; regression commit 26a1a69. Worker unchanged; no Worker
   deployment required.
+
+
+- 2026-10-06: Score card matchup reflow. The active pitcher/pitch count now sits
+  directly below the count/outs row. Bases and batter share the row beneath it,
+  with the diamond in a compact left column and batter details on the right.
+  Narrow panes reduce the bases column further while retaining the proportional
+  score-screen scaling added in v2026.10.06.11. App version v2026.10.06.12.
+  Full regression harness: 336 passed, 0 failed. App commit a4347a7;
+  regression commit 098c90b. Worker unchanged; no Worker deployment required.
