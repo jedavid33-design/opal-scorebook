@@ -794,3 +794,12 @@ replacing the "visco" app she currently uses.
   1B -> 2B on the catch. Edit/fix-notation flow preserves the foul-bunt
   identity. App version v2026.10.06.31. Worker unchanged; no Worker deployment
   required.
+
+
+- 2026-10-06: Fixed Tagged Up not appearing after bunt pop outs and other
+  caught-ball outs with numeric fielder codes. The previous matcher was
+  over-escaped and matched a literal backslash-d instead of digits. Replaced
+  it with explicit numeric-code checks. Tagged Up now appears for fair bunt
+  pops (BPO2), foul bunt pops (BPOF2), flyouts, lineouts, popouts, foul
+  fly/pop outs, and sac flies. App version v2026.10.06.32. Worker unchanged;
+  no Worker deployment required.
