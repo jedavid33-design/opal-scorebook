@@ -741,3 +741,12 @@ replacing the "visco" app she currently uses.
   v2026.10.06.25. Full regression harness: 413 passed, 0 failed. App commit
   6a456e2; regression commit 01349c2. Worker unchanged; no Worker deployment
   required.
+
+
+- 2026-10-06: Extended ordinary runner advancement handling to fielder's
+  choices. Existing baserunners may advance as part of an FC without the
+  extra-reason chooser; the batter-runner still requires an explicit reason
+  when advancing beyond first so the FC ruling remains intact. App version
+  v2026.10.06.26. Added regression coverage for both surviving-runner and
+  batter-runner FC advancement behavior. Worker unchanged; no Worker deployment
+  required.
