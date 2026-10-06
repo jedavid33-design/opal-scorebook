@@ -479,7 +479,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.6','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.7','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -730,6 +730,32 @@ async function main() {
      hitMenu.indexOf('>Pop Up</button>')>=0 &&
      hitMenu.indexOf('>Bunt</button>')>=0,
     'H1: hit type labels use the requested compact wording');
+
+  /* ===== terminal ABS: ball four challenged to strike three ===== */
+  newGame();
+  sb.S.balls=3;sb.S.strikes=2;sb.S.chal={away:2,home:2};
+  sb.doPitch('ball');
+  ok(el('#sheet').innerHTML.indexOf('id="plChallenge"')>=0,
+    'ABS1: ball-four placement exposes Challenge last pitch');
+  el('#plChallenge').onclick();
+  ok(el('#sheet').innerHTML.indexOf('Challenge the call')>=0,
+    'ABS1: terminal ball-four challenge opens directly from placement');
+  el('#chOv').onclick();
+  const absK=sb.S.pas[sb.S.pas.length-1];
+  eq(absK.result,'ꓘ','ABS1: overturned ball four on 3-2 becomes called strikeout');
+  eq(sb.S.order.away,1,'ABS1: overturned terminal pitch advances batting order once');
+  eq(sb.S.balls,0,'ABS1: strikeout resets balls');
+  eq(sb.S.strikes,0,'ABS1: strikeout resets strikes');
+
+  newGame();
+  sb.S.balls=3;sb.S.strikes=1;sb.S.chal={away:2,home:2};
+  sb.doPitch('ball');
+  el('#plChallenge').onclick();
+  el('#chUp').onclick();
+  ok(el('#sheet').innerHTML.indexOf('id="plDone"')>=0 &&
+     el('#sheet').innerHTML.indexOf('Confirm where everyone ends up')>=0,
+    'ABS1: upheld ball-four challenge returns to same placement sheet');
+  eq(sb.S.chal.home,1,'ABS1: upheld ball challenge costs fielding team one challenge');
 
   /* ===== completed game decisions + past-game official scoring ===== */
   newGame();
