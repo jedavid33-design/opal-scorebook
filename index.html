@@ -1117,11 +1117,12 @@ function addCountBall(txt){ev('p',txt||'Ball');S.balls++;
 function calledStrikeoutReview(){
   const pa=S.pas[S.pas.length-1];
   if(!pa||pa.result!=='ꓘ'){closeModal();return;}
+  const lp=lastPitch(),challenged=!!(lp&&lp.evts[lp.idx]&&lp.evts[lp.idx].ch);
   openModal(`<h2>Called strike three</h2>
-    <p class="sub">Strikeout recorded. Challenge the called strike before moving on, or tap Done.</p>
-    <button class="med" id="kChallenge" style="width:100%;margin-bottom:8px">Challenge last pitch</button>
+    <p class="sub">Strikeout recorded. ${challenged?'Challenge resolved.':'Challenge the called strike before moving on, or tap Done.'}</p>
+    ${challenged?'':'<button class="med" id="kChallenge" style="width:100%;margin-bottom:8px">Challenge last pitch</button>'}
     <button class="med accent" id="kDone" style="width:100%">Done</button>`);
-  $('#kChallenge').onclick=()=>challengeSheet(calledStrikeoutReview);
+  const kc=$('#kChallenge');if(kc)kc.onclick=()=>challengeSheet(calledStrikeoutReview);
   $('#kDone').onclick=()=>{closeModal();endHalfCheck();save();renderAll();};
 }
 function commitCaughtStrikeout(looking){
