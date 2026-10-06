@@ -621,3 +621,12 @@ replacing the "visco" app she currently uses.
   App version v2026.10.06.15. Full regression harness: 341 passed, 0 failed.
   App commit 481eb48; regression commit 526dac1. Worker unchanged; no Worker
   deployment required.
+
+
+- 2026-10-06: Hit-detail picker now keeps Done/Cancel visible in split view.
+  The hit type + field sheet uses a sticky two-column action footer at the
+  bottom of the modal, so the field can scroll independently without pushing
+  the actions below the fold. Narrow-sheet spacing is adjusted separately so
+  the footer remains compact on iPad split panes. App version v2026.10.06.16.
+  Full regression harness: 343 passed, 0 failed. App commit 8c65dfe;
+  regression commit dbff86c. Worker unchanged; no Worker deployment required.
