@@ -619,7 +619,11 @@ const batTeam=()=>S[S.bat];
 const curIdx=()=>S.order[S.bat]%9;
 const curBatter=()=>batTeam().lineup[curIdx()];
 const pname=p=>{const L=(S[p.t].lineup[p.i])||{};const nm=p.name||L.name||('Batter '+((p.i||0)+1));return((p.num||L.num)?('#'+(p.num||L.num)+' '):'')+nm;};
-function ev(t,x){S.pa.push(typeof x==='string'?{t,text:x}:Object.assign({t},x));}
+function ev(t,x){
+  const e=typeof x==='string'?{t,text:x}:Object.assign({t},x);
+  if(t==='p'&&!e.pitcher)e.pitcher=activePitcherLabel(fieldingTeam())||null;
+  S.pa.push(e);
+}
 function innRuns(t){let a=S.runs[t];while(a.length<S.inning)a.push(0);return a;}
 function scoreRun(t){innRuns(t)[S.inning-1]++;}
 
@@ -1187,7 +1191,8 @@ function endHalfCheck(){
     if(!Array.isArray(S.interruptedPAs))S.interruptedPAs=[];
     S.interruptedPAs.push({
       team:S.bat,b:curIdx(),inning:S.inning,half:S.half,
-      batter:pname({t:S.bat,i:curIdx()}),events:S.pa.slice()
+      batter:pname({t:S.bat,i:curIdx()}),pitcher:activePitcherLabel(fieldingTeam())||null,
+      events:S.pa.slice()
     });
     S.pa=[];
   }
@@ -1209,7 +1214,8 @@ function stripDupErr(code,tag){if(!tag)return tag;const m=/^E(\d+)/.exec(code||'
 function commitPA(result,err){
   err=stripDupErr(result,err);
   const pa={team:S.bat,b:curIdx(),inning:S.inning,half:S.half,result,
-    batter:pname({t:S.bat,i:curIdx()}),events:S.pa.slice(),...(err?{err}:null)};
+    batter:pname({t:S.bat,i:curIdx()}),pitcher:activePitcherLabel(fieldingTeam())||null,
+    events:S.pa.slice(),...(err?{err}:null)};
   const ft=S.bat==='away'?'home':'away';
   const by=errPositions(pa).map(f=>fielderName(ft,f));
   if(by.some(Boolean))pa.errBy=by;
