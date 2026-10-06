@@ -717,3 +717,15 @@ replacing the "visco" app she currently uses.
   most recent originating PA when they next move. App version v2026.10.06.23.
   Full regression harness: 402 passed, 0 failed. App commit 283b053;
   regression commit fb39f02. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Placement flow can now explicitly mark a stolen base for an
+  existing runner. Each placement review remembers the play-default destination.
+  If the scorer manually moves a runner beyond that destination, Scorebook asks
+  Stolen Base / On Throw / Error / Other instead of silently treating the
+  movement as part of the PA result. This fixes the walk-runner-on-2B -> steal
+  3B case: the stored path is 2B -> 3B with reason SB, while forced/default
+  movement does not trigger an unnecessary prompt. Batter extra-base movement
+  uses the same chooser. App version v2026.10.06.24. Full regression harness:
+  408 passed, 0 failed. App commit 5ed2c15; regression commit 88058a7. Worker
+  unchanged; no Worker deployment required.
