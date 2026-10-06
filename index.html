@@ -114,8 +114,11 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
   border:2px solid rgba(255,255,255,.35); background:rgba(255,255,255,.05); border-radius:6px;}
 .base.on{background:var(--plum); border-color:#fff; box-shadow:0 0 12px var(--plum);}
 #b2{left:43px; top:6px;} #b1{left:80px; top:43px;} #b3{left:6px; top:43px;}
-.batter{font-size:19px; font-weight:700;}
+.matchupstrip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:baseline;min-width:0;}
+.batter{font-size:19px; font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .batter small{color:var(--dim); font-weight:400;}
+.pitcherline{font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap;text-align:right;}
+.pitcherline small{font-size:12px;color:var(--dim);font-weight:700;margin-left:5px;}
 .events{list-style:none; margin:8px 0 0; padding:0; font-size:14px; max-height:150px; overflow:auto;}
 .events li{padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.07); color:var(--dim);}
 .events .eventdot{opacity:.55;font-size:16px;line-height:1;}
@@ -281,6 +284,45 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     box-shadow:1px 0 0 rgba(255,255,255,.13);
   }
 }
+/* Hybrid score scaling: preserve the full score layout through medium split
+   panes, then return to the normal responsive layout before controls get tiny. */
+#scoreScaleStage{width:100%;position:relative;}
+#scoreScaleCanvas{transform-origin:top left;}
+#v-score.score-proportional{max-width:none;}
+#v-score.score-proportional #scoreScaleStage{overflow:hidden;}
+#v-score.score-proportional #scoreScaleCanvas{width:620px;}
+@media (max-width:700px){
+  #v-score.score-proportional .card{padding:14px;border-radius:18px;}
+  #v-score.score-proportional .diamond{width:120px;height:120px;}
+  #v-score.score-proportional .base{width:34px;height:34px;border-radius:6px;}
+  #v-score.score-proportional #b2{left:43px;top:6px;}
+  #v-score.score-proportional #b1{left:80px;top:43px;}
+  #v-score.score-proportional #b3{left:6px;top:43px;}
+  #v-score.score-proportional .countline{gap:14px;margin:8px 0;}
+  #v-score.score-proportional .count{font-size:30px;min-width:0;}
+  #v-score.score-proportional .outs{font-size:15px;}
+  #v-score.score-proportional .countline .sml{min-height:44px;font-size:14px;padding:initial;}
+  #v-score.score-proportional .events{max-height:150px;margin-top:8px;}
+  #v-score.score-proportional .events li{padding:6px 8px;}
+  #v-score.score-proportional .sect{margin:12px 0 6px;}
+  #v-score.score-proportional .pitchstack,
+  #v-score.score-proportional .agrid,
+  #v-score.score-proportional .rgrid{gap:8px;}
+  #v-score.score-proportional .pitchstack .big{min-height:62px;font-size:17px;}
+  #v-score.score-proportional .pitchstack .med,
+  #v-score.score-proportional .agrid .med,
+  #v-score.score-proportional .rgrid .med{min-height:52px;font-size:15px;}
+  #v-score.score-proportional .pitchstack .ps-inplay{font-size:21px;}
+  #v-score.score-proportional .pitchstack .ps-called,
+  #v-score.score-proportional .pitchstack .ps-swing,
+  #v-score.score-proportional .pitchstack .ps-foultip,
+  #v-score.score-proportional .pitchstack .ps-ball,
+  #v-score.score-proportional .pitchstack .ps-foul{font-size:16px;}
+  #v-score.score-proportional .pitchstack .ps-ibb,
+  #v-score.score-proportional .pitchstack .ps-hbp{font-size:14px;}
+  #v-score.score-proportional .rgrid{grid-template-columns:repeat(3,1fr);}
+  #v-score.score-proportional #balkBtn{grid-column:auto;}
+}
 .viewbanner{background:linear-gradient(135deg,var(--plum-deep),#7a4fb5);color:#fff;border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .viewbanner .grow{flex:1;}
 .viewbanner button{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.4);}
@@ -394,6 +436,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 </div>
 
 <div id="v-score" class="view">
+  <div id="scoreScaleStage"><div id="scoreScaleCanvas">
   <div id="scoreBanner" class="viewbanner" hidden></div>
   <div class="card">
     <div class="scorehead" id="scorehead" role="button" tabindex="0" title="Set lineups" aria-label="Set lineups">
@@ -411,7 +454,10 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <div class="baseswrap"><div class="diamond">
       <div class="base" id="b2"></div><div class="base" id="b1"></div><div class="base" id="b3"></div>
     </div></div>
-    <div class="batter" id="hBatter">—</div>
+    <div class="matchupstrip">
+      <div class="batter" id="hBatter">—</div>
+      <div class="pitcherline" id="hPitcher">P: — <small>P 0</small></div>
+    </div>
     <ul class="events" id="hEvents"></ul>
     <div id="hPrevChallenge"></div>
   </div>
@@ -440,6 +486,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <button class="med" id="pickBtn">Pickoff</button>
     <button class="med" id="balkBtn">Balk</button>
   </div>
+  </div></div>
 </div>
 
 <div id="v-book" class="view">
@@ -487,7 +534,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.10';
+const APP_VERSION='2026.10.06.11';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
