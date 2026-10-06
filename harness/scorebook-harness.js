@@ -86,7 +86,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
-  `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
+  `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,decisionList,decisionInputRow,decisionPitcherPicker,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
   `getArchive,updateArchive,addToArchive,archiveCurrentGame,endGame,` +
   `renderGames,renderPendingCard,renderSyncCard,renderPastList,bindPitchGestures,applyScoreProportionalScale,renderAll,showView,initPullToRefresh,toast,esc,genId` +
@@ -633,7 +633,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.34','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.35','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1191,6 +1191,21 @@ async function main() {
      el('#sheet').innerHTML.indexOf('Losing pitcher')>=0 &&
      el('#sheet').innerHTML.indexOf('Save')>=0,
     'G1: Game Complete sheet shows pitch check plus W, L and optional save');
+  ok((el('#sheet').innerHTML.match(/data-decision-pick=/g)||[]).length===3 &&
+     el('#sheet').innerHTML.indexOf('data-decision-pick="gcWP"')>=0 &&
+     el('#sheet').innerHTML.indexOf('data-decision-pick="gcLP"')>=0 &&
+     el('#sheet').innerHTML.indexOf('data-decision-pick="gcSV"')>=0,
+    'G1: Game Complete exposes explicit Pick buttons for win, loss, and save');
+  const winRow=sb.decisionInputRow('gcWP','Winning pitcher',['Brian Duensing','Carl Edwards Jr.'],'Carl Edwards Jr.',false);
+  ok(winRow.indexOf('>Pick</button>')>=0 &&
+     winRow.indexOf('Brian Duensing')>=0 &&
+     winRow.indexOf('Carl Edwards Jr.')>=0,
+    'G1: decision picker row retains game-pitcher suggestions and manual input');
+  sb.decisionPitcherPicker('Save pitcher',['Wade Davis'],'Wade Davis',()=>{},()=>{},true);
+  ok(el('#sheet').innerHTML.indexOf('No save')>=0 &&
+     el('#sheet').innerHTML.indexOf('Wade Davis')>=0,
+    'G1: save picker includes explicit No save plus winning-team pitchers');
+  sb.gameDecisionSheet(true);
   el('#gcWP').value='Brian Duensing';el('#gcLP').value='Max Scherzer';el('#gcSV').value='Wade Davis';
   await el('#gcDone').onclick();
   const completedArchive=sb.getArchive();
