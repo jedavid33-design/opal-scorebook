@@ -213,6 +213,10 @@ async function main() {
     'PATH1: surviving runner advancing on a fielder\'s choice does not need an advancement reason');
   ok(sb.needsAdvanceReason({who:'BR',from:0,award:1,defaultTo:1,to:2,out:null,adv:null,err:null},'FC'),
     'PATH1: batter taking second after a fielder\'s choice still needs an advancement reason');
+  const fcRunnerMove={who:'R',label:'Runner',from:1,defaultTo:1,to:2,out:null,adv:null,err:null,r:{t:'away',i:0,rid:'r-fc-extra'}};
+  const fcRunnerEvt=sb.moveRunnerEvents(fcRunnerMove,'FC')[0][1];
+  eq(fcRunnerEvt.advance.reason,'FC',
+    'PATH1: ordinary surviving-runner advancement on a fielder\'s choice is stored as caused by the FC');
   const hitRunnerMove={who:'R',label:'Runner',from:1,defaultTo:2,to:3,out:null,adv:null,err:null,r:{t:'away',i:0,rid:'r-hit-extra'}};
   const hitRunnerEvt=sb.moveRunnerEvents(hitRunnerMove,'1B')[0][1];
   eq(hitRunnerEvt.advance.reason,'1B',
