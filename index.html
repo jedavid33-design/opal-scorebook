@@ -579,7 +579,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.34';
+const APP_VERSION='2026.10.06.35';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2571,6 +2571,22 @@ function pitcherCandidates(team){
 function decisionList(id,names){
   return '<datalist id="'+id+'">'+names.map(n=>'<option value="'+esc(n)+'"></option>').join('')+'</datalist>';
 }
+function decisionInputRow(id,label,names,value,optional){
+  return '<label>'+label+(optional?' <span class="sub">(optional)</span>':'')+'</label>'+
+    '<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">'+
+      '<input id="'+id+'" list="'+id+'List" value="'+esc(value||'')+'" autocomplete="off">'+
+      '<button class="med" data-decision-pick="'+id+'" style="min-width:74px">Pick</button>'+
+    '</div>'+decisionList(id+'List',names);
+}
+function decisionPitcherPicker(title,names,current,onPick,onBack){
+  openModal('<h2>'+esc(title)+'</h2><p class="sub">Choose a pitcher from this game, or go back and type the name manually.</p>'+
+    '<div class="pool">'+(names.length?names.map(n=>
+      '<button class="chip'+(n===current?' sel':'')+'" data-decision-name="'+esc(n)+'">'+esc(n)+'</button>').join('')
+      :'<span class="sub">No pitchers were reconstructed for this team.</span>')+'</div>'+
+    '<div style="margin-top:10px"><button class="sml ghost" id="decisionPickBack" style="width:100%">Back</button></div>');
+  $('#sheet').querySelectorAll('[data-decision-name]').forEach(b=>b.onclick=()=>onPick(b.dataset.decisionName));
+  $('#decisionPickBack').onclick=onBack;
+}
 function gamePitchingCheckHTML(){
   const block=t=>{
     const rows=pitcherPitchSummary(t);
@@ -2580,21 +2596,39 @@ function gamePitchingCheckHTML(){
   };
   return '<div class="auditSummary" style="margin-top:10px"><b>Pitch check</b><div class="sub">Compare with Gameday before completing.</div>'+block('away')+block('home')+'</div>';
 }
-function gameDecisionSheet(finishGame){
+function gameDecisionSheet(finishGame,draft){
   const ar=teamRunTotal('away'),hr=teamRunTotal('home');
   if(ar===hr){toast('The score is tied — correct the score before completing the game.');return;}
-  const wt=ar>hr?'away':'home',lt=wt==='away'?'home':'away',d=S.decisions||{};
+  const wt=ar>hr?'away':'home',lt=wt==='away'?'home':'away',d=draft||S.decisions||{};
   const wins=pitcherCandidates(wt),losses=pitcherCandidates(lt);
+  const values={wp:d.wp||'',lp:d.lp||'',sv:d.sv||''};
+  const readDraft=()=>({
+    wp:($('#gcWP')&&$('#gcWP').value||values.wp).trim(),
+    lp:($('#gcLP')&&$('#gcLP').value||values.lp).trim(),
+    sv:($('#gcSV')&&$('#gcSV').value||values.sv).trim()
+  });
+  const redraw=next=>gameDecisionSheet(finishGame,next||readDraft());
   openModal('<h2>'+(finishGame?'Game Complete':'Edit pitching decisions')+'</h2>'+
-    '<p class="sub"><b>'+esc(S[wt].name)+'</b> won '+ar+'–'+hr+'. Type a name if a pitcher is not in the suggestions.</p>'+
+    '<p class="sub"><b>'+esc(S[wt].name)+'</b> won '+ar+'–'+hr+'. Pick from pitchers used in the game, or type a name manually.</p>'+
     gamePitchingCheckHTML()+
-    '<label>Winning pitcher</label><input id="gcWP" list="gcWPList" value="'+esc(d.wp||'')+'" autocomplete="off">'+decisionList('gcWPList',wins)+
-    '<label>Losing pitcher</label><input id="gcLP" list="gcLPList" value="'+esc(d.lp||'')+'" autocomplete="off">'+decisionList('gcLPList',losses)+
-    '<label>Save <span class="sub">(optional)</span></label><input id="gcSV" list="gcSVList" value="'+esc(d.sv||'')+'" autocomplete="off">'+decisionList('gcSVList',wins)+
+    decisionInputRow('gcWP','Winning pitcher',wins,values.wp,false)+
+    decisionInputRow('gcLP','Losing pitcher',losses,values.lp,false)+
+    decisionInputRow('gcSV','Save',wins,values.sv,true)+
     '<div style="margin-top:12px"><button class="med accent" id="gcDone" style="width:100%">'+(finishGame?'Complete & archive game':'Save decisions')+'</button></div>'+
     '<div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>');
+  $('#sheet').querySelectorAll('[data-decision-pick]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.decisionPick,cur=readDraft();
+    const cfg=id==='gcWP'
+      ?{title:'Winning pitcher',names:wins,key:'wp'}
+      :id==='gcLP'
+        ?{title:'Losing pitcher',names:losses,key:'lp'}
+        :{title:'Save pitcher',names:wins,key:'sv'};
+    decisionPitcherPicker(cfg.title,cfg.names,cur[cfg.key],name=>{
+      cur[cfg.key]=name;redraw(cur);
+    },()=>redraw(cur));
+  });
   $('#gcDone').onclick=async()=>{
-    const wp=$('#gcWP').value.trim(),lp=$('#gcLP').value.trim(),sv=$('#gcSV').value.trim();
+    const picked=readDraft(),wp=picked.wp,lp=picked.lp,sv=picked.sv;
     if(!wp||!lp){toast('Pick both the winning and losing pitchers.');return;}
     if(sv&&sv===wp){toast('The winning pitcher cannot also receive the save.');return;}
     S.decisions={wp,lp,sv:sv||null,winner:wt,loser:lt};
