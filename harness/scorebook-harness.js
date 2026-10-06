@@ -765,6 +765,10 @@ async function main() {
   sb.S.pas=[{team:'away',b:0,inning:1,half:0,result:'E5',batter:'Astro1',events:[{t:'o',text:'Reached on error E5'}],errBy:['Rival5']}];
   const pastGid=sb.S.gid;
   sb.viewing={gid:pastGid,name:'Astros @ Rivals',score:'1-0',date:12345,editing:true,local:true};
+  eq(sb.clsOf('E5'),'','G2: reached-on-error is not classified as an out');
+  sb.editPA(0);
+  ok(el('#sheet').innerHTML.indexOf('Official scoring change')>=0,
+    'G2: archived error play offers official scoring change');
   sb.applyFixNotation(sb.S.pas[0],'1B','Singled on a ground ball to 3B');
   eq(sb.S.pas[0].result,'1B','G2: finished-game ruling can change error to hit');
   eq(sb.teamHits('away'),1,'G2: official ruling change recalculates team hits');
