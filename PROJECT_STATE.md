@@ -556,3 +556,12 @@ replacing the "visco" app she currently uses.
   names remain unchanged elsewhere in the app. App version v2026.10.06.9.
   Full regression harness: 316 passed, 0 failed. App commit 3e5011a;
   regression commit c282408. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: ABS challenge sheet no longer asks who challenged. Challenger
+  identity is inferred from the called pitch: the defense challenges a called
+  ball and the offense challenges a called strike. The sheet now goes straight
+  to Upheld / Overturned, while challenge counters are charged to the inferred
+  team automatically. App version v2026.10.06.10. Full regression harness:
+  323 passed, 0 failed. App commit 97797f7; regression commit 32623d9.
+  Worker unchanged; no Worker deployment required.
