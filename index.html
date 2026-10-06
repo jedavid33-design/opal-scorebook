@@ -630,6 +630,56 @@ function syncPitcherFromLineup(team){
   if(!p)p=(T.lineup||[]).find(x=>x&&x.name&&String(x.pos)==='1')||null;
   T.pitcher=p?(p.name+(p.num?' #'+p.num:'')):'';
 }
+function fieldingTeam(){return S.bat==='away'?'home':'away';}
+function activePitcherLabel(team){
+  team=team||fieldingTeam();const T=S[team]||{};
+  if(T.pitcher)return T.pitcher;
+  let p=null;
+  if(T.dh&&T.lineup&&T.lineup[9]&&T.lineup[9].name)p=T.lineup[9];
+  if(!p)p=(T.lineup||[]).find(x=>x&&x.name&&String(x.pos)==='1')||null;
+  return p?(p.name+(p.num?' #'+p.num:'')):'';
+}
+function pitchCountsAsThrown(e){
+  return !!(e&&e.t==='p'&&!/^Automatic (ball|strike)/i.test(e.text||''));
+}
+function contactPitchBonus(result){
+  if(!result)return 0;
+  if(result==='HBP'||result==='CI')return 1;
+  if(/^(1B|2B|3B|HR|E\d+|FC|SAC|SF|BGO|BPO)/.test(result))return 1;
+  if(/^[FfLP]\d/.test(result)||/^\d/.test(result))return 1;
+  return 0;
+}
+function pitcherPitchCount(team){
+  team=team||fieldingTeam();
+  const key=cleanPitcherName(activePitcherLabel(team));if(!key)return 0;
+  const batting=team==='away'?'home':'away';
+  const hasPitchChange=(S.subLog||[]).some(x=>x.team===team&&x.type==='P');
+  let n=0;
+  const countEvents=(events,owner)=>{
+    let c=0;
+    for(const e of events||[]){
+      if(!pitchCountsAsThrown(e))continue;
+      if(e.pitcher){if(cleanPitcherName(e.pitcher)===key)c++;}
+      else if(owner){if(cleanPitcherName(owner)===key)c++;}
+      else if(!hasPitchChange)c++;
+    }
+    return c;
+  };
+  for(const pa of S.pas||[]){
+    if(pa.team!==batting)continue;
+    n+=countEvents(pa.events,pa.pitcher);
+    if(contactPitchBonus(pa.result)){
+      const owner=cleanPitcherName(pa.pitcher||(!hasPitchChange?activePitcherLabel(team):''));
+      if(owner===key)n++;
+    }
+  }
+  for(const pa of S.interruptedPAs||[]){
+    if(pa.team!==batting)continue;
+    n+=countEvents(pa.events,pa.pitcher);
+  }
+  if(S.bat===batting)n+=countEvents(S.pa,activePitcherLabel(team));
+  return n;
+}
 
 /* ================= setup view ================= */
 function duplicatePositions(team){
