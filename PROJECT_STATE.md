@@ -642,3 +642,16 @@ replacing the "visco" app she currently uses.
   v2026.10.06.18. Full regression harness: 353 passed, 0 failed. App commit
   a78c9dc; regression commits 048bad1, 5b099be. Worker unchanged; no Worker
   deployment required.
+
+
+- 2026-10-06: Bunt pitch variants moved to directional slide gestures instead
+  of tap-through menus. Swinging now behaves as: tap = Swinging Strike, hold +
+  slide left = Wild Pitch, hold + slide right = Passed Ball, hold + slide down
+  = Missed Bunt. Foul now behaves as: tap = Foul Ball, hold + slide down = Foul
+  Bunt. The shared gesture overlay adapts to the held button, showing all three
+  targets for Swinging and only the downward Foul Bunt target for Foul. Keyboard
+  activation still performs the common tap action. Two-strike foul bunt remains
+  a strikeout and both bunt pitch types remain distinct in the PA timeline.
+  App version v2026.10.06.19. Full regression harness: 355 passed, 0 failed.
+  App commit 99db3f4; regression commits 82645e9, 0e4dd6e. Worker unchanged; no
+  Worker deployment required.
