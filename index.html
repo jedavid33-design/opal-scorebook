@@ -578,7 +578,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.23';
+const APP_VERSION='2026.10.06.24';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1770,18 +1770,17 @@ function moveRunnerEvents(m,playCode){
   if(m.out)return[];
   const errTxt=m.err?' on error E'+m.err:'',out=[],r=m.r||null;
   const emit=(text,from,to,reason,extra)=>out.push(['r',runnerAdvanceEvent(r,text,from,to,reason,extra)]);
+  const reasoned=(from,to)=>{
+    if(m.err)return emit(m.label+': '+baseName(from)+' → '+baseName(to)+errTxt,from,to,'error',{fielder:String(m.err)});
+    if(m.adv==='SB')return emit(m.label+' steals '+baseName(to),from,to,'SB');
+    if(m.adv==='throw')return emit(m.label+': '+baseName(from)+' → '+baseName(to)+' on throw',from,to,'throw');
+    if(m.adv==='other')return emit(m.label+': '+baseName(from)+' → '+baseName(to),from,to,'other');
+    return emit(m.label+': '+baseName(from)+' → '+baseName(to),from,to,playCode||'play');
+  };
   if(m.who==='BR'){
     const from=m.award||m.from||0;
-    if(m.to>from){
-      if(m.err)emit(m.label+': '+baseName(from)+' → '+baseName(m.to)+errTxt,from,m.to,'error',{fielder:String(m.err)});
-      else if(m.adv==='throw')emit(m.label+': '+baseName(from)+' → '+baseName(m.to)+' on throw',from,m.to,'throw');
-      else if(m.adv==='other')emit(m.label+': '+baseName(from)+' → '+baseName(m.to),from,m.to,'other');
-      else emit(m.label+': '+baseName(from)+' → '+baseName(m.to),from,m.to,playCode||'play');
-    }
-  }else if(m.from!==m.to){
-    if(m.err)emit(`${m.label}: ${baseName(m.from)} → ${baseName(m.to)}${errTxt}`,m.from,m.to,'error',{fielder:String(m.err)});
-    else emit(`${m.label}: ${baseName(m.from)} → ${baseName(m.to)}`,m.from,m.to,playCode||'play');
-  }
+    if(m.to>from)reasoned(from,m.to);
+  }else if(m.from!==m.to)reasoned(m.from,m.to);
   return out;
 }
 /* Error tag for the PA record, e.g. 'E8' or 'E5,E8'. Null when no error was marked. */
@@ -1789,28 +1788,36 @@ function paErrTag(movers){
   const u=[...new Set(movers.filter(m=>m.err&&!m.out).map(m=>m.err))];
   return u.length?u.map(f=>'E'+f).join(','):null;
 }
+function needsAdvanceReason(m){
+  if(!m||m.out||m.err||m.adv||m.to<=m.from)return false;
+  const baseline=m.who==='BR'?(m.award||m.defaultTo||m.from):(m.defaultTo==null?m.from:m.defaultTo);
+  return m.to>baseline;
+}
 function extraAdvanceReason(m,draw){
-  const from=m.award||m.from||0,to=m.to;
-  openModal(`<h2>Extra advancement</h2>
-    <p class="sub">${esc(m.label)} was credited to ${baseName(from)} but ended at ${baseName(to)}. How did the extra advance happen?</p>
+  const from=m.who==='BR'?(m.award||m.from||0):m.from,to=m.to;
+  openModal(`<h2>How did the runner advance?</h2>
+    <p class="sub">${esc(m.label)} moved ${baseName(from)} → ${baseName(to)}. Choose the reason so the scorecard path stays accurate.</p>
     <div class="grid2">
-      <button class="med" id="advThrow">On throw</button>
+      <button class="med" id="advSB">Stolen Base</button>
+      <button class="med" id="advThrow">On Throw</button>
       <button class="med" id="advErr">Error</button>
       <button class="med" id="advOther">Other</button>
-      <button class="med ghost" id="advBack">Back</button>
-    </div>`);
+    </div>
+    <div style="margin-top:8px"><button class="med ghost" id="advBack" style="width:100%">Back</button></div>`);
+  $('#advSB').onclick=()=>{m.adv='SB';m.err=null;draw();};
   $('#advThrow').onclick=()=>{m.adv='throw';m.err=null;draw();};
   $('#advErr').onclick=()=>fielderSingle(f=>{m.err=f;m.adv=null;draw();},'Error by whom?',()=>draw());
   $('#advOther').onclick=()=>{m.adv='other';m.err=null;draw();};
-  $('#advBack').onclick=()=>{m.to=from;m.adv=null;m.err=null;draw();};
+  $('#advBack').onclick=()=>{m.to=m.defaultTo==null?from:m.defaultTo;m.adv=null;m.err=null;draw();};
 }
 function placementReview(movers,code,text,alreadySnapped){
+  movers.forEach(m=>{if(m.defaultTo==null)m.defaultTo=m.to;});
   const draw=()=>{
     const lp=code==='BB'?lastPitch():null;
     const canChallenge=!!(lp&&lp.live&&lp.evts[lp.idx]&&lp.evts[lp.idx].text==='Ball'&&!lp.evts[lp.idx].ch);
     $('#sheet').innerHTML=`<h2>${text}</h2><p class="sub">Confirm where everyone ends up.</p>`+
       (canChallenge?`<button class="med" id="plChallenge" style="width:100%;margin-bottom:8px">Challenge last pitch</button>`:'')+
-      movers.map((m,i)=>`<div class="mover"><div class="nm">${m.label}${m.adv==='throw'?' · <span class="sub">on throw</span>':m.adv==='other'?' · <span class="sub">extra advance</span>':''}${m.out?' — <span style="color:var(--out)">OUT ('+m.out.f+')</span>':''}</div>
+      movers.map((m,i)=>`<div class="mover"><div class="nm">${m.label}${m.adv==='SB'?' · <span class="sub">SB</span>':m.adv==='throw'?' · <span class="sub">on throw</span>':m.adv==='other'?' · <span class="sub">extra advance</span>':''}${m.out?' — <span style="color:var(--out)">OUT ('+m.out.f+')</span>':''}</div>
         ${m.out?'':`<div class="dest">${[1,2,3,4].map(b=>`<button data-m="${i}" data-b="${b}" class="${m.to===b?'sel':''}">${baseName(b)}</button>`).join('')}
         <button data-m="${i}" data-b="out">Out</button>
         <button data-m="${i}" data-b="err" class="ebtn${m.err?' sel':''}">${m.err?'E'+m.err:'E'}</button></div>`}</div>`).join('')+
@@ -1824,8 +1831,9 @@ function placementReview(movers,code,text,alreadySnapped){
       }
       else{
         m.to=+v;m.out=null;
-        if(m.award&&m.to<=m.award){m.adv=null;m.err=null;draw();}
-        else if(m.who==='BR'&&m.award&&m.to>m.award&&!m.err&&!m.adv)extraAdvanceReason(m,draw);
+        const baseline=m.who==='BR'?(m.award||m.defaultTo||m.from):(m.defaultTo==null?m.from:m.defaultTo);
+        if(m.to<=baseline){m.adv=null;m.err=null;draw();}
+        else if(needsAdvanceReason(m))extraAdvanceReason(m,draw);
         else draw();
       }
     });
