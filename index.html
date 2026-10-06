@@ -1885,15 +1885,17 @@ function applyFixNotation(pa,nr,nt){
   save();
 }
 function editPA(idx){
-  const pa=S.pas[idx];
-  openModal(`<h2>Edit play</h2><p class="sub">${describePA(pa)}</p>
-    <button class="med" id="epFix" style="width:100%;margin-bottom:6px">Fix notation — outcome was right, details wrong</button>
+  const pa=S.pas[idx],pastEdit=!!(viewing&&viewing.editing);
+  openModal(`<h2>${pastEdit?'Correct finished play':'Edit play'}</h2><p class="sub">${describePA(pa)}</p>
+    ${pastEdit&&clsOf(pa.result)!=='out'?'<button class="med accent" id="epRuling" style="width:100%;margin-bottom:6px">Official scoring change — hit / error / FC</button>':''}
+    <button class="med" id="epFix" style="width:100%;margin-bottom:6px">${pastEdit?'Fix notation / fielders':'Fix notation — outcome was right, details wrong'}</button>
     <button class="med" id="epPitch" style="width:100%;margin-bottom:6px">Add missed pitch — a pitch wasn't entered</button>
-    <button class="med" id="epRescore" style="width:100%;margin-bottom:6px">Re-score play — the outcome itself was wrong</button>
+    ${pastEdit?'':`<button class="med" id="epRescore" style="width:100%;margin-bottom:6px">Re-score play — the outcome itself was wrong</button>`}
     <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+  const er=$('#epRuling');if(er)er.onclick=()=>officialRuling(idx);
   $('#epFix').onclick=()=>fixNotation(idx);
   $('#epPitch').onclick=()=>addPitchPA(idx);
-  $('#epRescore').onclick=()=>confirmEditPA(idx);
+  const rr=$('#epRescore');if(rr)rr.onclick=()=>confirmEditPA(idx);
 }
 function fixNotation(idx){
   const pa=S.pas[idx],kind=paKind(pa.result);
@@ -1902,7 +1904,7 @@ function fixNotation(idx){
   const esc=s=>String(s).replace(/"/g,'&quot;');
   const draw=()=>{
     $('#sheet').innerHTML=`<h2>Fix notation</h2>
-      <p class="sub">Only the bookkeeping changes — outs, runners and score are <b>not</b> touched. If the outcome itself was wrong, use Re-score instead.</p>
+      <p class="sub">${viewing&&viewing.editing?'Finished-game correction: the official ruling/notation changes, but the physical play, runs, outs and runner locations stay where they happened.':'Only the bookkeeping changes — outs, runners and score are <b>not</b> touched. If the outcome itself was wrong, use Re-score instead.'}</p>
       <label>Result code (diamond)</label><input id="fxResult" value="${esc(fxR)}" maxlength="12">
       <label>Play text</label><input id="fxText" value="${esc(fxT)}" maxlength="90">
       ${kind==='1B'||kind==='2B'||kind==='3B'
@@ -1919,7 +1921,8 @@ function fixNotation(idx){
       const nr=$('#fxResult').value.trim()||pa.result,nt=$('#fxText').value.trim();
       const c0=clsOf(pa.result),c1=clsOf(nr);
       const nm=c=>c==='hit'?'a hit':c==='out'?'an out':'something else';
-      if(c1!==c0){
+      const changesOutStatus=(c0==='out')!==(c1==='out');
+      if(changesOutStatus){
         openModal(`<h2>Heads up</h2><p class="sub">“${pa.result}” is scored as ${nm(c0)}, but “${nr}” reads as ${nm(c1)}. Outs, runners and score will <b>not</b> update — if the outcome was actually wrong, use Re-score instead.</p>
           <div class="grid2"><button class="med accent" id="fxForce">Save anyway</button><button class="med ghost" onclick="closeModal()">Cancel</button></div>`);
         $('#fxForce').onclick=()=>{applyFixNotation(pa,nr,nt);closeModal();renderAll();};return;
