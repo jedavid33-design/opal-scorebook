@@ -685,3 +685,18 @@ replacing the "visco" app she currently uses.
   terminal pitches now simply say "from PA result". App version v2026.10.06.21.
   Full regression harness: 374 passed, 0 failed. App commit d00830e;
   regression commit 7f5f2e9. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Foul-out slide types and Game Complete pitch check added.
+  In Play -> Out -> Foul out is now a hold-and-slide control: left = Fly,
+  right = Pop Up. Fly foul outs keep the compatible f7-style result code;
+  foul pop-ups use fP# so the distinction survives in the Book and later edits.
+  Both paths use the fielder picker and both receive terminal physical pitch
+  credit. The Game Complete sheet now includes a Pitch check section for both
+  teams, listing every pitcher and physical pitches thrown so the scorer can
+  compare against Gameday before archiving. Automatic timer balls/strikes do
+  not inflate those totals; legacy untagged early PAs fall back to the starting
+  pitcher when a later pitching change exists. The live pitcher count now uses
+  the same per-pitcher summary logic. App version v2026.10.06.22. Full
+  regression harness: 386 passed, 0 failed. App commit 2340138; regression
+  commit 9cb7d52. Worker unchanged; no Worker deployment required.
