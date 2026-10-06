@@ -750,3 +750,17 @@ replacing the "visco" app she currently uses.
   v2026.10.06.26. Added regression coverage for both surviving-runner and
   batter-runner FC advancement behavior. Worker unchanged; no Worker deployment
   required.
+
+
+- 2026-10-06: Runner advancement reasons are now play-context aware. On sac
+  flies and caught-ball outs (fly, line, pop, foul fly/pop, bunt pop), moving
+  an existing runner beyond the starting base can be marked Tagged Up and is
+  stored structurally with reason `tag`. Stolen Base is offered by the
+  placement reason chooser only for BB/IBB and strikeout contexts, not hits,
+  FC, sacrifices, ordinary outs, or HBP. On Throw, Error, and Other remain
+  available where an extra-advance reason is needed. This lets a sacrifice
+  double play be entered through the normal Sac Fly placement flow: score the
+  tagging runner, then mark another runner out with the full fielding sequence
+  (e.g. 8-4-3). App version v2026.10.06.27. Regression coverage added for
+  context-aware choices and tagged-up event storage. Worker unchanged; no
+  Worker deployment required.
