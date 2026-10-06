@@ -672,3 +672,16 @@ replacing the "visco" app she currently uses.
   Full regression harness: 369 passed, 0 failed. App commit 008fe1f;
   regression commits 9b20ead, 9b1e0f0. Worker unchanged; no Worker deployment
   required.
+
+
+- 2026-10-06: Pitch audit can now delete extra stored pitches and jump directly
+  into Edit PA. Every stored pitch row in the audit has a Delete action; deleting
+  removes only that pitch event and redraws the audit immediately, leaving the
+  PA result, runners, and score unchanged. Result-derived terminal pitches have
+  no Delete action because they are not stored taps. The audit footer now has
+  Edit PA / Done, and the normal Edit PA menu also includes Delete extra pitch.
+  Read-only archived games automatically enter official-scoring edit mode when
+  one of these corrections is used. User-facing "inferred" labels were removed;
+  terminal pitches now simply say "from PA result". App version v2026.10.06.21.
+  Full regression harness: 374 passed, 0 failed. App commit d00830e;
+  regression commit 7f5f2e9. Worker unchanged; no Worker deployment required.
