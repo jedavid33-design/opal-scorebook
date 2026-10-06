@@ -2578,13 +2578,16 @@ function decisionInputRow(id,label,names,value,optional){
       '<button class="med" data-decision-pick="'+id+'" style="min-width:74px">Pick</button>'+
     '</div>'+decisionList(id+'List',names);
 }
-function decisionPitcherPicker(title,names,current,onPick,onBack){
+function decisionPitcherPicker(title,names,current,onPick,onBack,allowClear){
   openModal('<h2>'+esc(title)+'</h2><p class="sub">Choose a pitcher from this game, or go back and type the name manually.</p>'+
-    '<div class="pool">'+(names.length?names.map(n=>
-      '<button class="chip'+(n===current?' sel':'')+'" data-decision-name="'+esc(n)+'">'+esc(n)+'</button>').join('')
-      :'<span class="sub">No pitchers were reconstructed for this team.</span>')+'</div>'+
-    '<div style="margin-top:10px"><button class="sml ghost" id="decisionPickBack" style="width:100%">Back</button></div>');
+    '<div class="pool">'+
+      (allowClear?'<button class="chip'+(!current?' sel':'')+'" id="decisionNoSave">No save</button>':'')+
+      (names.length?names.map(n=>
+        '<button class="chip'+(n===current?' sel':'')+'" data-decision-name="'+esc(n)+'">'+esc(n)+'</button>').join('')
+        :'<span class="sub">No pitchers were reconstructed for this team.</span>')+
+    '</div><div style="margin-top:10px"><button class="sml ghost" id="decisionPickBack" style="width:100%">Back</button></div>');
   $('#sheet').querySelectorAll('[data-decision-name]').forEach(b=>b.onclick=()=>onPick(b.dataset.decisionName));
+  const ns=$('#decisionNoSave');if(ns)ns.onclick=()=>onPick('');
   $('#decisionPickBack').onclick=onBack;
 }
 function gamePitchingCheckHTML(){
@@ -2625,7 +2628,7 @@ function gameDecisionSheet(finishGame,draft){
         :{title:'Save pitcher',names:wins,key:'sv'};
     decisionPitcherPicker(cfg.title,cfg.names,cur[cfg.key],name=>{
       cur[cfg.key]=name;redraw(cur);
-    },()=>redraw(cur));
+    },()=>redraw(cur),cfg.key==='sv');
   });
   $('#gcDone').onclick=async()=>{
     const picked=readDraft(),wp=picked.wp,lp=picked.lp,sv=picked.sv;
