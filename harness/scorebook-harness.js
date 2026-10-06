@@ -82,9 +82,9 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
-  `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
+  `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookDiamondHTML,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
   `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,decisionList,decisionInputRow,decisionPitcherPicker,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
@@ -300,6 +300,63 @@ async function main() {
   eq(walkedPath.steps[0].reason,'BB','PATH2: path begins with the walk to first');
   ok(walkedPath.steps.some(x=>x.reason==='SB'&&x.from===2&&x.to===3),
     'PATH2: path carries the same walked runner through the steal of third');
+
+  /* ===== Book 2.0 Phase 1: runner journey diamonds ===== */
+  newGame();
+  sb.placementReview(sb.hitMovers(1),'1B','Singled');
+  el('#plDone').onclick();
+  const phasePa=sb.S.pas[0],phaseRid=phasePa.runnerId;
+  let journey=sb.paBookJourney(phasePa);
+  eq(journey.status,'onbase','BOOK2-1: safe batter is shown still on base');
+  eq(journey.base,1,'BOOK2-1: single journey ends at first while runner remains there');
+  let dia=sb.bookDiamondHTML(phasePa);
+  ok(dia.indexOf('bdRoute')>=0&&dia.indexOf('>1B<')>=0,
+    'BOOK2-1: scorebook diamond draws a base path and live ending base');
+
+  const liveRunner=sb.S.bases[0];
+  sb.S.bases[0]=null;sb.S.bases[1]=liveRunner;
+  sb.ev('r',sb.runnerAdvanceEvent(liveRunner,'Runner advances to Second',1,2,'play'));
+  journey=sb.paBookJourney(phasePa);
+  eq(journey.routeTo,2,'BOOK2-1: later runner movement extends the original PA path to second');
+
+  sb.setRunnerEnd(liveRunner,'scored',4);
+  sb.ev('r',sb.runnerAdvanceEvent(liveRunner,'Runner scores',2,4,'play'));
+  sb.S.bases[1]=null;
+  journey=sb.paBookJourney(phasePa);
+  eq(journey.status,'scored','BOOK2-1: scored runner gets terminal run status');
+  ok(sb.bookDiamondHTML(phasePa).indexOf('>R<')>=0,
+    'BOOK2-1: scored journey renders an R marker');
+
+  newGame();
+  sb.placementReview(sb.hitMovers(1),'1B','Singled');
+  el('#plDone').onclick();
+  const outPa=sb.S.pas[0],outRunner=sb.S.bases[0];
+  sb.S.bases[0]=null;
+  sb.recordRunnerOut('Picked off 1-3 — '+sb.pname(outRunner),outRunner,1);
+  journey=sb.paBookJourney(outPa);
+  eq(journey.status,'out','BOOK2-1: later runner out is linked back to the reaching PA');
+  ok(sb.bookDiamondHTML(outPa).indexOf('>OUT<')>=0,
+    'BOOK2-1: runner-out journey renders OUT');
+
+  newGame();
+  sb.placementReview(sb.hitMovers(1),'1B','Singled');
+  el('#plDone').onclick();
+  const strandPa=sb.S.pas[0],strandRid=strandPa.runnerId;
+  sb.S.outs=3;sb.endHalfCheck();
+  eq(sb.runnerEndFor(strandRid).status,'stranded',
+    'BOOK2-1: inning end records runners left on base');
+  eq(sb.paBookJourney(strandPa).status,'stranded',
+    'BOOK2-1: stranded runner is reported from stored lifecycle');
+  ok(sb.bookDiamondHTML(strandPa).indexOf('>LOB<')>=0,
+    'BOOK2-1: stranded journey renders LOB');
+
+  newGame();
+  const directOut={team:'away',b:0,inning:1,half:0,result:'F8',batter:'Astro1',events:[]};
+  eq(sb.paBookJourney(directOut).status,'out',
+    'BOOK2-1: batter outs with no runner identity still render as outs');
+  ok(sb.bookDiamondHTML(directOut).indexOf('>OUT<')>=0,
+    'BOOK2-1: direct batter out gets OUT marker');
+
 
   newGame();
   sb.S.pa = [{ t: 'p', text: 'Ball' }, { t: 'p', text: 'Called strike' }, { t: 'p', text: 'Foul ball' }];
@@ -633,7 +690,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.35','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.36','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1330,11 +1387,15 @@ async function main() {
   sb.selectIncomingSub('away',sb.S.away.pool[0]);
   ok(sb.S.bases[1]&&sb.S.away.lineup[4].name==='Astro5',
     'S3c: selecting a pinch runner first leaves runner and batting slot intact until target tap');
+  sb.ensureRunnerIdentity(sb.S.bases[1]);
+  const prePrRid=sb.S.bases[1].rid;
   sb.applyIncomingOffensiveSub('away','PR',4,1);
   eq(sb.S.away.lineup[4].name,'Player First PR',
     'S3c: tapping runner second completes player-first pinch-runner substitution');
   ok(sb.S.bases[1]&&sb.pname(sb.S.bases[1]).indexOf('Player First PR')>=0,
     'S3c: player-first pinch runner occupies the selected base');
+  eq(sb.S.bases[1].rid,prePrRid,
+    'S3c: player-first pinch runner preserves the original runner path identity');
 
   /* ===== batting-team offensive substitution filter ===== */
   newGame();
