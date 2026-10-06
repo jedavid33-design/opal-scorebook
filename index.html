@@ -2227,7 +2227,7 @@ function subModal(){
 function pasAt(t,i,n){const half=t==='away'?0:1;return S.pas.filter(p=>p.team===t&&p.b===i&&p.inning===n&&p.half===half);}
 function paAt(t,i,n){return pasAt(t,i,n)[0]||null;}
 function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
-  if(/^(BGO|BPO)/.test(r)||/^(K|ꓘ)$/.test(r)||/^[FLPf]/.test(r)||/^\d/.test(r))return'out';return'';}
+  if(/^(BGO|BPO)/.test(r)||/^(K|ꓘ)$/.test(r)||/^(SAC|SF|DP)$/.test(r)||/^[FLPf]/.test(r)||/^\d/.test(r))return'out';return'';}
 function isSacrificeDoublePlay(pa){
   return !!(pa&&pa.result==='SF'&&(pa.sacDP||(pa.events||[]).some(e=>e.t==='o'&&/^Runner out /.test(e.text||''))));
 }
@@ -2269,6 +2269,15 @@ function legacyRunnerNamedOut(pa){
   }
   return false;
 }
+function legacyRunnerAnonymousOutPossible(pa){
+  if(!pa)return false;
+  const oi=S.pas.indexOf(pa);if(oi<0)return false;
+  for(let i=oi+1;i<S.pas.length;i++){
+    const q=S.pas[i];if(q.team!==pa.team||q.inning!==pa.inning||q.half!==pa.half)continue;
+    if((q.events||[]).some(e=>e.t==='o'&&/^Runner out /.test(e.text||'')))return true;
+  }
+  return false;
+}
 function paBookJourney(pa){
   if(!pa)return{status:'none',base:0,routeTo:0,steps:[]};
   if(!pa.runnerId){
@@ -2284,6 +2293,7 @@ function paBookJourney(pa){
   if(live)return{status:'onbase',base:live,routeTo:Math.max(routeTo,live),steps};
   if(paInningEnded(pa)){
     if(legacyRunnerNamedOut(pa))return{status:'out',base:routeTo,routeTo,steps,legacy:true};
+    if(legacyRunnerAnonymousOutPossible(pa))return{status:'ended',base:routeTo,routeTo,steps,legacy:true};
     return{status:'stranded',base:routeTo,routeTo,steps,legacy:true};
   }
   return{status:'onbase',base:routeTo,routeTo,steps};
@@ -2305,6 +2315,8 @@ function bookDiamondHTML(pa){
     marker='<circle class="bdStrand" cx="'+ep[0]+'" cy="'+ep[1]+'" r="3.5"/>';status='LOB';sc=' lob';
   }else if(j.status==='onbase'&&j.base){
     marker='<circle class="bdEnd" cx="'+ep[0]+'" cy="'+ep[1]+'" r="3.2"/>';status=baseName(j.base).replace('First','1B').replace('Second','2B').replace('Third','3B');sc=' base';
+  }else if(j.status==='ended'&&j.base){
+    marker='<circle class="bdStrand" cx="'+ep[0]+'" cy="'+ep[1]+'" r="3.5"/>';status='END';
   }
   const fill=j.status==='scored'?'<path class="bdScoreFill" d="M30 52 L52 30 L30 8 L8 30 Z"/>':'';
   const code=paResultDisplay(pa)+(paErrDisp(pa)?', '+paErrDisp(pa):'');
