@@ -510,7 +510,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.15','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.16','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -816,6 +816,12 @@ async function main() {
      hitMenu.indexOf('>Pop Up</button>')>=0 &&
      hitMenu.indexOf('>Bunt</button>')>=0,
     'H1: hit type labels use the requested compact wording');
+  ok(hitMenu.indexOf('class="sheetActions"')>=0 &&
+     hitMenu.indexOf('id="hitDone"')>=0 &&
+     hitMenu.indexOf('id="hitCancel"')>=0,
+    'H1: hit-detail picker keeps Done and Cancel together in a sticky action footer');
+  ok(html.indexOf('.sheetActions{position:sticky;bottom:0')>=0,
+    'H1: hit-detail action footer stays visible while the sheet scrolls');
 
   /* ===== terminal ABS: ball four challenged to strike three ===== */
   newGame();
