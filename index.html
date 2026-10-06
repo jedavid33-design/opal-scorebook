@@ -2028,7 +2028,7 @@ function officialRuling(idx){
     if(k==='1B'||k==='2B'||k==='3B'){
       hitPicker(HITVERB[k],(ht,f)=>{const m=applyNotationFix(k,ht,f);applyFixNotation(pa,m.result,m.text);closeModal();renderAll();});
     }else if(k==='E'){
-      fielderPad(f=>{applyFixNotation(pa,'E'+f,'Reached on error E'+f);renderAll();},'Official error — fielder');
+      fielderSingle(f=>{applyFixNotation(pa,'E'+f,'Reached on error E'+f);renderAll();},'Official error — fielder');
     }else if(k==='FC'){
       fielderPad(f=>{applyFixNotation(pa,'FC',"Fielder's choice "+f);renderAll();},'Official FC — fielders');
     }
@@ -2251,13 +2251,14 @@ function renderPastList(){
   const seen=new Set(local.map(x=>x.gid));
   const remote=remoteGames.filter(g=>g.finished&&!seen.has(g.id));
   const items=[
-    ...local.map(x=>({gid:x.gid,name:x.name,score:x.score,date:x.date,local:true,state:x.state})),
+    ...local.map(x=>({gid:x.gid,name:x.name,score:x.score,date:x.date,local:true,state:x.state,decisions:x.state&&x.state.decisions})),
     ...remote.map(g=>({gid:g.id,name:g.name,score:g.score,date:g.updated_at,local:false,device:g.device}))
   ].sort((a,b)=>(b.date||0)-(a.date||0));
   if(!items.length){el.innerHTML='<p class="sub">No past games yet. Ended games show up here.</p>';return;}
   el.innerHTML=items.map((g,i)=>{
     const d=g.date?new Date(g.date).toLocaleDateString([],{month:'short',day:'numeric'})+' '+new Date(g.date).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'';
-    return `<div class="pastRow"><div class="meta"><div class="nm">${esc(g.name)}</div><div class="dt">${esc(d)}${g.device?' · '+esc(g.device):''}${g.local?'':' · ☁️'}</div></div><div class="sc">${esc(g.score)}</div><button class="sml" data-view="${i}">View</button><button class="sml ghost" data-del="${i}">✕</button></div>`;
+    const dec=g.decisions?(' · W '+g.decisions.wp+' · L '+g.decisions.lp+(g.decisions.sv?' · SV '+g.decisions.sv:'')):'';
+    return `<div class="pastRow"><div class="meta"><div class="nm">${esc(g.name)}</div><div class="dt">${esc(d)}${g.device?' · '+esc(g.device):''}${g.local?'':' · ☁️'}${esc(dec)}</div></div><div class="sc">${esc(g.score)}</div><button class="sml" data-view="${i}">View</button><button class="sml ghost" data-del="${i}">✕</button></div>`;
   }).join('');
   el.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>viewGame(items[+b.dataset.view]));
   el.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const g=items[+b.dataset.del];deletePastGame(g.gid,!g.local);});
@@ -2357,6 +2358,7 @@ function init(){
   $('#playBtn').onclick=startScoring;
   $('#playBtnTop').onclick=startScoring;
   $('#subDone').onclick=finishSubstitutionMode;
+  $('#gameCompleteBtn').onclick=()=>{if(viewing)return;gameDecisionSheet(true);};
   $('#newGameBtn').onclick=()=>{if(viewing)return;if(confirm('End this game and start over? It will be kept under Games.'))endGame();};
   document.querySelectorAll('[data-p]:not([data-hold-wppb])').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
   bindPitchGestures();
