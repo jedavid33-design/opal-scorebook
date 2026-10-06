@@ -387,7 +387,15 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 #buntHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);
   border:1px solid transparent;}
 #buntHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
-.pitch[data-hold-wppb],.pitch[data-hold-down],#buntOutBtn{touch-action:none;}
+#foulOutHoldMenu{position:fixed;z-index:96;display:none;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);grid-template-columns:1fr 1fr;gap:6px;width:min(320px,86vw);
+  padding:7px;background:rgba(23,16,33,.97);border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.38);pointer-events:none;}
+#foulOutHoldMenu.on{display:grid;}
+#foulOutHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);
+  border:1px solid transparent;}
+#foulOutHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
+.pitch[data-hold-wppb],.pitch[data-hold-down],#buntOutBtn,#foulOutBtn{touch-action:none;}
 .appver{position:fixed;right:10px;bottom:calc(82px + env(safe-area-inset-bottom));z-index:4;
   font-size:9px;letter-spacing:.3px;color:var(--dim);opacity:.38;pointer-events:none;}
 </style>
@@ -561,6 +569,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <span class="down" data-gesture="DOWN">↓ Bunt</span>
 </div>
 <div id="buntHoldMenu" aria-hidden="true"><span data-bunt="BGO">← Ground Out</span><span data-bunt="BPOP">Pop Out →</span></div>
+<div id="foulOutHoldMenu" aria-hidden="true"><span data-foulout="FFLY">← Fly</span><span data-foulout="FPOP">Pop Up →</span></div>
 <div id="pullRefresh">↓ Pull to refresh</div>
 <div id="appVersion" class="appver"></div>
 
@@ -569,7 +578,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.21';
+const APP_VERSION='2026.10.06.22';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -685,39 +694,48 @@ function contactPitchBonus(result){
   if(!result)return 0;
   if(result==='HBP'||result==='CI')return 1;
   if(/^(1B|2B|3B|HR|E\d+|FC|SAC|SF|BGO|BPO|DP)/.test(result))return 1;
-  if(/^[FfLP]\d/.test(result)||/^\d/.test(result))return 1;
+  if(/^fP\d/.test(result)||/^[FfLP]\d/.test(result)||/^\d/.test(result))return 1;
   return 0;
+}
+function pitcherAppearanceOrder(team){
+  const T=S[team]||{},seen=new Set(),out=[];
+  const add=v=>{const n=cleanPitcherName(v);if(n&&!seen.has(n)){seen.add(n);out.push(n);}};
+  const psubs=(S.subLog||[]).filter(x=>x.team===team&&x.type==='P');
+  if(psubs.length)add(psubs[0].old);
+  const slots=(T.lineup||[]).filter((p,i)=>p&&(String(p.pos)==='1'||(T.dh&&i===9)||(p.hist||[]).some(h=>String(h.pos||p.pos)==='1')));
+  slots.forEach(p=>(p.hist||[]).forEach(h=>add(h.name)));
+  psubs.forEach(x=>add(x.new));
+  slots.forEach(p=>add(p.name));
+  add(T.pitcher);
+  return out;
+}
+function pitcherPitchSummary(team){
+  const batting=team==='away'?'home':'away',order=pitcherAppearanceOrder(team);
+  const fallback=order[0]||cleanPitcherName(activePitcherLabel(team));
+  const counts=new Map();order.forEach(n=>counts.set(n,0));
+  const credit=(name,n=1)=>{name=cleanPitcherName(name)||fallback;if(!name)return;
+    if(!counts.has(name)){counts.set(name,0);order.push(name);}counts.set(name,counts.get(name)+n);};
+  const countEvents=(events,owner)=>{
+    for(const e of events||[])if(pitchCountsAsThrown(e))credit(e.pitcher||owner||fallback);
+  };
+  for(const pa of S.pas||[]){
+    if(pa.team!==batting)continue;
+    const owner=pa.pitcher||'';
+    countEvents(pa.events,owner);
+    if(contactPitchBonus(pa.result)){
+      const last=[...(pa.events||[])].reverse().find(e=>pitchCountsAsThrown(e)&&e.pitcher);
+      credit(owner||(last&&last.pitcher)||fallback);
+    }
+  }
+  for(const pa of S.interruptedPAs||[])if(pa.team===batting)countEvents(pa.events,pa.pitcher||'');
+  if(S.bat===batting)countEvents(S.pa,activePitcherLabel(team));
+  return order.map(name=>({name,pitches:counts.get(name)||0}));
 }
 function pitcherPitchCount(team){
   team=team||fieldingTeam();
   const key=cleanPitcherName(activePitcherLabel(team));if(!key)return 0;
-  const batting=team==='away'?'home':'away';
-  const hasPitchChange=(S.subLog||[]).some(x=>x.team===team&&x.type==='P');
-  let n=0;
-  const countEvents=(events,owner)=>{
-    let c=0;
-    for(const e of events||[]){
-      if(!pitchCountsAsThrown(e))continue;
-      if(e.pitcher){if(cleanPitcherName(e.pitcher)===key)c++;}
-      else if(owner){if(cleanPitcherName(owner)===key)c++;}
-      else if(!hasPitchChange)c++;
-    }
-    return c;
-  };
-  for(const pa of S.pas||[]){
-    if(pa.team!==batting)continue;
-    n+=countEvents(pa.events,pa.pitcher);
-    if(contactPitchBonus(pa.result)){
-      const owner=cleanPitcherName(pa.pitcher||(!hasPitchChange?activePitcherLabel(team):''));
-      if(owner===key)n++;
-    }
-  }
-  for(const pa of S.interruptedPAs||[]){
-    if(pa.team!==batting)continue;
-    n+=countEvents(pa.events,pa.pitcher);
-  }
-  if(S.bat===batting)n+=countEvents(S.pa,activePitcherLabel(team));
-  return n;
+  const row=pitcherPitchSummary(team).find(x=>x.name===key);
+  return row?row.pitches:0;
 }
 
 /* ================= setup view ================= */
@@ -1460,7 +1478,7 @@ function outcomeModal(){
         <button class="med" data-o="FO">Fly out</button>
         <button class="med" data-o="POP">Pop fly</button>
         <button class="med" id="buntOutBtn" type="button">Bunt</button>
-        <button class="med" data-o="FL">Foul out</button>
+        <button class="med" id="foulOutBtn" type="button">Foul out</button>
         <button class="med" data-o="DP">Double Play</button>
       </div>
     </div>
@@ -1468,6 +1486,7 @@ function outcomeModal(){
     <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
   $('#sheet').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>handleOutcome(b.dataset.o));
   bindBuntOutGesture();
+  bindFoulOutGesture();
 }
 function hitMovers(n){
   const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:n,out:null}];
@@ -1612,6 +1631,48 @@ function bindBuntOutGesture(){
   btn.addEventListener('contextmenu',e=>e.preventDefault());
   btn.addEventListener('click',e=>{if(suppressClick)e.preventDefault();});
 }
+function foulOutNotation(kind,f){
+  if(kind==='FPOP')return{code:'fP'+f,text:'Foul pop out P'+f};
+  return{code:'f'+f,text:'Foul fly out to '+f};
+}
+function scoreFoulOut(kind){
+  const br=()=>pname({t:S.bat,i:curIdx()})+' (batter)';
+  fielderPad(f=>{
+    const n=foulOutNotation(kind,f);ev('o',n.text);
+    placementReview([{who:'BR',label:br(),from:0,to:0,out:{f}},...holdMovers()],n.code,n.text);
+  },kind==='FPOP'?'Foul pop out — fielder':'Foul fly out — fielder');
+}
+function bindFoulOutGesture(){
+  const btn=$('#foulOutBtn'),menu=$('#foulOutHoldMenu');if(!btn||!menu)return;
+  const left=menu.querySelector('[data-foulout="FFLY"]'),right=menu.querySelector('[data-foulout="FPOP"]');
+  let timer=null,held=false,choice=null,startX=0,suppressClick=false;
+  const paint=()=>{if(left)left.classList.toggle('sel',choice==='FFLY');if(right)right.classList.toggle('sel',choice==='FPOP');};
+  const hide=()=>{menu.classList.remove('on');menu.setAttribute&&menu.setAttribute('aria-hidden','true');choice=null;paint();};
+  btn.addEventListener('pointerdown',e=>{
+    if(e.button!=null&&e.button!==0)return;
+    held=false;choice=null;startX=e.clientX;paint();
+    timer=setTimeout(()=>{held=true;menu.classList.add('on');menu.setAttribute&&menu.setAttribute('aria-hidden','false');
+      if(btn.setPointerCapture)try{btn.setPointerCapture(e.pointerId);}catch(_){}
+    },480);
+  });
+  btn.addEventListener('pointermove',e=>{
+    if(!held)return;
+    const dx=e.clientX-startX;choice=dx<-12?'FFLY':dx>12?'FPOP':null;paint();
+    if(e.cancelable)e.preventDefault();
+  });
+  btn.addEventListener('pointerup',e=>{
+    clearTimeout(timer);timer=null;suppressClick=true;
+    if(held){
+      const c=choice;hide();
+      if(c)scoreFoulOut(c);
+      else toast('Hold Foul out, then slide left for Fly or right for Pop Up.');
+    }else toast('Hold Foul out, then slide left for Fly or right for Pop Up.');
+    setTimeout(()=>{suppressClick=false;},0);
+  });
+  btn.addEventListener('pointercancel',()=>{clearTimeout(timer);timer=null;held=false;hide();});
+  btn.addEventListener('contextmenu',e=>e.preventDefault());
+  btn.addEventListener('click',e=>{if(suppressClick)e.preventDefault();});
+}
 function handleOutcome(kind){
   const HN={'1B':1,'2B':2,'3B':3,'HR':4};
   if(kind==='DP'){dpModal();return;}
@@ -1625,8 +1686,7 @@ function handleOutcome(kind){
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f:'P'+f}},...holdMovers()],'P'+f,'Popped out P'+f);},'Pop fly — fielder');return;}
   if(kind==='LO'){fielderPad(f=>{ev('o','Lined out to '+f);
     placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'L'+f,'Lined out L'+f);},'Lineout — fielder');return;}
-  if(kind==='FL'){fielderPad(f=>{ev('o','Fouled out f'+f);
-    placementReview([{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f}},...holdMovers()],'f'+f,'Fouled out f'+f);},'Foul out — fielder');return;}
+  if(kind==='FL'){scoreFoulOut('FFLY');return;}
   if(kind==='E'){fielderPad(f=>{ev('o','Reached on error E'+f);
     const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
     [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+2;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
@@ -2132,6 +2192,7 @@ function outcomeIdx(pa){for(let i=pa.events.length-1;i>=0;i--)if(pa.events[i].t=
 function describePA(pa){return `${pa.half?'B':'T'}${pa.inning} · ${pa.batter||''} · ${pa.result}`;}
 function paKind(r){
   if(/^(1B|2B|3B)$/.test(r))return r;
+  if(/^fP\d/.test(r))return 'FPOP';
   if(/^[Ff]\d/.test(r))return 'FO';
   if(/^L\d/.test(r))return 'LO';
   if(/^P\d/.test(r))return 'POP';
@@ -2150,7 +2211,8 @@ function applyNotationFix(kind,ht,f,wasFoul){
   if(kind==='1B'||kind==='2B'||kind==='3B')
     return{result:kind,text:`${HITVERB[kind]} on a ${ht} to ${POS[f]}`};
   if(kind==='GO')return{result:f,text:'Grounded out '+f};
-  if(kind==='FO')return wasFoul?{result:'f'+f,text:'Fouled out f'+f}:{result:'F'+f,text:'Flied out to '+f};
+  if(kind==='FO')return wasFoul?{result:'f'+f,text:'Foul fly out to '+f}:{result:'F'+f,text:'Flied out to '+f};
+  if(kind==='FPOP')return{result:'fP'+f,text:'Foul pop out P'+f};
   if(kind==='POP')return{result:'P'+f,text:'Popped out P'+f};
   if(kind==='BGO'){const n=buntOutNotation('BGO',f);return{result:n.code,text:n.text};}
   if(kind==='BPOP'){const n=buntOutNotation('BPOP',f);return{result:n.code,text:n.text};}
@@ -2206,7 +2268,7 @@ function fixNotation(idx){
       <label>Play text</label><input id="fxText" value="${esc(fxT)}" maxlength="90">
       ${kind==='1B'||kind==='2B'||kind==='3B'
         ?'<button class="med" id="fxHit" style="width:100%;margin-top:8px">Re-pick hit type + fielder</button>'
-        :['GO','FO','POP','BGO','BPOP','LO','E','FC','SAC','SF'].includes(kind)
+        :['GO','FO','FPOP','POP','BGO','BPOP','LO','E','FC','SAC','SF'].includes(kind)
         ?'<button class="med" id="fxF" style="width:100%;margin-top:8px">Re-pick fielders</button>':''}
       <button class="med accent" id="fxSave" style="width:100%;margin-top:10px">Save notation</button>
       <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
@@ -2289,6 +2351,15 @@ function pitcherCandidates(team){
 function decisionList(id,names){
   return '<datalist id="'+id+'">'+names.map(n=>'<option value="'+esc(n)+'"></option>').join('')+'</datalist>';
 }
+function gamePitchingCheckHTML(){
+  const block=t=>{
+    const rows=pitcherPitchSummary(t);
+    return '<div style="margin-top:7px"><b>'+esc(scoreTeamAbbr(S[t],t==='away'?'AWY':'HME'))+'</b>'+
+      (rows.length?rows.map(r=>'<div class="subRow">'+esc(r.name)+' — <b>'+r.pitches+' '+(r.pitches===1?'pitch':'pitches')+'</b></div>').join('')
+        :'<div class="subRow">No pitches recorded.</div>')+'</div>';
+  };
+  return '<div class="auditSummary" style="margin-top:10px"><b>Pitch check</b><div class="sub">Compare with Gameday before completing.</div>'+block('away')+block('home')+'</div>';
+}
 function gameDecisionSheet(finishGame){
   const ar=teamRunTotal('away'),hr=teamRunTotal('home');
   if(ar===hr){toast('The score is tied — correct the score before completing the game.');return;}
@@ -2296,6 +2367,7 @@ function gameDecisionSheet(finishGame){
   const wins=pitcherCandidates(wt),losses=pitcherCandidates(lt);
   openModal('<h2>'+(finishGame?'Game Complete':'Edit pitching decisions')+'</h2>'+
     '<p class="sub"><b>'+esc(S[wt].name)+'</b> won '+ar+'–'+hr+'. Type a name if a pitcher is not in the suggestions.</p>'+
+    gamePitchingCheckHTML()+
     '<label>Winning pitcher</label><input id="gcWP" list="gcWPList" value="'+esc(d.wp||'')+'" autocomplete="off">'+decisionList('gcWPList',wins)+
     '<label>Losing pitcher</label><input id="gcLP" list="gcLPList" value="'+esc(d.lp||'')+'" autocomplete="off">'+decisionList('gcLPList',losses)+
     '<label>Save <span class="sub">(optional)</span></label><input id="gcSV" list="gcSVList" value="'+esc(d.sv||'')+'" autocomplete="off">'+decisionList('gcSVList',wins)+
