@@ -565,3 +565,20 @@ replacing the "visco" app she currently uses.
   team automatically. App version v2026.10.06.10. Full regression harness:
   323 passed, 0 failed. App commit 97797f7; regression commit 32623d9.
   Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Hybrid proportional score scaling and live pitcher/pitch count
+  added to the Score view. Medium-width split-screen panes preserve the full
+  620px score layout by proportionally scaling the score canvas; below a
+  minimum ~0.86 scale the app returns to the existing responsive layout so
+  touch targets do not become too small. Lineup, Book, and Games are unchanged.
+  The matchup strip now shows batter plus active defensive pitcher and running
+  physical pitch count (PC). Pitch events are tagged with the active pitcher,
+  completed/interrupted PAs retain pitcher identity, automatic timer balls/
+  strikes do not increment physical pitch count, and contact/HBP terminal
+  pitches are included. Pitching changes begin a new pitcher-specific count
+  while prior pitches remain attributed to the previous pitcher. Event-list
+  numbering now numbers actual pitch events only. App version v2026.10.06.11.
+  Full regression harness: 333 passed, 0 failed. App commits 7b9cb42, abd15e7,
+  f3ce952, 04eb045; regression commit 26a1a69. Worker unchanged; no Worker
+  deployment required.
