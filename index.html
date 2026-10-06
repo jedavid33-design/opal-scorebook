@@ -119,14 +119,21 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .basebatterrow .baseswrap{justify-content:center;padding:2px 0;}
 .batter{font-size:19px;font-weight:700;min-width:0;line-height:1.25;}
 .batter small{display:block;color:var(--dim);font-weight:400;font-size:13px;margin-top:3px;}
-.events{list-style:none; margin:8px 0 0; padding:0; font-size:14px; max-height:150px; overflow:auto;}
-.events li{padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.07); color:var(--dim);}
-.events .eventdot{opacity:.55;font-size:16px;line-height:1;}
-.events li:last-child{color:var(--ink);}
-.pnum{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
-  border-radius:50%; border:1px solid var(--line); font-size:11px; font-weight:700;
-  color:var(--dim); margin-right:8px; flex:0 0 auto;}
-.events li{display:flex; align-items:center;}
+.events{margin:8px 0 0;font-size:13px;overflow:hidden;}
+.pitchrail{display:flex;align-items:center;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:1px 0 4px;}
+.pitchrail::-webkit-scrollbar{display:none;}
+.palabel{flex:0 0 auto;font-size:10px;font-weight:800;letter-spacing:1px;color:var(--dim);padding:0 2px;}
+.pitchchip{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;min-height:30px;padding:4px 8px;border:1px solid var(--line);
+  border-radius:999px;background:rgba(255,255,255,.055);color:var(--ink);font-size:12px;font-weight:700;white-space:nowrap;}
+button.pitchchip{font-family:inherit;cursor:pointer;}
+.pitchchip.challengeable{border-style:dashed;border-color:rgba(201,160,232,.65);background:rgba(201,160,232,.08);}
+.pitchchip .pn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;
+  background:rgba(255,255,255,.07);color:var(--dim);font-size:10px;font-weight:800;}
+.pitchchip .chb{margin-left:0;}
+.eventnotes{display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:2px;min-height:0;}
+.eventnote{display:inline-flex;align-items:center;gap:4px;color:var(--dim);font-size:11.5px;line-height:1.35;}
+.eventnote::before{content:'•';opacity:.5;}
+.events-empty{font-size:12px;color:var(--dim);opacity:.55;padding:3px 0;}
 .chBtn{font-size:11px; font-weight:700; min-height:30px; padding:3px 8px; border-radius:9px; background:transparent;
   border:1px dashed var(--line); color:var(--dim); margin-left:auto; cursor:pointer; flex:0 0 auto;}
 .prevChallenge{display:flex;justify-content:flex-end;margin-top:5px;}
@@ -207,8 +214,9 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   .count{font-size:26px;min-width:54px;}
   .outs{font-size:13px;}
   .countline .sml{min-height:40px;font-size:12px;padding:4px 7px;}
-  .events{max-height:92px;margin-top:5px;}
-  .events li{padding:4px 6px;}
+  .events{margin-top:5px;}
+  .pitchrail{gap:5px;}
+  .pitchchip{min-height:28px;padding:3px 7px;font-size:11.5px;}
   #v-score .sect{margin:7px 0 4px;}
   #v-score .pitchstack,#v-score .agrid,#v-score .rgrid{gap:6px;}
   #v-score .pitchstack .big{min-height:46px;}
@@ -303,8 +311,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   #v-score.score-proportional .count{font-size:30px;min-width:0;}
   #v-score.score-proportional .outs{font-size:15px;}
   #v-score.score-proportional .countline .sml{min-height:44px;font-size:14px;padding:initial;}
-  #v-score.score-proportional .events{max-height:150px;margin-top:8px;}
-  #v-score.score-proportional .events li{padding:6px 8px;}
+  #v-score.score-proportional .events{margin-top:8px;}
+  #v-score.score-proportional .pitchchip{min-height:30px;padding:4px 8px;font-size:12px;}
   #v-score.score-proportional .sect{margin:12px 0 6px;}
   #v-score.score-proportional .pitchstack,
   #v-score.score-proportional .agrid,
@@ -459,7 +467,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
       </div></div>
       <div class="batter" id="hBatter">—</div>
     </div>
-    <ul class="events" id="hEvents"></ul>
+    <div class="events" id="hEvents"></div>
     <div id="hPrevChallenge"></div>
   </div>
 
@@ -535,7 +543,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.13';
+const APP_VERSION='2026.10.06.14';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1100,13 +1108,36 @@ function renderScore(){
   let pitchNo=0;
   const liveLast=hlp&&hlp.live?hlp:null;
   const liveChTeam=liveLast?challengeTeamFor(liveLast):null;
-  $('#hEvents').innerHTML=S.pa.map((e,i)=>{
-    const numbered=e.t==='p';
-    if(numbered)pitchNo++;
-    const canChallenge=liveLast&&liveLast.idx===i&&!e.ch&&(!S.chal||S.chal[liveChTeam]>0);
-    return `<li><span class="pnum${numbered?'':' eventdot'}">${numbered?pitchNo:'•'}</span><span class="grow">${e.text}</span>${e.ch?` <span class="chb${e.ch.res==='overturned'?' ov':''}" title="Challenge ${e.ch.res} by ${chalTeamName(e.ch.team)}">${e.ch.res==='overturned'?'C↺':'C'}</span>`:''}${canChallenge?'<button class="chBtn" id="eventChallenge">Challenge</button>':''}</li>`;
-  }).join('')||'<li style="opacity:.5">No pitches yet this PA</li>';
+  const pitchLabel=t=>({
+    'Ball':'Ball','Called strike':'Called','Swinging strike':'Swing',
+    'Foul ball':'Foul','Foul tip':'Tip','Pitchout (ball)':'Pitchout',
+    'Automatic ball — pitch timer violation':'Auto Ball',
+    'Automatic strike — batter timer violation':'Auto Strike',
+    'Illegal pitch — automatic ball':'Illegal'
+  }[t]||t);
+  const pitches=[],notes=[];
+  S.pa.forEach((e,i)=>{
+    if(e.t==='p'){
+      pitchNo++;
+      const canChallenge=liveLast&&liveLast.idx===i&&!e.ch&&(!S.chal||S.chal[liveChTeam]>0);
+      const badge=e.ch?`<span class="chb${e.ch.res==='overturned'?' ov':''}" title="Challenge ${e.ch.res} by ${chalTeamName(e.ch.team)}">${e.ch.res==='overturned'?'C↺':'C'}</span>`:'';
+      const body=`<span class="pn">${pitchNo}</span><span>${esc(pitchLabel(e.text))}</span>${badge}`;
+      pitches.push(canChallenge
+        ?`<button class="pitchchip challengeable" id="eventChallenge" aria-label="Challenge ${esc(pitchLabel(e.text))}">${body}</button>`
+        :`<span class="pitchchip">${body}</span>`);
+    }else{
+      let txt=e.text||'';
+      if(txt==='Wild pitch')txt='WP';
+      else if(txt==='Passed ball')txt='PB';
+      notes.push(`<span class="eventnote">${esc(txt)}</span>`);
+    }
+  });
+  $('#hEvents').innerHTML=(pitches.length
+    ?`<div class="pitchrail"><span class="palabel">PA</span>${pitches.join('')}</div>`
+    :'')+(notes.length?`<div class="eventnotes">${notes.join('')}</div>`:'')+
+    (!pitches.length&&!notes.length?'<div class="events-empty">No pitches yet this PA</div>':'');
   const ech=$('#eventChallenge');if(ech)ech.onclick=challengeSheet;
+  const rail=$('#hEvents').querySelector('.pitchrail');if(rail)rail.scrollLeft=rail.scrollWidth;
   const prev=$('#hPrevChallenge');
   if(prev){
     const prevTeam=hlp&&!hlp.live?challengeTeamFor(hlp):null;
@@ -1114,7 +1145,7 @@ function renderScore(){
     prev.innerHTML=canPrev?'<div class="prevChallenge"><button class="chBtn" id="prevChallengeBtn">Challenge previous call</button></div>':'';
     const pcb=$('#prevChallengeBtn');if(pcb)pcb.onclick=challengeSheet;
   }
-  $('#hEvents').scrollTop=$('#hEvents').scrollHeight;
+  const erail=$('#hEvents').querySelector('.pitchrail');if(erail)erail.scrollLeft=erail.scrollWidth;
   const sc=$('#v-score');
   const bn=$('#scoreBanner');
   if(viewing){
