@@ -729,3 +729,15 @@ replacing the "visco" app she currently uses.
   uses the same chooser. App version v2026.10.06.24. Full regression harness:
   408 passed, 0 failed. App commit 5ed2c15; regression commit 88058a7. Worker
   unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Common extra baserunner advancement on hits no longer prompts
+  for a special reason. Existing runners may freely take additional bases on
+  1B/2B/3B/HR placement (e.g. 1B -> 3B on a single, 2B -> home on a single,
+  1B -> home on a double); that movement is stored structurally as caused by
+  the hit. The batter still gets the advancement-reason chooser when ending
+  beyond the base credited by the hit, so a single + second remains 1B plus
+  On Throw/Error/Other rather than becoming a double. App version
+  v2026.10.06.25. Full regression harness: 413 passed, 0 failed. App commit
+  6a456e2; regression commit 01349c2. Worker unchanged; no Worker deployment
+  required.
