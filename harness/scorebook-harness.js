@@ -505,12 +505,12 @@ async function main() {
   ];
   sb.renderScore();
   const liveEvents=el('#hEvents').innerHTML;
-  ok(liveEvents.indexOf('>1</span><span class="grow">Ball</span>')>=0 &&
-     liveEvents.indexOf('>•</span><span class="grow">Wild pitch</span>')>=0 &&
-     liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
-    'U2: wild pitch displays separately and does not consume a pitch number');
+  ok(liveEvents.indexOf('class="pn">1</span><span>Ball</span>')>=0 &&
+     liveEvents.indexOf('class="eventnote">WP</span>')>=0 &&
+     liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
+    'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.13','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.14','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -565,6 +565,11 @@ async function main() {
     'V1: live challenge action is attached to the challengeable pitch row');
   ok(html.indexOf('id="chalBtn"')<0,
     'V1: challenge control is no longer in the count row');
+  ok(el('#hEvents').innerHTML.indexOf('class="pitchrail"')>=0 &&
+     el('#hEvents').innerHTML.indexOf('class="pitchchip challengeable"')>=0,
+    'V1: live PA renders as a compact horizontal pitch-chip rail');
+  ok(html.indexOf('.eventnotes{display:flex;flex-wrap:wrap')>=0,
+    'V1: non-pitch PA events use a separate compact notes row');
 
   sb.outcomeModal();
   const outcomeHTML=el('#sheet').innerHTML;
