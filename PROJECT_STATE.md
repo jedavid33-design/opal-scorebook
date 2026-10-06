@@ -599,3 +599,15 @@ replacing the "visco" app she currently uses.
   App version v2026.10.06.13. Full regression harness: 337 passed, 0 failed.
   App commit f37940e; regression commit 0e7b0ec. Worker unchanged; no Worker
   deployment required.
+
+
+- 2026-10-06: Compact PA pitch timeline replaced the stacked live-event log.
+  Current pitches now render as horizontally scrolling numbered chips with
+  abbreviated labels (Ball, Called, Swing, Foul, Tip, Auto Ball, Auto Strike,
+  etc.). The live challengeable called pitch is itself tappable, and completed
+  challenges keep their C / C↺ badge on the chip. Non-pitch PA events such as
+  WP, PB, runner movement, and substitutions render in a quieter compact notes
+  row beneath the pitch rail. Pitch numbering still counts only actual pitch
+  events. App version v2026.10.06.14. Full regression harness: 339 passed,
+  0 failed. App commit 7c3e597; regression commit bf97030. Worker unchanged;
+  no Worker deployment required.
