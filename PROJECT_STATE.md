@@ -784,3 +784,13 @@ replacing the "visco" app she currently uses.
   and pinch runners all use the same order. After a completed substitution the
   view returns to the roster for the next incoming player. App version
   v2026.10.06.30. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Added a combined foul-bunt pop-out scoring path. Choosing
+  Bunt -> Pop Out now asks Fair or Foul before the fielder picker. Foul caught
+  bunts are stored distinctly as BPOF<fielder> (for example BPOF2) with play
+  text such as "Bunt pop out in foul territory P2". Because it is a caught
+  ball, runner placement supports Tagged Up, so a runner can legally move
+  1B -> 2B on the catch. Edit/fix-notation flow preserves the foul-bunt
+  identity. App version v2026.10.06.31. Worker unchanged; no Worker deployment
+  required.
