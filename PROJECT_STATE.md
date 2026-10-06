@@ -630,3 +630,15 @@ replacing the "visco" app she currently uses.
   the footer remains compact on iPad split panes. App version v2026.10.06.16.
   Full regression harness: 343 passed, 0 failed. App commit 8c65dfe;
   regression commit dbff86c. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Missed bunt and foul bunt are nested under Swinging and Foul
+  instead of taking a separate pitch-pad button. Tapping Swinging now offers
+  Swinging Strike / Missed Bunt; tapping Foul offers Foul Ball / Foul Bunt.
+  The Swinging button still retains its hold-and-slide WP/PB behavior for an
+  ordinary swinging strike. Missed bunt adds a swinging-style strike; foul
+  bunt adds a strike and becomes strike three when entered with two strikes.
+  The PA timeline stores Missed Bunt and Foul Bunt distinctly. App version
+  v2026.10.06.18. Full regression harness: 353 passed, 0 failed. App commit
+  a78c9dc; regression commits 048bad1, 5b099be. Worker unchanged; no Worker
+  deployment required.
