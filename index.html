@@ -1729,7 +1729,7 @@ function subModal(){
 function pasAt(t,i,n){const half=t==='away'?0:1;return S.pas.filter(p=>p.team===t&&p.b===i&&p.inning===n&&p.half===half);}
 function paAt(t,i,n){return pasAt(t,i,n)[0]||null;}
 function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
-  if(/^(BGO|BPO)/.test(r)||/^(K|ꓘ)$/.test(r)||/[-FLEPf]/.test(r[0])||/^\d/.test(r))return'out';return'';}
+  if(/^(BGO|BPO)/.test(r)||/^(K|ꓘ)$/.test(r)||/^[FLPf]/.test(r)||/^\d/.test(r))return'out';return'';}
 function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;}
 /* Errors belong to the fielding team — the opponent of the batting team in p.team.
    Counts distinct fielder errors per PA: an E-type outcome plus any extra tags. */
