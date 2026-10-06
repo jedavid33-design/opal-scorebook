@@ -74,7 +74,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get substitutionMode(){return substitutionMode;},get pendingSub(){return pendingSub;},` +
   `get viewing(){return viewing;},set viewing(v){viewing=v;},` +
   `APP_VERSION,blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
-  `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,fieldingTeam,activePitcherLabel,pitchCountsAsThrown,contactPitchBonus,pitcherPitchCount,` +
+  `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,fieldingTeam,activePitcherLabel,pitchCountsAsThrown,contactPitchBonus,pitcherAppearanceOrder,pitcherPitchSummary,pitcherPitchCount,` +
   `demoLineups,rosterToPool,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,` +
   `renderScore,openModal,closeModal,baseName,` +
@@ -82,11 +82,11 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
-  `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
+  `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
   `getArchive,updateArchive,addToArchive,archiveCurrentGame,endGame,` +
   `renderGames,renderPendingCard,renderSyncCard,renderPastList,bindPitchGestures,applyScoreProportionalScale,renderAll,showView,initPullToRefresh,toast,esc,genId` +
@@ -510,7 +510,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.21','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.22','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -642,7 +642,7 @@ async function main() {
     'data-o="FO">Fly out</button>',
     'data-o="POP">Pop fly</button>',
     'id="buntOutBtn" type="button">Bunt</button>',
-    'data-o="FL">Foul out</button>',
+    'id="foulOutBtn" type="button">Foul out</button>',
     'data-o="DP">Double Play</button>'
   ].map(x=>outcomeHTML.indexOf(x));
   ok(outOrder.every(x=>x>=0) && outOrder.every((x,i)=>i===0||x>outOrder[i-1]),
@@ -705,6 +705,25 @@ async function main() {
   eq(sb.applyNotationFix('BPOP',null,'2').result,'BPO2',
     'V4b: bunt pop-out notation can be repaired later');
 
+  /* ===== foul-out slide selector ===== */
+  newGame();
+  sb.outcomeModal();
+  const foulOutcomeHTML=el('#sheet').innerHTML;
+  ok(foulOutcomeHTML.indexOf('id="foulOutBtn"')>=0 &&
+     html.indexOf('id="foulOutHoldMenu"')>=0 &&
+     html.indexOf('← Fly')>=0 && html.indexOf('Pop Up →')>=0,
+    'V4c: Foul out uses left Fly / right Pop Up slide selector');
+  const ffly=sb.foulOutNotation('FFLY','7');
+  eq(ffly.code,'f7','V4c: foul fly keeps compatible f7 notation');
+  eq(ffly.text,'Foul fly out to 7','V4c: foul fly keeps distinct play text');
+  const fpop=sb.foulOutNotation('FPOP','2');
+  eq(fpop.code,'fP2','V4c: foul pop-up keeps distinct result code');
+  eq(fpop.text,'Foul pop out P2','V4c: foul pop-up keeps distinct play text');
+  eq(sb.clsOf('fP2'),'out','V4c: foul pop-up classifies as an out');
+  eq(sb.paKind('fP2'),'FPOP','V4c: edit flow recognizes foul pop-up');
+  eq(sb.applyNotationFix('FPOP',null,'5').result,'fP5',
+    'V4c: foul pop-up notation can be repaired later');
+  eq(sb.contactPitchBonus('fP2'),1,'V4c: foul pop-up credits terminal physical pitch');
   /* ===== sacrifice runner defaults ===== */
   newGame();
   sb.S.bases[0]={t:'away',i:4};
@@ -984,11 +1003,32 @@ async function main() {
   const awayPitchers=sb.pitcherCandidates('away');
   ok(awayPitchers.includes('Kyle Hendricks')&&awayPitchers.includes('José Quintana')&&awayPitchers.includes('Carl Edwards Jr.'),
     'G1: completion picker reconstructs pitchers from current pitcher and pitching changes');
+  sb.S.pas=[
+    {team:'away',b:0,inning:1,half:0,result:'F7',batter:'Cub1',
+      events:[{t:'p',text:'Ball'},{t:'p',text:'Called strike'},{t:'o',text:'Flied out to 7'}]},
+    {team:'away',b:1,inning:2,half:0,result:'K',batter:'Cub2',pitcher:'Max Scherzer #31',
+      events:[{t:'p',text:'Automatic ball — pitch timer violation',pitcher:'Max Scherzer #31'},
+              {t:'p',text:'Called strike',pitcher:'Max Scherzer #31'},
+              {t:'p',text:'Foul ball',pitcher:'Max Scherzer #31'},
+              {t:'p',text:'Swinging strike',pitcher:'Max Scherzer #31'},
+              {t:'o',text:'Struck out swinging'}]}
+  ];
+  const homeSummary=sb.pitcherPitchSummary('home');
+  const gio=homeSummary.find(x=>x.name==='Gio Gonzalez');
+  const max=homeSummary.find(x=>x.name==='Max Scherzer');
+  ok(gio&&gio.pitches===3,'G1: legacy untagged starter PA is credited to starting pitcher');
+  ok(max&&max.pitches===3,'G1: automatic ball does not inflate reliever physical pitch count');
+  const pitchCheck=sb.gamePitchingCheckHTML();
+  ok(pitchCheck.indexOf('Pitch check')>=0 &&
+     pitchCheck.indexOf('Gio Gonzalez')>=0 &&
+     pitchCheck.indexOf('Max Scherzer')>=0,
+    'G1: Game Complete pitch check lists pitchers and pitches thrown');
   sb.gameDecisionSheet(true);
-  ok(el('#sheet').innerHTML.indexOf('Winning pitcher')>=0 &&
+  ok(el('#sheet').innerHTML.indexOf('Pitch check')>=0 &&
+     el('#sheet').innerHTML.indexOf('Winning pitcher')>=0 &&
      el('#sheet').innerHTML.indexOf('Losing pitcher')>=0 &&
      el('#sheet').innerHTML.indexOf('Save')>=0,
-    'G1: Game Complete sheet asks for W, L and optional save');
+    'G1: Game Complete sheet shows pitch check plus W, L and optional save');
   el('#gcWP').value='Brian Duensing';el('#gcLP').value='Max Scherzer';el('#gcSV').value='Wade Davis';
   await el('#gcDone').onclick();
   const completedArchive=sb.getArchive();
