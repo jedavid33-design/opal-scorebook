@@ -764,3 +764,13 @@ replacing the "visco" app she currently uses.
   (e.g. 8-4-3). App version v2026.10.06.27. Regression coverage added for
   context-aware choices and tagged-up event storage. Worker unchanged; no
   Worker deployment required.
+
+
+- 2026-10-06: Sacrifice double-play display now preserves both defensive
+  components separately. The sacrifice catch fielder remains attached to the
+  SF (e.g. SF8), while the runner-out sequence remains its own relay/appeal
+  string (e.g. 8-4-3). A play entered as sac fly to CF plus runner out 8-4-3
+  displays as `SF8-DP 8-4-3` in compact scorebook notation and
+  `Sacrifice double play · SF8 · 8-4-3 DP` in long-form views. Underlying
+  batter result remains SF. App version v2026.10.06.29. Worker unchanged; no
+  Worker deployment required.
