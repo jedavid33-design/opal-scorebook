@@ -485,7 +485,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.4';
+const APP_VERSION='2026.10.06.5';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -497,7 +497,7 @@ function blank(){return{
   away:blankTeam('Astros'),home:blankTeam('Opponent'),
   bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
   bases:[null,null,null],order:{away:0,home:0},
-  pa:[],pas:[],runs:{away:[],home:[]},subLog:[],started:false,
+  pa:[],pas:[],interruptedPAs:[],runs:{away:[],home:[]},subLog:[],started:false,
   rev:0,serverUpdatedAt:0 // sync: rev = server revision this state is based on
 };}
 let viewing=null; // {gid,name,score,date} while browsing a past game (read-only)
@@ -521,6 +521,7 @@ function ensureShape(){
     T.pool=T.pool.filter(p=>!inLU2.has(p.name));
     if(T.pitcher===undefined)T.pitcher='';});
   if(!S.subLog)S.subLog=[];
+  if(!Array.isArray(S.interruptedPAs))S.interruptedPAs=[];
   if(!S.chal)S.chal={away:2,home:2};
   if(typeof S.rev!=='number')S.rev=0;
   if(typeof S.serverUpdatedAt!=='number')S.serverUpdatedAt=0;
@@ -1062,11 +1063,23 @@ function pickRunner(cb,title){
   $('#sheet').querySelectorAll('[data-b]').forEach(b=>b.onclick=()=>{closeModal();cb(+b.dataset.b,S.bases[+b.dataset.b]);});
 }
 function endHalfCheck(){
-  if(S.outs<3)return;
+  if(S.outs<3)return false;
+  // A runner can make the third out during an unfinished PA. Preserve those
+  // pitches/events for future pitcher totals, but do not charge the batter
+  // with a PA or advance the batting order.
+  if(S.pa.length){
+    if(!Array.isArray(S.interruptedPAs))S.interruptedPAs=[];
+    S.interruptedPAs.push({
+      team:S.bat,b:curIdx(),inning:S.inning,half:S.half,
+      batter:pname({t:S.bat,i:curIdx()}),events:S.pa.slice()
+    });
+    S.pa=[];
+  }
   S.bases=[null,null,null];S.outs=0;S.balls=0;S.strikes=0;
   if(S.half===1){S.half=0;S.inning++;S.bat='away';
     if(S.inning>=10&&S.chal)['away','home'].forEach(t=>{if(S.chal[t]===0)S.chal[t]=1;});}
   else{S.half=1;S.bat='home';}
+  return true;
 }
 /* Distinct error positions on a PA: outcome error first, then extra tags. */
 function errPositions(pa){const fs=[];let m=/^E(\d+)/.exec(pa.result||'');if(m)fs.push(m[1]);
@@ -1536,6 +1549,11 @@ function runnerActionCollision(changes){
 }
 function runnerCollisionToast(b){toast(baseName(b)+' is occupied — move the lead runner first.');}
 
+function recordRunnerOut(text){
+  ev('o',text);S.outs++;
+  endHalfCheck();
+  save();renderAll();
+}
 function actSteal(){if(!S.bases.some(Boolean))return;
   pickRunner((bi,r)=>{openModal(`<h2>Steal — ${pname(r)}</h2><div class="grid2">
     <button class="med accent" id="stSafe">Safe</button><button class="med" id="stOut">Out</button></div>
@@ -1551,8 +1569,8 @@ function actSteal(){if(!S.bases.some(Boolean))return;
         if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' steals home! Scores');}
         else{S.bases[d-1]=r;ev('r',pname(r)+' steals '+baseName(d));}
         closeModal();save();renderAll();});};
-    $('#stOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;S.outs++;
-      ev('o','Caught stealing '+f+' — '+pname(r));save();renderAll();endHalfCheck();save();renderAll();},'CS — fielders (e.g. 2-6)');
+    $('#stOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;
+      recordRunnerOut('Caught stealing '+f+' — '+pname(r));},'CS — fielders (e.g. 2-6)');
   },'Steal — which runner?');}
 function actDI(){if(!S.bases.some(Boolean))return;
   pickRunner((bi,r)=>{const d=Math.min(4,bi+2),changes={};changes[bi]=d;
@@ -1565,8 +1583,8 @@ function actPick(){if(!S.bases.some(Boolean))return;
   pickRunner((bi,r)=>{openModal(`<h2>Pickoff — ${pname(r)}</h2><div class="grid2">
     <button class="med" id="pkOut">Out</button><button class="med accent" id="pkSafe">Safe</button></div>
     <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
-    $('#pkOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;S.outs++;
-      ev('o','Picked off '+f+' — '+pname(r));closeModal();save();renderAll();endHalfCheck();save();renderAll();},'Pickoff — fielders');
+    $('#pkOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;
+      recordRunnerOut('Picked off '+f+' — '+pname(r));},'Pickoff — fielders');
     $('#pkSafe').onclick=()=>{snap();ev('r','Pickoff attempt — '+pname(r)+' back safely');closeModal();save();renderAll();};
   },'Pickoff — which runner?');}
 function wppbAdvancePicker(label,alreadySnapped){
