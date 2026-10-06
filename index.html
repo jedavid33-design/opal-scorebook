@@ -231,7 +231,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   #v-score .pitchstack .ps-swing,
   #v-score .pitchstack .ps-foultip,
   #v-score .pitchstack .ps-ball,
-  #v-score .pitchstack .ps-foul{font-size:16px;}
+  #v-score .pitchstack .ps-foul,
+  #v-score .pitchstack .ps-buntpitch{font-size:16px;}
   #v-score .pitchstack .ps-ibb,
   #v-score .pitchstack .ps-hbp{font-size:14px;}
   .sheet{padding:14px 12px calc(16px + env(safe-area-inset-bottom));}
@@ -265,7 +266,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   grid-template-areas:
     "inplay inplay inplay inplay inplay inplay"
     "called called swing swing foultip foultip"
-    "ball ball ball foul foul foul"
+    "ball ball foul foul buntpitch buntpitch"
     "ibb ibb ibb hbp hbp hbp";
   gap:8px;
 }
@@ -274,6 +275,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 .ps-swing{grid-area:swing;}
 .ps-ball{grid-area:ball;}
 .ps-foul{grid-area:foul;}
+.ps-buntpitch{grid-area:buntpitch;}
 .ps-foultip{grid-area:foultip;}
 .ps-ibb{grid-area:ibb;}
 .ps-hbp{grid-area:hbp;}
@@ -332,7 +334,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   #v-score.score-proportional .pitchstack .ps-swing,
   #v-score.score-proportional .pitchstack .ps-foultip,
   #v-score.score-proportional .pitchstack .ps-ball,
-  #v-score.score-proportional .pitchstack .ps-foul{font-size:16px;}
+  #v-score.score-proportional .pitchstack .ps-foul,
+  #v-score.score-proportional .pitchstack .ps-buntpitch{font-size:16px;}
   #v-score.score-proportional .pitchstack .ps-ibb,
   #v-score.score-proportional .pitchstack .ps-hbp{font-size:14px;}
   #v-score.score-proportional .rgrid{grid-template-columns:repeat(3,1fr);}
@@ -483,6 +486,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <button class="big pitch ps-swing" data-p="sstr" data-hold-wppb="1" aria-label="Swinging strike" title="Swinging strike · hold for wild/passed ball">Swinging</button>
     <button class="med pitch ps-ball" data-p="ball" data-hold-wppb="1" title="Ball · hold for wild/passed ball">Ball</button>
     <button class="med pitch ps-foul" data-p="foul">Foul</button>
+    <button class="med pitch ps-buntpitch" data-p="bunt">Bunt</button>
     <button class="med pitch ps-foultip" data-p="foultip">Foul Tip</button>
     <button class="med pitch ps-ibb" data-p="ibb">Intentional Walk</button>
     <button class="med pitch ps-hbp" data-p="hbp">Hit by Pitch</button>
@@ -548,7 +552,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.16';
+const APP_VERSION='2026.10.06.17';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1115,7 +1119,7 @@ function renderScore(){
   const liveChTeam=liveLast?challengeTeamFor(liveLast):null;
   const pitchLabel=t=>({
     'Ball':'Ball','Called strike':'Called','Swinging strike':'Swing',
-    'Foul ball':'Foul','Foul tip':'Tip','Pitchout (ball)':'Pitchout',
+    'Foul ball':'Foul','Foul tip':'Tip','Foul bunt':'Foul Bunt','Missed bunt':'Missed Bunt','Pitchout (ball)':'Pitchout',
     'Automatic ball — pitch timer violation':'Auto Ball',
     'Automatic strike — batter timer violation':'Auto Strike',
     'Illegal pitch — automatic ball':'Illegal'
@@ -1289,15 +1293,33 @@ function uncaughtThirdStrike(kind,looking){
 function addCountStrike(txt,looking){ev('p',txt);S.strikes++;
   if(S.strikes>=3)commitCaughtStrikeout(looking);
 }
+function commitBuntStrikeout(text){
+  ev('o',text);S.outs++;commitPA('K');S.order[S.bat]++;S.balls=0;S.strikes=0;
+  closeModal();save();renderAll();endHalfCheck();save();renderAll();
+}
+function buntPitchPicker(){
+  openModal(`<h2>Bunt attempt</h2>
+    <p class="sub">How did the bunt attempt end?</p>
+    <div class="grid2">
+      <button class="med" id="bpMiss">Missed Bunt</button>
+      <button class="med" id="bpFoul">Foul Bunt</button>
+    </div>
+    <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+  $('#bpMiss').onclick=()=>{closeModal();doPitch('missbunt');};
+  $('#bpFoul').onclick=()=>{closeModal();doPitch('foulbunt');};
+}
 function doPitch(kind){
   if(!S.started)return;
   // In-play opens a chooser first; snapshot only when the play is actually committed.
   if(kind==='inplay'){outcomeModal();return;}
+  if(kind==='bunt'){buntPitchPicker();return;}
   snap();
   if(kind==='ball')addCountBall();
   else if(kind==='cstr')addCountStrike('Called strike',true);
   else if(kind==='sstr')addCountStrike('Swinging strike',false);
   else if(kind==='foultip')addCountStrike('Foul tip',false);
+  else if(kind==='missbunt'){ev('p','Missed bunt');S.strikes++;if(S.strikes>=3)commitBuntStrikeout('Struck out on missed bunt');}
+  else if(kind==='foulbunt'){ev('p','Foul bunt');S.strikes++;if(S.strikes>=3)commitBuntStrikeout('Struck out on foul bunt');}
   else if(kind==='foul'){ev('p','Foul ball');if(S.strikes<2)S.strikes++;}
   else if(kind==='pitchout'){addCountBall('Pitchout (ball)');} // A18: one event per pitch
   else if(kind==='hbp'){doWalk('HBP','Hit by pitch',true);}
