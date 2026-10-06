@@ -84,7 +84,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
-  `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,pitchAuditModal,` +
+  `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
   `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
@@ -510,7 +510,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.20','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.21','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -526,15 +526,15 @@ async function main() {
   ]};
   const paAudit=sb.paPitchAudit(auditPa);
   eq(paAudit.stored,4,'AUD1: audit reports stored pitch-event count');
-  eq(paAudit.credited,4,'AUD1: three thrown stored pitches plus inferred in-play pitch are credited');
-  eq(paAudit.rows.length,5,'AUD1: audit includes automatic call plus inferred terminal pitch');
+  eq(paAudit.credited,4,'AUD1: three thrown stored pitches plus terminal in-play pitch are credited');
+  eq(paAudit.rows.length,5,'AUD1: audit includes automatic call plus terminal pitch from PA result');
   eq(paAudit.rows[0].count,'1-0','AUD1: audit reconstructs count after ball');
   eq(paAudit.rows[1].count,'1-1','AUD1: audit reconstructs count after called strike');
   eq(paAudit.rows[2].count,'1-2','AUD1: audit reconstructs count after foul');
   eq(paAudit.rows[3].count,'2-2','AUD1: automatic ball changes count');
   ok(paAudit.rows[3].physical===false,'AUD1: automatic ball is explicitly marked no pitch thrown');
   ok(paAudit.rows[4].inferred===true&&paAudit.rows[4].text==='Ball put in play',
-    'AUD1: terminal in-play pitch is shown as inferred rather than hidden');
+    'AUD1: terminal in-play pitch is included in the audit');
   eq(sb.contactPitchBonus('DP'),1,'AUD1: in-play double play now credits its terminal pitch');
   let c=sb.countAfterPitch('Foul bunt',1,2);
   eq(c.s,3,'AUD1: two-strike foul bunt reconstructs strike three');
@@ -549,8 +549,22 @@ async function main() {
   sb.pitchAuditModal(0);
   ok(el('#sheet').innerHTML.indexOf('Pitch audit')>=0 &&
      el('#sheet').innerHTML.indexOf('automatic call / no pitch thrown')>=0 &&
-     el('#sheet').innerHTML.indexOf('Credited from PA result')>=0,
-    'AUD1: pitch audit modal explains stored, no-pitch, and inferred credits');
+     el('#sheet').innerHTML.indexOf('from PA result')>=0 &&
+     el('#sheet').innerHTML.indexOf('inferred')<0,
+    'AUD1: pitch audit explains stored/no-pitch/result-derived pitches without showing inferred jargon');
+  ok(el('#sheet').innerHTML.indexOf('data-audit-delete="0"')>=0 &&
+     el('#sheet').innerHTML.indexOf('id="auditEdit"')>=0,
+    'AUD1: audit exposes Delete on stored pitches plus Edit PA');
+  const auditBeforeDelete=sb.S.pas[0].events.filter(e=>e.t==='p').length;
+  ok(sb.deleteStoredPitch(0,0),'AUD1: stored pitch can be deleted directly');
+  eq(sb.S.pas[0].events.filter(e=>e.t==='p').length,auditBeforeDelete-1,
+    'AUD1: deleting extra pitch removes exactly one stored pitch event');
+  sb.pitchAuditModal(0);
+  ok(el('#sheet').innerHTML.indexOf('3 stored pitch events')>=0,
+    'AUD1: audit redraw reflects deleted pitch count');
+  sb.editPA(0);
+  ok(el('#sheet').innerHTML.indexOf('Delete extra pitch')>=0,
+    'AUD1: Edit PA also exposes Delete extra pitch');
 
   /* ===== pitcher strip + pitch count + score scale ===== */
   newGame();
