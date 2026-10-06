@@ -479,7 +479,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.7','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.8','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -733,7 +733,9 @@ async function main() {
 
   /* ===== terminal ABS: ball four challenged to strike three ===== */
   newGame();
-  sb.S.balls=3;sb.S.strikes=2;sb.S.chal={away:2,home:2};
+  sb.S.chal={away:2,home:2};
+  sb.doPitch('ball');sb.doPitch('ball');sb.doPitch('ball');
+  sb.doPitch('cstr');sb.doPitch('cstr');
   sb.doPitch('ball');
   ok(el('#sheet').innerHTML.indexOf('id="plChallenge"')>=0,
     'ABS1: ball-four placement exposes Challenge last pitch');
@@ -748,7 +750,8 @@ async function main() {
   eq(sb.S.strikes,0,'ABS1: strikeout resets strikes');
 
   newGame();
-  sb.S.balls=3;sb.S.strikes=1;sb.S.chal={away:2,home:2};
+  sb.S.chal={away:2,home:2};
+  sb.doPitch('ball');sb.doPitch('ball');sb.doPitch('ball');sb.doPitch('cstr');
   sb.doPitch('ball');
   el('#plChallenge').onclick();
   el('#chUp').onclick();
@@ -756,6 +759,37 @@ async function main() {
      el('#sheet').innerHTML.indexOf('Confirm where everyone ends up')>=0,
     'ABS1: upheld ball-four challenge returns to same placement sheet');
   eq(sb.S.chal.home,1,'ABS1: upheld ball challenge costs fielding team one challenge');
+
+  /* ===== terminal ABS: called strike three ===== */
+  newGame();
+  sb.S.outs=2;sb.S.chal={away:2,home:2};
+  sb.doPitch('cstr');sb.doPitch('cstr');sb.doPitch('cstr');
+  ok(el('#sheet').innerHTML.indexOf('Called strike three')>=0 &&
+     el('#sheet').innerHTML.indexOf('id="kChallenge"')>=0,
+    'ABS2: called strike three pauses on a review sheet with Challenge last pitch');
+  eq(sb.S.outs,3,'ABS2: third-out called strike is held before half-inning transition');
+  eq(sb.S.half,0,'ABS2: half-inning does not flip before strike-three review is resolved');
+  el('#kChallenge').onclick();
+  el('#chOv').onclick();
+  eq(sb.S.pas.length,0,'ABS2: overturned called strike three restores the live PA');
+  eq(sb.S.outs,2,'ABS2: overturned third strike restores the prior out count');
+  eq(sb.S.order.away,0,'ABS2: overturned third strike restores the batter in the order');
+  eq(sb.S.balls,1,'ABS2: overturned called strike becomes a ball');
+  eq(sb.S.strikes,2,'ABS2: overturned called strike restores a two-strike count');
+  eq(sb.S.half,0,'ABS2: overturned third-out strike keeps the same half-inning alive');
+
+  newGame();
+  sb.S.outs=2;sb.S.chal={away:2,home:2};
+  sb.doPitch('cstr');sb.doPitch('cstr');sb.doPitch('cstr');
+  el('#kChallenge').onclick();
+  el('#chUp').onclick();
+  ok(el('#sheet').innerHTML.indexOf('Called strike three')>=0 &&
+     el('#sheet').innerHTML.indexOf('id="kChallenge"')<0 &&
+     el('#sheet').innerHTML.indexOf('Challenge resolved.')>=0,
+    'ABS2: upheld strike-three challenge returns to review with challenge resolved');
+  el('#kDone').onclick();
+  eq(sb.S.half,1,'ABS2: Done after upheld third-out strike advances to next half-inning');
+  eq(sb.S.outs,0,'ABS2: half-inning transition resets outs after strikeout is finalized');
 
   /* ===== completed game decisions + past-game official scoring ===== */
   newGame();
