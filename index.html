@@ -487,7 +487,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.6';
+const APP_VERSION='2026.10.06.7';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1193,7 +1193,7 @@ function recountCount(evts){let b=0,s=0;
     else if(/ball/i.test(x.text))b++;
     else if(/strike/i.test(x.text)||x.text==='Foul tip')s++;}
   S.balls=b;S.strikes=s;}
-function challengeSheet(){
+function challengeSheet(onReturn){
   if(viewing)return;
   const lp=lastPitch();if(!lp)return;
   const e=lp.evts[lp.idx];
@@ -1215,21 +1215,22 @@ function challengeSheet(){
       <button class="med" id="chUp">Upheld<br><small>call stands</small></button>
       <button class="med" id="chOv">Overturned<br><small>flip the call</small></button>
     </div>`}
-    <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
+    <div style="margin-top:10px"><button class="sml ghost" id="chCancel" style="width:100%">Cancel</button></div>`);
+    $('#chCancel').onclick=()=>{closeModal();if(onReturn)onReturn();};
     $('#sheet').querySelectorAll('[data-ct]').forEach(b=>b.onclick=()=>{team=b.dataset.ct;draw();});
     if(!already&&!noChal){
-      $('#chUp').onclick=()=>doChallenge(team,'upheld');
-      $('#chOv').onclick=()=>doChallenge(team,'overturned');
+      $('#chUp').onclick=()=>doChallenge(team,'upheld',onReturn);
+      $('#chOv').onclick=()=>doChallenge(team,'overturned',onReturn);
     }
   };
   draw();
 }
-function doChallenge(team,res){
+function doChallenge(team,res,onReturn){
   const lp=lastPitch();if(!lp||viewing)return;
   const e=lp.evts[lp.idx];
   if(e.ch||!S.chal||S.chal[team]<=0)return; // belt & suspenders: A6/A9
   snap();e.ch={team,res};
-  if(res==='upheld'){S.chal[team]=Math.max(0,S.chal[team]-1);save();renderAll();closeModal();return;}
+  if(res==='upheld'){S.chal[team]=Math.max(0,S.chal[team]-1);save();renderAll();closeModal();if(onReturn)onReturn();return;}
   // overturned — challenger keeps the challenge; flip the call
   const flipIt=()=>{e.text=e.text==='Ball'?'Called strike':'Ball';recountCount(S.pa);};
   const commitFlip=()=>{
@@ -1496,7 +1497,10 @@ function paErrTag(movers){
 }
 function placementReview(movers,code,text,alreadySnapped){
   const draw=()=>{
+    const lp=code==='BB'?lastPitch():null;
+    const canChallenge=!!(lp&&lp.live&&lp.evts[lp.idx]&&lp.evts[lp.idx].text==='Ball'&&!lp.evts[lp.idx].ch);
     $('#sheet').innerHTML=`<h2>${text}</h2><p class="sub">Confirm where everyone ends up.</p>`+
+      (canChallenge?`<button class="med" id="plChallenge" style="width:100%;margin-bottom:8px">Challenge last pitch</button>`:'')+
       movers.map((m,i)=>`<div class="mover"><div class="nm">${m.label}${m.out?' — <span style="color:var(--out)">OUT ('+m.out.f+')</span>':''}</div>
         ${m.out?'':`<div class="dest">${[1,2,3,4].map(b=>`<button data-m="${i}" data-b="${b}" class="${m.to===b?'sel':''}">${baseName(b)}</button>`).join('')}
         <button data-m="${i}" data-b="out">Out</button>
@@ -1511,6 +1515,7 @@ function placementReview(movers,code,text,alreadySnapped){
       }
       else{m.to=+v;m.out=null;draw();}
     });
+    const pc=$('#plChallenge');if(pc)pc.onclick=()=>challengeSheet(draw);
     $('#plDone').onclick=()=>applyPlacement(movers,code);
     $('#modal').classList.add('on');
   };
