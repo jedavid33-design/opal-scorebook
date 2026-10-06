@@ -803,3 +803,11 @@ replacing the "visco" app she currently uses.
   pops (BPO2), foul bunt pops (BPOF2), flyouts, lineouts, popouts, foul
   fly/pop outs, and sac flies. App version v2026.10.06.32. Worker unchanged;
   no Worker deployment required.
+
+
+- 2026-10-06: Sacrifice runner placement no longer asks for an advancement
+  reason. Existing runners may be placed forward on SAC or SF directly.
+  Sac-fly advancement is automatically stored as Tagged Up because the caught
+  fly establishes the tag; sac-bunt advancement is stored as part of the SAC.
+  Errors can still be marked explicitly from the placement screen. App version
+  v2026.10.06.33. Worker unchanged; no Worker deployment required.
