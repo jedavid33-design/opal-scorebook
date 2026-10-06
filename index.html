@@ -1760,15 +1760,33 @@ function bookTable(t){
     h+=`</tr>`;});
   return h+'</table>';
 }
+function renderDecisions(){
+  const card=$('#decisionsCard'),el=$('#decisions');if(!card||!el)return;
+  const d=S.decisions;
+  if(!d||(!d.wp&&!d.lp&&!d.sv)){card.hidden=true;el.innerHTML='';return;}
+  card.hidden=false;
+  el.innerHTML='<div class="subRow"><b>W</b> '+esc(d.wp||'—')+' · <b>L</b> '+esc(d.lp||'—')+(d.sv?' · <b>SV</b> '+esc(d.sv):'')+'</div>';
+}
+function renderBookBanner(bb){
+  if(!viewing){bb.hidden=true;return;}
+  bb.hidden=false;
+  if(viewing.editing){
+    bb.innerHTML='<span>✏️ <b>Official scoring edit</b> · '+esc(viewing.name)+' · '+esc(viewing.score)+'</span><span class="grow"></span><button class="sml" id="editDecisions">Edit decisions</button><button class="sml accent" id="donePastEdit">Done editing</button><button class="sml" id="backLive2">Back to current game</button>';
+    $('#editDecisions').onclick=()=>gameDecisionSheet(false);
+    $('#donePastEdit').onclick=()=>finishPastGameEdit(false);
+    $('#backLive2').onclick=()=>finishPastGameEdit(true);
+  }else{
+    bb.innerHTML='<span>👁️ Viewing <b>'+esc(viewing.name)+'</b> · '+esc(viewing.score)+'</span><span class="grow"></span><button class="sml accent" id="startPastEdit">Edit official scoring</button><button class="sml" id="backLive2">Back to current game</button>';
+    $('#startPastEdit').onclick=startPastGameEdit;
+    $('#backLive2').onclick=backToLive;
+  }
+}
 function renderBook(){
   $('#bookSub').textContent=`${S.away.name} @ ${S.home.name}`;
   const bb=$('#bookBanner');
-  if(viewing){
-    bb.hidden=false;
-    bb.innerHTML=`<span>👁️ Viewing <b>${esc(viewing.name)}</b> · ${esc(viewing.score)} — read only</span><span class="grow"></span><button class="sml" id="backLive2">Back to current game</button>`;
-    $('#backLive2').onclick=backToLive;
-  }else bb.hidden=true;
+  renderBookBanner(bb);
   const ng=$('#newGameBtn');if(ng)ng.style.display=viewing?'none':'';
+  const gc=$('#gameCompleteBtn');if(gc)gc.style.display=viewing?'none':'';
   $('#bookAwayT').textContent=S.away.name+' — away';$('#bookHomeT').textContent=S.home.name+' — home';
   $('#bookAway').innerHTML=bookTable('away');$('#bookHome').innerHTML=bookTable('home');
   const nInn=Math.max(9,S.inning);
@@ -1778,13 +1796,13 @@ function renderBook(){
     return `<tr><td style="text-align:left">${S[t].name}</td>${Array.from({length:nInn},(_,i)=>`<td>${R[i]||0}</td>`).join('')}
     <td><b>${R.reduce((a,b)=>a+b,0)}</b></td><td>${H(t)}</td><td>${E(t)}</td></tr>`;};
   $('#linescore').innerHTML=`<table class="book ls"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}<th>R</th><th>H</th><th>E</th></tr>${row('away')}${row('home')}</table>`;
-  renderFielding();renderPbp();renderSubLog();
+  renderDecisions();renderFielding();renderPbp();renderSubLog();
 }
 function renderPbp(){
   const el=$('#pbp');if(!el)return;
   el.innerHTML=S.pas.map((p,idx)=>{
     const e0=p.events.length?p.events[0].text:'';
-    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div>${viewing?'':`<button class="sml" data-edit="${idx}">Edit</button>`}</div>`;
+    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${p.result}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div>${viewing&&!viewing.editing?'':`<button class="sml" data-edit="${idx}">Edit</button>`}</div>`;
   }).join('')||'<p class="sub">No plays yet.</p>';
   el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editPA(+b.dataset.edit));
 }
