@@ -578,7 +578,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.22';
+const APP_VERSION='2026.10.06.23';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1350,12 +1350,12 @@ function doPitch(kind){
   else if(kind==='autoball'){addCountBall('Automatic ball — pitch timer violation');} // A5: single p event
   else if(kind==='autostrike'){addCountStrike('Automatic strike — batter timer violation',true);}
   else if(kind==='illegal'){ // A5: single p event — was 2, which double-counted balls on overturns
-    if(S.bases.some(Boolean)){ev('r','Illegal pitch with runners on — balk, all advance');advanceAll(1);}
+    if(S.bases.some(Boolean)){ev('r','Illegal pitch with runners on — balk, all advance');advanceAll(1,'BALK');}
     addCountBall('Illegal pitch — automatic ball');}
   save();renderAll();
 }
 function walkMovers(){
-  const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
+  const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,award:1,adv:null,out:null}];
   [2,1,0].forEach(i=>{if(S.bases[i])mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});
   const at=b=>mv.find(m=>m.who==='R'&&m.from===b);
   const r1=at(1);
@@ -1489,7 +1489,7 @@ function outcomeModal(){
   bindFoulOutGesture();
 }
 function hitMovers(n){
-  const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:n,out:null}];
+  const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:n,award:n,adv:null,out:null}];
   [2,1,0].forEach(i=>{if(S.bases[i]){const d=i+1+n;mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:d>4?4:d,out:null});}});
   return mv;
 }
@@ -1711,6 +1711,48 @@ function handleOutcome(kind){
     return;}
 }
 
+function resultAwardBase(result){
+  if(result==='1B'||result==='BB'||result==='IBB'||result==='HBP'||result==='CI'||result==='FC'||/^E\d+/.test(result||'')||/^(K|ꓘ)-(PB|WP)$/.test(result||''))return 1;
+  if(result==='2B')return 2;
+  if(result==='3B')return 3;
+  if(result==='HR')return 4;
+  return 0;
+}
+function ensureRunnerIdentity(r){
+  if(!r)return r;
+  if(!r.rid)r.rid=genId();
+  if(r.originPa==null&&r.t&&(r.i==null||r.i>=0)){
+    for(let i=S.pas.length-1;i>=0;i--){
+      const pa=S.pas[i];
+      if(pa.team===r.t&&pa.b===r.i&&resultAwardBase(pa.result)>0&&!pa.runnerId){
+        pa.runnerId=r.rid;r.originPa=i;break;
+      }
+    }
+  }
+  return r;
+}
+function runnerAdvanceData(r,from,to,reason,extra){
+  ensureRunnerIdentity(r);
+  return{rid:r&&r.rid||null,team:r&&r.t||null,slot:r&&r.i!=null?r.i:null,from,to,reason,...(extra||{})};
+}
+function runnerAdvanceEvent(r,text,from,to,reason,extra){
+  return{text,advance:runnerAdvanceData(r,from,to,reason,extra)};
+}
+function runnerPathById(rid){
+  if(!rid)return null;
+  let origin=null;
+  for(let i=0;i<S.pas.length;i++)if(S.pas[i].runnerId===rid){origin={idx:i,pa:S.pas[i]};break;}
+  const steps=[];
+  if(origin){
+    const to=resultAwardBase(origin.pa.result);
+    if(to)steps.push({from:0,to,reason:origin.pa.result,pa:origin.idx});
+  }
+  const scan=(events,paIndex)=>{for(const e of events||[])if(e.advance&&e.advance.rid===rid)
+    steps.push({...e.advance,text:e.text||'',pa:paIndex});};
+  S.pas.forEach((pa,i)=>scan(pa.events,i));scan(S.pa,null);
+  return{rid,origin:origin&&origin.idx,steps};
+}
+
 /* ================= runner placement ================= */
 /* A3: two runners can't end on the same base — returns the offending base, or 0.
    Pure — also used by the test harness. */
@@ -1724,15 +1766,21 @@ function placementCollision(movers){
   return 0;
 }
 /* Runner-event sentences for one mover (pure — also used by the test harness). */
-function moveRunnerEvents(m){
+function moveRunnerEvents(m,playCode){
   if(m.out)return[];
-  const errTxt=m.err?' on error E'+m.err:'',out=[];
+  const errTxt=m.err?' on error E'+m.err:'',out=[],r=m.r||null;
+  const emit=(text,from,to,reason,extra)=>out.push(['r',runnerAdvanceEvent(r,text,from,to,reason,extra)]);
   if(m.who==='BR'){
-    if(m.to>=4)out.push(['r',m.label+' scores'+errTxt]);
-    else if(m.err&&m.from!==m.to)out.push(['r',m.label+' to '+baseName(m.to)+errTxt]);
-  }else{
-    if(m.from!==m.to)out.push(['r',`${m.label}: ${baseName(m.from)} → ${baseName(m.to)}${errTxt}`]);
-    if(m.to>=4)out.push(['r',m.label+' scores'+errTxt]);
+    const from=m.award||m.from||0;
+    if(m.to>from){
+      if(m.err)emit(m.label+': '+baseName(from)+' → '+baseName(m.to)+errTxt,from,m.to,'error',{fielder:String(m.err)});
+      else if(m.adv==='throw')emit(m.label+': '+baseName(from)+' → '+baseName(m.to)+' on throw',from,m.to,'throw');
+      else if(m.adv==='other')emit(m.label+': '+baseName(from)+' → '+baseName(m.to),from,m.to,'other');
+      else emit(m.label+': '+baseName(from)+' → '+baseName(m.to),from,m.to,playCode||'play');
+    }
+  }else if(m.from!==m.to){
+    if(m.err)emit(`${m.label}: ${baseName(m.from)} → ${baseName(m.to)}${errTxt}`,m.from,m.to,'error',{fielder:String(m.err)});
+    else emit(`${m.label}: ${baseName(m.from)} → ${baseName(m.to)}`,m.from,m.to,playCode||'play');
   }
   return out;
 }
@@ -1741,25 +1789,45 @@ function paErrTag(movers){
   const u=[...new Set(movers.filter(m=>m.err&&!m.out).map(m=>m.err))];
   return u.length?u.map(f=>'E'+f).join(','):null;
 }
+function extraAdvanceReason(m,draw){
+  const from=m.award||m.from||0,to=m.to;
+  openModal(`<h2>Extra advancement</h2>
+    <p class="sub">${esc(m.label)} was credited to ${baseName(from)} but ended at ${baseName(to)}. How did the extra advance happen?</p>
+    <div class="grid2">
+      <button class="med" id="advThrow">On throw</button>
+      <button class="med" id="advErr">Error</button>
+      <button class="med" id="advOther">Other</button>
+      <button class="med ghost" id="advBack">Back</button>
+    </div>`);
+  $('#advThrow').onclick=()=>{m.adv='throw';m.err=null;draw();};
+  $('#advErr').onclick=()=>fielderSingle(f=>{m.err=f;m.adv=null;draw();},'Error by whom?',()=>draw());
+  $('#advOther').onclick=()=>{m.adv='other';m.err=null;draw();};
+  $('#advBack').onclick=()=>{m.to=from;m.adv=null;m.err=null;draw();};
+}
 function placementReview(movers,code,text,alreadySnapped){
   const draw=()=>{
     const lp=code==='BB'?lastPitch():null;
     const canChallenge=!!(lp&&lp.live&&lp.evts[lp.idx]&&lp.evts[lp.idx].text==='Ball'&&!lp.evts[lp.idx].ch);
     $('#sheet').innerHTML=`<h2>${text}</h2><p class="sub">Confirm where everyone ends up.</p>`+
       (canChallenge?`<button class="med" id="plChallenge" style="width:100%;margin-bottom:8px">Challenge last pitch</button>`:'')+
-      movers.map((m,i)=>`<div class="mover"><div class="nm">${m.label}${m.out?' — <span style="color:var(--out)">OUT ('+m.out.f+')</span>':''}</div>
+      movers.map((m,i)=>`<div class="mover"><div class="nm">${m.label}${m.adv==='throw'?' · <span class="sub">on throw</span>':m.adv==='other'?' · <span class="sub">extra advance</span>':''}${m.out?' — <span style="color:var(--out)">OUT ('+m.out.f+')</span>':''}</div>
         ${m.out?'':`<div class="dest">${[1,2,3,4].map(b=>`<button data-m="${i}" data-b="${b}" class="${m.to===b?'sel':''}">${baseName(b)}</button>`).join('')}
         <button data-m="${i}" data-b="out">Out</button>
         <button data-m="${i}" data-b="err" class="ebtn${m.err?' sel':''}">${m.err?'E'+m.err:'E'}</button></div>`}</div>`).join('')+
       `<button class="med accent" id="plDone" style="width:100%;margin-top:6px">Done</button>`;
     $('#sheet').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{
       const m=movers[+b.dataset.m],v=b.dataset.b;
-      if(v==='out'){fielderPad(f=>{m.out={f};m.to=0;m.err=null;draw();},'Out — fielders');}
+      if(v==='out'){fielderPad(f=>{m.out={f};m.to=0;m.err=null;m.adv=null;draw();},'Out — fielders');}
       else if(v==='err'){
         if(m.err){m.err=null;draw();}
-        else fielderSingle(f=>{m.err=f;draw();},'Error by whom?',()=>draw());
+        else fielderSingle(f=>{m.err=f;m.adv=null;draw();},'Error by whom?',()=>draw());
       }
-      else{m.to=+v;m.out=null;draw();}
+      else{
+        m.to=+v;m.out=null;
+        if(m.award&&m.to<=m.award){m.adv=null;m.err=null;draw();}
+        else if(m.who==='BR'&&m.award&&m.to>m.award&&!m.err&&!m.adv)extraAdvanceReason(m,draw);
+        else draw();
+      }
     });
     const pc=$('#plChallenge');if(pc)pc.onclick=()=>challengeSheet(draw);
     $('#plDone').onclick=()=>applyPlacement(movers,code);
@@ -1769,26 +1837,33 @@ function placementReview(movers,code,text,alreadySnapped){
     const cb=placementCollision(movers); // A3: two runners can't end on the same base
     if(cb){toast("Two runners can't end on "+baseName(cb)+' — fix one.');return;}
     if(!alreadySnapped)snap();
-    const nb=[null,null,null];
+    const nb=[null,null,null],originIdx=S.pas.length;
     movers.forEach(m=>{
       if(m.out){ev('o',(m.who==='BR'?'Batter out ':'Runner out ')+m.out.f);S.outs++;return;}
-      moveRunnerEvents(m).forEach(([t,x])=>ev(t,x));
-      if(m.who==='BR'){const R={t:S.bat,i:curIdx()};
-        if(m.to>=4)scoreRun(S.bat);else nb[m.to-1]=R;}
-      else{if(m.to>=4)scoreRun(S.bat);else nb[m.to-1]=m.r;}
+      if(m.who==='BR'){
+        if(!m.r)m.r={t:S.bat,i:curIdx(),rid:genId(),originPa:originIdx};
+      }else ensureRunnerIdentity(m.r);
+      moveRunnerEvents(m,code).forEach(([t,x])=>ev(t,x));
+      if(m.who==='BR'){
+        if(m.to>=4)scoreRun(S.bat);else nb[m.to-1]=m.r;
+      }else{if(m.to>=4)scoreRun(S.bat);else nb[m.to-1]=m.r;}
     });
     S.bases=nb;closeModal();
-    commitPA(code,paErrTag(movers));S.order[S.bat]++;S.balls=0;S.strikes=0;
+    commitPA(code,paErrTag(movers));
+    const br=movers.find(m=>m.who==='BR'&&m.r);
+    if(br&&S.pas[S.pas.length-1])S.pas[S.pas.length-1].runnerId=br.r.rid;
+    S.order[S.bat]++;S.balls=0;S.strikes=0;
     save();renderAll();endHalfCheck();save();renderAll();
   };
   // Third out ends the half-inning — no need to ask where everyone ended up.
   if(S.outs+movers.filter(m=>m.out).length>=3){applyPlacement(movers,code);return;}
   draw();$('#modal').classList.add('on');
 }
-function advanceAll(n){
+function advanceAll(n,reason){
   const nb=[null,null,null];
-  [2,1,0].forEach(i=>{const r=S.bases[i];if(!r)return;const d=i+1+n;
-    if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' scores');}else nb[d-1]=r;});
+  [2,1,0].forEach(i=>{const r=S.bases[i];if(!r)return;ensureRunnerIdentity(r);const d=i+1+n;
+    if(d>=4){scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores',i+1,d,reason||'play'));}
+    else{nb[d-1]=r;if(reason)ev('r',runnerAdvanceEvent(r,pname(r)+' advances to '+baseName(d),i+1,d,reason));}});
   S.bases=nb;
 }
 
@@ -1826,9 +1901,9 @@ function actSteal(){if(!S.bases.some(Boolean))return;
       $('#sheet').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{const d=+b.dataset.d;
         const changes={};changes[bi]=d;const cb=runnerActionCollision(changes);
         if(cb){runnerCollisionToast(cb);return;}
-        snap();S.bases[bi]=null;
-        if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' steals home! Scores');}
-        else{S.bases[d-1]=r;ev('r',pname(r)+' steals '+baseName(d));}
+        snap();ensureRunnerIdentity(r);S.bases[bi]=null;
+        if(d>=4){scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' steals home! Scores',bi+1,d,'SB'));}
+        else{S.bases[d-1]=r;ev('r',runnerAdvanceEvent(r,pname(r)+' steals '+baseName(d),bi+1,d,'SB'));}
         closeModal();save();renderAll();});};
     $('#stOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;
       recordRunnerOut('Caught stealing '+f+' — '+pname(r));},'CS — fielders (e.g. 2-6)');
@@ -1836,9 +1911,9 @@ function actSteal(){if(!S.bases.some(Boolean))return;
 function actDI(){if(!S.bases.some(Boolean))return;
   pickRunner((bi,r)=>{const d=Math.min(4,bi+2),changes={};changes[bi]=d;
     const cb=runnerActionCollision(changes);if(cb){runnerCollisionToast(cb);return;}
-    snap();S.bases[bi]=null;
-    if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' scores on defensive indifference');}
-    else{S.bases[d-1]=r;ev('r','Defensive indifference — '+pname(r)+' takes '+baseName(d));}
+    snap();ensureRunnerIdentity(r);S.bases[bi]=null;
+    if(d>=4){scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores on defensive indifference',bi+1,d,'DI'));}
+    else{S.bases[d-1]=r;ev('r',runnerAdvanceEvent(r,'Defensive indifference — '+pname(r)+' takes '+baseName(d),bi+1,d,'DI'));}
     save();renderAll();},'Defensive indifference — runner');}
 function actPick(){if(!S.bases.some(Boolean))return;
   pickRunner((bi,r)=>{openModal(`<h2>Pickoff — ${pname(r)}</h2><div class="grid2">
@@ -1860,9 +1935,9 @@ function wppbAdvancePicker(label,alreadySnapped){
     const changes={};adv.forEach(i=>{changes[i]=i+2;});
     const cb=runnerActionCollision(changes);if(cb){runnerCollisionToast(cb);return;}
     if(!alreadySnapped)snap();
-    [...adv].sort((a,b)=>b-a).forEach(i=>{const r=S.bases[i];S.bases[i]=null;const d=i+2;
-      if(d>=4){scoreRun(S.bat);ev('r',pname(r)+' scores on '+label.toLowerCase());}
-      else{S.bases[d-1]=r;ev('r',pname(r)+' advances on '+label.toLowerCase());}});
+    [...adv].sort((a,b)=>b-a).forEach(i=>{const r=S.bases[i];ensureRunnerIdentity(r);S.bases[i]=null;const d=i+2,reason=label==='Passed ball'?'PB':'WP';
+      if(d>=4){scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores on '+label.toLowerCase(),i+1,d,reason));}
+      else{S.bases[d-1]=r;ev('r',runnerAdvanceEvent(r,pname(r)+' advances on '+label.toLowerCase(),i+1,d,reason));}});
     closeModal();save();renderAll();
   };
 }
@@ -1890,7 +1965,7 @@ function doPitchWPPB(kind,wpKind){
   if(S.strikes>=3){uncaughtThirdStrike(wpKind,looking);return;}
   ev('r',label);wppbAdvancePicker(label,true);
 }
-function actBalk(){if(!S.bases.some(Boolean))return;snap();ev('r','Balk — all runners advance');advanceAll(1);save();renderAll();}
+function actBalk(){if(!S.bases.some(Boolean))return;snap();ev('r','Balk — all runners advance');advanceAll(1,'BALK');save();renderAll();}
 
 /* ================= substitutions ================= */
 function applySub(team,type,slot,base,p){
@@ -1911,7 +1986,8 @@ function applySub(team,type,slot,base,p){
   }else if(type==='PR'){
     const r=S.bases[base];
     const old=pname(r);
-    S.bases[base]={t:team,i:-1,name:p.name,num:p.num};
+    ensureRunnerIdentity(r);
+    S.bases[base]={t:team,i:-1,name:p.name,num:p.num,rid:r.rid,originPa:r.originPa};
     note('PR '+p.name+(p.num?' #'+p.num:'')+' for '+old);
     S.subLog.push({inn:S.inning,half:S.half,team,slot:null,type:'PR',old:old,new:p.name,base:base+1});
   }else if(type==='P'){
