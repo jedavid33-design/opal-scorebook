@@ -546,3 +546,13 @@ replacing the "visco" app she currently uses.
   App version v2026.10.06.8. Full regression harness: 311 passed, 0 failed.
   App commits a8553c7, 41278e8, ffec847; regression commits 20e6bdc, 4f10acf.
   Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Scoring header now uses MLB broadcast abbreviations for MLB
+  teams. The app uses the remembered MLB team ID from roster loading when
+  available, with a team-name fallback for manually entered historical games.
+  Examples: Red Sox -> BOS, Blue Jays -> TOR, Astros -> HOU, Cubs -> CHC.
+  Non-MLB teams keep the existing uppercase short-name fallback. Full team
+  names remain unchanged elsewhere in the app. App version v2026.10.06.9.
+  Full regression harness: 316 passed, 0 failed. App commit 3e5011a;
+  regression commit c282408. Worker unchanged; no Worker deployment required.
