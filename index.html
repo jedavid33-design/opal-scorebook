@@ -231,8 +231,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   #v-score .pitchstack .ps-swing,
   #v-score .pitchstack .ps-foultip,
   #v-score .pitchstack .ps-ball,
-  #v-score .pitchstack .ps-foul,
-  #v-score .pitchstack .ps-buntpitch{font-size:16px;}
+  #v-score .pitchstack .ps-foul{font-size:16px;}
   #v-score .pitchstack .ps-ibb,
   #v-score .pitchstack .ps-hbp{font-size:14px;}
   .sheet{padding:14px 12px calc(16px + env(safe-area-inset-bottom));}
@@ -266,7 +265,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   grid-template-areas:
     "inplay inplay inplay inplay inplay inplay"
     "called called swing swing foultip foultip"
-    "ball ball foul foul buntpitch buntpitch"
+    "ball ball ball foul foul foul"
     "ibb ibb ibb hbp hbp hbp";
   gap:8px;
 }
@@ -275,7 +274,6 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 .ps-swing{grid-area:swing;}
 .ps-ball{grid-area:ball;}
 .ps-foul{grid-area:foul;}
-.ps-buntpitch{grid-area:buntpitch;}
 .ps-foultip{grid-area:foultip;}
 .ps-ibb{grid-area:ibb;}
 .ps-hbp{grid-area:hbp;}
@@ -334,8 +332,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   #v-score.score-proportional .pitchstack .ps-swing,
   #v-score.score-proportional .pitchstack .ps-foultip,
   #v-score.score-proportional .pitchstack .ps-ball,
-  #v-score.score-proportional .pitchstack .ps-foul,
-  #v-score.score-proportional .pitchstack .ps-buntpitch{font-size:16px;}
+  #v-score.score-proportional .pitchstack .ps-foul{font-size:16px;}
   #v-score.score-proportional .pitchstack .ps-ibb,
   #v-score.score-proportional .pitchstack .ps-hbp{font-size:14px;}
   #v-score.score-proportional .rgrid{grid-template-columns:repeat(3,1fr);}
@@ -483,10 +480,9 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <div class="pitchstack">
     <button class="med pitch ps-inplay" data-p="inplay">In Play</button>
     <button class="big pitch ps-called" data-p="cstr" data-hold-wppb="1" aria-label="Called strike" title="Called strike · hold for wild/passed ball">Called</button>
-    <button class="big pitch ps-swing" data-p="sstr" data-hold-wppb="1" aria-label="Swinging strike" title="Swinging strike · hold for wild/passed ball">Swinging</button>
+    <button class="big pitch ps-swing" data-p="sstr" data-hold-wppb="1" data-variant="swing" aria-label="Swinging strike or missed bunt" title="Tap for swinging/missed bunt · hold for wild/passed ball">Swinging</button>
     <button class="med pitch ps-ball" data-p="ball" data-hold-wppb="1" title="Ball · hold for wild/passed ball">Ball</button>
-    <button class="med pitch ps-foul" data-p="foul">Foul</button>
-    <button class="med pitch ps-buntpitch" data-p="bunt">Bunt</button>
+    <button class="med pitch ps-foul" data-p="foul" data-variant="foul">Foul</button>
     <button class="med pitch ps-foultip" data-p="foultip">Foul Tip</button>
     <button class="med pitch ps-ibb" data-p="ibb">Intentional Walk</button>
     <button class="med pitch ps-hbp" data-p="hbp">Hit by Pitch</button>
@@ -552,7 +548,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.17';
+const APP_VERSION='2026.10.06.18';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1297,22 +1293,22 @@ function commitBuntStrikeout(text){
   ev('o',text);S.outs++;commitPA('K');S.order[S.bat]++;S.balls=0;S.strikes=0;
   closeModal();save();renderAll();endHalfCheck();save();renderAll();
 }
-function buntPitchPicker(){
-  openModal(`<h2>Bunt attempt</h2>
-    <p class="sub">How did the bunt attempt end?</p>
+function pitchVariantPicker(kind){
+  const swing=kind==='swing';
+  openModal(`<h2>${swing?'Swinging':'Foul'}</h2>
+    <p class="sub">${swing?'Swinging strike or missed bunt?':'Foul ball or foul bunt?'}</p>
     <div class="grid2">
-      <button class="med" id="bpMiss">Missed Bunt</button>
-      <button class="med" id="bpFoul">Foul Bunt</button>
+      <button class="med" id="pvNormal">${swing?'Swinging Strike':'Foul Ball'}</button>
+      <button class="med" id="pvBunt">${swing?'Missed Bunt':'Foul Bunt'}</button>
     </div>
     <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
-  $('#bpMiss').onclick=()=>{closeModal();doPitch('missbunt');};
-  $('#bpFoul').onclick=()=>{closeModal();doPitch('foulbunt');};
+  $('#pvNormal').onclick=()=>{closeModal();doPitch(swing?'sstr':'foul');};
+  $('#pvBunt').onclick=()=>{closeModal();doPitch(swing?'missbunt':'foulbunt');};
 }
 function doPitch(kind){
   if(!S.started)return;
   // In-play opens a chooser first; snapshot only when the play is actually committed.
   if(kind==='inplay'){outcomeModal();return;}
-  if(kind==='bunt'){buntPitchPicker();return;}
   snap();
   if(kind==='ball')addCountBall();
   else if(kind==='cstr')addCountStrike('Called strike',true);
@@ -2496,14 +2492,15 @@ function bindPitchGestures(){
         const c=choice;hide();
         if(c)doPitchWPPB(btn.dataset.p,c);
         else toast('Hold, then slide left for Wild Pitch or right for Passed Ball.');
-      }else doPitch(btn.dataset.p);
+      }else if(btn.dataset.variant)pitchVariantPicker(btn.dataset.variant);
+      else doPitch(btn.dataset.p);
       setTimeout(()=>{suppressClick=false;},0);
     });
     btn.addEventListener('pointercancel',()=>{clearTimeout(timer);timer=null;held=false;hide();});
     btn.addEventListener('contextmenu',e=>e.preventDefault());
     btn.addEventListener('click',e=>{
       if(suppressClick){e.preventDefault();return;}
-      if(e.detail===0)doPitch(btn.dataset.p); // keyboard / assistive activation
+      if(e.detail===0){if(btn.dataset.variant)pitchVariantPicker(btn.dataset.variant);else doPitch(btn.dataset.p);} // keyboard / assistive activation
     });
   });
 }
@@ -2559,7 +2556,7 @@ function init(){
   $('#subDone').onclick=finishSubstitutionMode;
   $('#gameCompleteBtn').onclick=()=>{if(viewing)return;gameDecisionSheet(true);};
   $('#newGameBtn').onclick=()=>{if(viewing)return;if(confirm('End this game and start over? It will be kept under Games.'))endGame();};
-  document.querySelectorAll('[data-p]:not([data-hold-wppb])').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
+  document.querySelectorAll('[data-p]:not([data-hold-wppb])').forEach(b=>b.onclick=()=>b.dataset.variant?pitchVariantPicker(b.dataset.variant):doPitch(b.dataset.p));
   bindPitchGestures();
   $('#stealBtn').onclick=actSteal;$('#diBtn').onclick=actDI;$('#pickBtn').onclick=actPick;
   $('#balkBtn').onclick=actBalk;
