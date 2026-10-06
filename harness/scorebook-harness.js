@@ -81,7 +81,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,homeRunText,homeRunLocation,hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,homeRunText,homeRunLocation,hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
   `actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,` +
@@ -445,7 +445,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.05.14','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.1','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -628,6 +628,21 @@ async function main() {
   eq(sb.S.outs,0,'C1: catcher interference does not record an out');
   eq(sb.teamHits('away'),0,'C1: catcher interference does not count as a hit');
   eq(sb.teamErrs('home'),1,'C1: catcher interference counts as a fielding error');
+
+  /* ===== hit-type menu ordering ===== */
+  newGame();
+  sb.hitPicker('Single',()=>{});
+  const hitMenu=el('#sheet').innerHTML;
+  const hitOrder=['data-ht="ground ball"','data-ht="line drive"','data-ht="fly ball"','data-ht="pop up"','data-ht="bunt"']
+    .map(x=>hitMenu.indexOf(x));
+  ok(hitOrder.every(x=>x>=0) && hitOrder.every((x,i)=>i===0||x>hitOrder[i-1]),
+    'H1: hit type menus order Ground / Line / Fly / Pop Up / Bunt');
+  ok(hitMenu.indexOf('>Ground</button>')>=0 &&
+     hitMenu.indexOf('>Line</button>')>=0 &&
+     hitMenu.indexOf('>Fly</button>')>=0 &&
+     hitMenu.indexOf('>Pop Up</button>')>=0 &&
+     hitMenu.indexOf('>Bunt</button>')>=0,
+    'H1: hit type labels use the requested compact wording');
 
   /* ===== full-lineup substitution mode ===== */
   newGame();
