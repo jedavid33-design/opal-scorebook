@@ -79,7 +79,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
-  `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
+  `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,commitBuntStrikeout,pitchVariantPicker,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
@@ -510,7 +510,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.16','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.18','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -822,6 +822,37 @@ async function main() {
     'H1: hit-detail picker keeps Done and Cancel together in a sticky action footer');
   ok(html.indexOf('.sheetActions{position:sticky;bottom:0')>=0,
     'H1: hit-detail action footer stays visible while the sheet scrolls');
+
+  /* ===== bunt pitch variants nested under Swinging / Foul ===== */
+  ok(html.indexOf('data-p="bunt"')<0 && html.indexOf('ps-buntpitch')<0,
+    'BUNT1: no standalone Bunt pitch button remains on the main pad');
+  ok(html.indexOf('data-p="sstr" data-hold-wppb="1" data-variant="swing"')>=0 &&
+     html.indexOf('data-p="foul" data-variant="foul"')>=0,
+    'BUNT1: Swinging and Foul expose nested pitch variants');
+
+  newGame();
+  sb.pitchVariantPicker('swing');
+  ok(el('#sheet').innerHTML.indexOf('Swinging Strike')>=0 &&
+     el('#sheet').innerHTML.indexOf('Missed Bunt')>=0,
+    'BUNT1: Swinging submenu offers Swinging Strike / Missed Bunt');
+  el('#pvBunt').onclick();
+  eq(sb.S.strikes,1,'BUNT1: missed bunt adds a strike');
+  ok(sb.S.pa.some(e=>e.t==='p'&&e.text==='Missed bunt'),
+    'BUNT1: missed bunt is stored distinctly');
+
+  newGame();
+  sb.pitchVariantPicker('foul');
+  ok(el('#sheet').innerHTML.indexOf('Foul Ball')>=0 &&
+     el('#sheet').innerHTML.indexOf('Foul Bunt')>=0,
+    'BUNT1: Foul submenu offers Foul Ball / Foul Bunt');
+  el('#pvBunt').onclick();
+  eq(sb.S.strikes,1,'BUNT1: foul bunt before two strikes adds a strike');
+  sb.doPitch('cstr');
+  sb.doPitch('foulbunt');
+  eq(sb.S.pas.length,1,'BUNT1: foul bunt with two strikes ends the PA');
+  eq(sb.S.pas[0].result,'K','BUNT1: two-strike foul bunt records a strikeout');
+  ok(sb.S.pas[0].events.some(e=>e.t==='p'&&e.text==='Foul bunt'),
+    'BUNT1: strikeout PA preserves foul-bunt pitch event');
 
   /* ===== terminal ABS: ball four challenged to strike three ===== */
   newGame();
