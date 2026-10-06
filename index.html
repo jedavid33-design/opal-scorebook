@@ -159,6 +159,12 @@ button.pitchchip{font-family:inherit;cursor:pointer;}
 .sheet{background:#171021; border:1px solid var(--line); border-radius:22px 22px 0 0;
   width:100%; max-width:640px; max-height:88dvh; overflow:auto; padding:18px 16px calc(20px + env(safe-area-inset-bottom));}
 .sheet h2{margin:0 0 10px; font-size:20px;}
+.sheetActions{position:sticky;bottom:0;z-index:3;display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  margin:8px -16px calc(-20px - env(safe-area-inset-bottom));
+  padding:9px 16px calc(12px + env(safe-area-inset-bottom));
+  background:linear-gradient(to bottom,rgba(23,16,33,.90),#171021 24%);
+  border-top:1px solid var(--line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+.sheetActions button{width:100%;}
 .fpad{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0;}
 .fpad button{min-height:58px; font-size:20px; font-weight:700;}
 .fieldSvg{width:100%; max-width:330px; display:block; margin:6px auto; touch-action:manipulation;}
@@ -230,6 +236,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   #v-score .pitchstack .ps-hbp{font-size:14px;}
   .sheet{padding:14px 12px calc(16px + env(safe-area-inset-bottom));}
   .sheet h2{font-size:18px;margin-bottom:7px;}
+  .sheetActions{margin:8px -12px calc(-16px - env(safe-area-inset-bottom));padding:8px 12px calc(10px + env(safe-area-inset-bottom));}
   .sheet .med{min-height:44px;font-size:14px;}
   .sheet .sml{min-height:42px;font-size:13px;}
   .outcomeCols{gap:7px;}
@@ -541,7 +548,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.15';
+const APP_VERSION='2026.10.06.16';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1457,10 +1464,13 @@ function hitPicker(verb,cb){
       <div class="sect">Played by</div>
       ${fieldSVG(f?[+f]:[])}
       <div class="fread" style="font-size:16px;min-height:30px">${ready?`${verb} on a ${ht} to ${POS[f]}`:'Pick a hit type and a fielder'}</div>
-      <button class="med${ready?' accent':''}" id="hitDone" style="width:100%;margin-top:8px"${ready?'':' disabled'}>Done</button>
-      <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
+      <div class="sheetActions">
+        <button class="med${ready?' accent':''}" id="hitDone"${ready?'':' disabled'}>Done</button>
+        <button class="med ghost" id="hitCancel">Cancel</button>
+      </div>`;
     $('#sheet').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{ht=b.dataset.ht;draw();});
     bindField($('#sheet'),n=>{f=String(n);draw();});
+    $('#hitCancel').onclick=closeModal;
     if(ready)$('#hitDone').onclick=()=>cb(ht,f);
   };
   draw();$('#modal').classList.add('on');
