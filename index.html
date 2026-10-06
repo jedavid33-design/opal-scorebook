@@ -453,9 +453,11 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <div id="bookHome"></div>
   </div>
   <div class="card"><div class="sect" style="margin-top:0">Linescore</div><div id="linescore"></div></div>
+  <div class="card" id="decisionsCard" hidden><div class="sect" style="margin-top:0">Decisions</div><div id="decisions"></div></div>
   <div class="card"><div class="sect" style="margin-top:0">Fielding</div><div id="fielding"></div></div>
   <div class="card"><div class="sect" style="margin-top:0">Play by play</div><div id="pbp"></div></div>
   <div class="card"><div class="sect" style="margin-top:0">Substitutions</div><div id="sublog"></div></div>
+  <button class="med accent" id="gameCompleteBtn" style="width:100%;margin-bottom:8px">Game Complete</button>
   <button class="med danger" id="newGameBtn" style="width:100%">End game / start over</button>
 </div>
 
@@ -485,7 +487,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.5';
+const APP_VERSION='2026.10.06.6';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -498,6 +500,7 @@ function blank(){return{
   bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
   bases:[null,null,null],order:{away:0,home:0},
   pa:[],pas:[],interruptedPAs:[],runs:{away:[],home:[]},subLog:[],started:false,
+  decisions:null,completed:false,completedAt:null,
   rev:0,serverUpdatedAt:0 // sync: rev = server revision this state is based on
 };}
 let viewing=null; // {gid,name,score,date} while browsing a past game (read-only)
@@ -522,12 +525,15 @@ function ensureShape(){
     if(T.pitcher===undefined)T.pitcher='';});
   if(!S.subLog)S.subLog=[];
   if(!Array.isArray(S.interruptedPAs))S.interruptedPAs=[];
+  if(S.decisions===undefined)S.decisions=null;
+  if(S.completed===undefined)S.completed=false;
+  if(S.completedAt===undefined)S.completedAt=null;
   if(!S.chal)S.chal={away:2,home:2};
   if(typeof S.rev!=='number')S.rev=0;
   if(typeof S.serverUpdatedAt!=='number')S.serverUpdatedAt=0;
   if(S.bat!=='away'&&S.bat!=='home')S.bat='away'; // A15: corrupt bat value -> white screen
 }
-function snap(){undoStack.push(JSON.stringify(S));undoMeta.push([S.pas.length,S.pa.length]);
+function snap(){if(viewing)return;undoStack.push(JSON.stringify(S));undoMeta.push([S.pas.length,S.pa.length]);
   if(undoStack.length>80){undoStack.shift();undoMeta.shift();}persistUndo();}
 // undoMeta[i] = [pas.length, pa.length] for undoStack[i] — lets Re-score check
 // the target is reachable before popping (A4), without parsing 80 snapshots.
@@ -537,7 +543,11 @@ function rebuildUndoMeta(){ // for pre-fix undo stores (plain arrays); bounded, 
   for(const s of undoStack){try{const o=JSON.parse(s);undoMeta.push([o.pas?o.pas.length:0,o.pa?o.pa.length:0]);}
     catch(e){undoMeta.push([-1,-1]);}}
   persistUndo();}
-function save(){if(viewing)return;try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();try{localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}}catch(e){}queuePush();}
+function save(){
+  if(viewing){if(viewing.editing)persistViewedGameEdit();return;}
+  try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();try{localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}}catch(e){}
+  queuePush();
+}
 function persistLocal(){try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();try{localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}}catch(e){}}
 let corruptStashed=false; // A13: damaged osb1 is stashed + reported, never silently dropped
 function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}catch(e){
