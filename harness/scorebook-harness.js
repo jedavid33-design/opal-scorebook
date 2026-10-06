@@ -546,7 +546,7 @@ async function main() {
   ok(el('#pbp').innerHTML.indexOf('data-audit="0"')>=0 &&
      el('#pbp').innerHTML.indexOf('4 pitches')>=0,
     'AUD1: Book play-by-play exposes pitch audit for every PA');
-  el('#pbp').querySelector('[data-audit="0"]').onclick();
+  sb.pitchAuditModal(0);
   ok(el('#sheet').innerHTML.indexOf('Pitch audit')>=0 &&
      el('#sheet').innerHTML.indexOf('automatic call / no pitch thrown')>=0 &&
      el('#sheet').innerHTML.indexOf('Credited from PA result')>=0,
