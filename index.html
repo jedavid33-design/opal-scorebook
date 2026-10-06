@@ -578,7 +578,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.28';
+const APP_VERSION='2026.10.06.29';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2083,8 +2083,20 @@ function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
 function isSacrificeDoublePlay(pa){
   return !!(pa&&pa.result==='SF'&&(pa.sacDP||(pa.events||[]).some(e=>e.t==='o'&&/^Runner out /.test(e.text||''))));
 }
+function sacrificeDoublePlayFielding(pa){
+  const evts=(pa&&pa.events)||[];
+  const sf=evts.map(e=>e&&e.text||'').find(t=>/^Sac fly F?\d+$/.test(t))||'';
+  const sfm=/F?(\d+)$/.exec(sf);
+  const ro=evts.map(e=>e&&e.text||'').find(t=>/^Runner out /.test(t))||'';
+  const rom=/^Runner out (.+)$/.exec(ro);
+  return{catcher:sfm?sfm[1]:'',runnerOut:rom?rom[1]:''};
+}
 function paResultDisplay(pa,longForm){
-  if(isSacrificeDoublePlay(pa))return longForm?'Sacrifice double play':'SF-DP';
+  if(isSacrificeDoublePlay(pa)){
+    const f=sacrificeDoublePlayFielding(pa);
+    if(longForm)return 'Sacrifice double play'+(f.catcher?' · SF'+f.catcher:'')+(f.runnerOut?' · '+f.runnerOut+' DP':'');
+    return (f.catcher?'SF'+f.catcher:'SF')+'-DP'+(f.runnerOut?' '+f.runnerOut:'');
+  }
   return pa&&pa.result||'';
 }
 function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;}
