@@ -579,7 +579,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.35';
+const APP_VERSION='2026.10.06.36';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -591,7 +591,7 @@ function blank(){return{
   away:blankTeam('Astros'),home:blankTeam('Opponent'),
   bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
   bases:[null,null,null],order:{away:0,home:0},
-  pa:[],pas:[],interruptedPAs:[],runs:{away:[],home:[]},subLog:[],started:false,
+  pa:[],pas:[],interruptedPAs:[],runs:{away:[],home:[]},subLog:[],runnerEnds:{},started:false,
   decisions:null,completed:false,completedAt:null,
   rev:0,serverUpdatedAt:0 // sync: rev = server revision this state is based on
 };}
@@ -617,6 +617,7 @@ function ensureShape(){
     T.pool=T.pool.filter(p=>!inLU2.has(p.name));
     if(T.pitcher===undefined)T.pitcher='';});
   if(!S.subLog)S.subLog=[];
+  if(!S.runnerEnds||typeof S.runnerEnds!=='object')S.runnerEnds={};
   if(!Array.isArray(S.interruptedPAs))S.interruptedPAs=[];
   if(S.decisions===undefined)S.decisions=null;
   if(S.completed===undefined)S.completed=false;
@@ -956,7 +957,10 @@ function applyIncomingOffensiveSub(team,kind,slot,base){
   hist.push({name:p.name,num:p.num||''});
   T.lineup[targetSlot]={name:p.name,num:p.num||'',pos:p.pos||old.pos||'',hist};
   poolRemove(T,p.name);
-  if(kind==='PR')S.bases[base]={t:team,i:targetSlot};
+  if(kind==='PR'){
+    ensureRunnerIdentity(runner);
+    S.bases[base]={t:team,i:targetSlot,rid:runner.rid,originPa:runner.originPa};
+  }
   const label=kind==='PH'?'Pinch hitter':'Pinch runner';
   const msg=label+': '+p.name+(p.num?' #'+p.num:'')+' for '+old.name;
   if(S.pa.length)ev('r',msg);
@@ -1009,7 +1013,11 @@ function completeOffensiveSub(team,p){
   if(hist.length)hist.push({name:p.name,num:p.num||''});
   T.lineup[slot]={name:p.name,num:p.num||'',pos:p.pos||old.pos||'',...(hist.length?{hist}:{})};
   poolRemove(T,p.name);
-  if(ctx.kind==='PR')S.bases[ctx.base]={t:team,i:slot};
+  if(ctx.kind==='PR'){
+    const rr=ctx.oldRunner||{};
+    ensureRunnerIdentity(rr);
+    S.bases[ctx.base]={t:team,i:slot,rid:rr.rid,originPa:rr.originPa};
+  }
   const label=ctx.kind==='PH'?'Pinch hitter':'Pinch runner';
   const msg=label+': '+p.name+(p.num?' #'+p.num:'')+' for '+old.name;
   if(S.pa.length)ev('r',msg);
@@ -1342,6 +1350,7 @@ function endHalfCheck(){
     });
     S.pa=[];
   }
+  S.bases.forEach((r,i)=>{if(r)setRunnerEnd(r,'stranded',i+1);});
   S.bases=[null,null,null];S.outs=0;S.balls=0;S.strikes=0;
   if(S.half===1){S.half=0;S.inning++;S.bat='away';
     if(S.inning>=10&&S.chal)['away','home'].forEach(t=>{if(S.chal[t]===0)S.chal[t]=1;});}
@@ -1826,6 +1835,19 @@ function runnerAdvanceData(r,from,to,reason,extra){
 function runnerAdvanceEvent(r,text,from,to,reason,extra){
   return{text,advance:runnerAdvanceData(r,from,to,reason,extra)};
 }
+function setRunnerEnd(r,status,base,extra){
+  if(!r)return null;
+  ensureRunnerIdentity(r);
+  if(!S.runnerEnds||typeof S.runnerEnds!=='object')S.runnerEnds={};
+  const end={rid:r.rid,status,base:+base||0,inning:S.inning,half:S.half,...(extra||{})};
+  S.runnerEnds[r.rid]=end;return end;
+}
+function runnerEndFor(rid){return rid&&S.runnerEnds&&S.runnerEnds[rid]||null;}
+function currentRunnerBase(rid){
+  if(!rid)return 0;
+  for(let i=0;i<3;i++)if(S.bases[i]&&S.bases[i].rid===rid)return i+1;
+  return 0;
+}
 function runnerPathById(rid){
   if(!rid)return null;
   let origin=null;
@@ -1960,14 +1982,21 @@ function placementReview(movers,code,text,alreadySnapped){
     if(!alreadySnapped)snap();
     const nb=[null,null,null],originIdx=S.pas.length;
     movers.forEach(m=>{
-      if(m.out){ev('o',(m.who==='BR'?'Batter out ':'Runner out ')+m.out.f);S.outs++;return;}
+      if(m.out){
+        if(m.who==='R'&&m.r){
+          ensureRunnerIdentity(m.r);
+          setRunnerEnd(m.r,'out',m.from||0,{fielders:m.out.f});
+          ev('o',{text:'Runner out '+m.out.f,runnerEnd:{rid:m.r.rid,status:'out',base:m.from||0,fielders:m.out.f}});
+        }else ev('o','Batter out '+m.out.f);
+        S.outs++;return;
+      }
       if(m.who==='BR'){
         if(!m.r)m.r={t:S.bat,i:curIdx(),rid:genId(),originPa:originIdx};
       }else ensureRunnerIdentity(m.r);
       moveRunnerEvents(m,code).forEach(([t,x])=>ev(t,x));
       if(m.who==='BR'){
-        if(m.to>=4)scoreRun(S.bat);else nb[m.to-1]=m.r;
-      }else{if(m.to>=4)scoreRun(S.bat);else nb[m.to-1]=m.r;}
+        if(m.to>=4){setRunnerEnd(m.r,'scored',4);scoreRun(S.bat);}else nb[m.to-1]=m.r;
+      }else{if(m.to>=4){setRunnerEnd(m.r,'scored',4);scoreRun(S.bat);}else nb[m.to-1]=m.r;}
     });
     S.bases=nb;closeModal();
     commitPA(code,paErrTag(movers));
@@ -1985,7 +2014,7 @@ function placementReview(movers,code,text,alreadySnapped){
 function advanceAll(n,reason){
   const nb=[null,null,null];
   [2,1,0].forEach(i=>{const r=S.bases[i];if(!r)return;ensureRunnerIdentity(r);const d=i+1+n;
-    if(d>=4){scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores',i+1,d,reason||'play'));}
+    if(d>=4){setRunnerEnd(r,'scored',4);scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores',i+1,d,reason||'play'));}
     else{nb[d-1]=r;if(reason)ev('r',runnerAdvanceEvent(r,pname(r)+' advances to '+baseName(d),i+1,d,reason));}});
   S.bases=nb;
 }
@@ -2008,8 +2037,13 @@ function runnerActionCollision(changes){
 }
 function runnerCollisionToast(b){toast(baseName(b)+' is occupied — move the lead runner first.');}
 
-function recordRunnerOut(text){
-  ev('o',text);S.outs++;
+function recordRunnerOut(text,r,from){
+  if(r){
+    ensureRunnerIdentity(r);
+    setRunnerEnd(r,'out',from||currentRunnerBase(r.rid)||0,{text});
+    ev('o',{text,runnerEnd:{rid:r.rid,status:'out',base:from||0}});
+  }else ev('o',text);
+  S.outs++;
   endHalfCheck();
   save();renderAll();
 }
@@ -2025,17 +2059,17 @@ function actSteal(){if(!S.bases.some(Boolean))return;
         const changes={};changes[bi]=d;const cb=runnerActionCollision(changes);
         if(cb){runnerCollisionToast(cb);return;}
         snap();ensureRunnerIdentity(r);S.bases[bi]=null;
-        if(d>=4){scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' steals home! Scores',bi+1,d,'SB'));}
+        if(d>=4){setRunnerEnd(r,'scored',4);scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' steals home! Scores',bi+1,d,'SB'));}
         else{S.bases[d-1]=r;ev('r',runnerAdvanceEvent(r,pname(r)+' steals '+baseName(d),bi+1,d,'SB'));}
         closeModal();save();renderAll();});};
     $('#stOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;
-      recordRunnerOut('Caught stealing '+f+' — '+pname(r));},'CS — fielders (e.g. 2-6)');
+      recordRunnerOut('Caught stealing '+f+' — '+pname(r),r,bi+1);},'CS — fielders (e.g. 2-6)');
   },'Steal — which runner?');}
 function actDI(){if(!S.bases.some(Boolean))return;
   pickRunner((bi,r)=>{const d=Math.min(4,bi+2),changes={};changes[bi]=d;
     const cb=runnerActionCollision(changes);if(cb){runnerCollisionToast(cb);return;}
     snap();ensureRunnerIdentity(r);S.bases[bi]=null;
-    if(d>=4){scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores on defensive indifference',bi+1,d,'DI'));}
+    if(d>=4){setRunnerEnd(r,'scored',4);scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores on defensive indifference',bi+1,d,'DI'));}
     else{S.bases[d-1]=r;ev('r',runnerAdvanceEvent(r,'Defensive indifference — '+pname(r)+' takes '+baseName(d),bi+1,d,'DI'));}
     save();renderAll();},'Defensive indifference — runner');}
 function actPick(){if(!S.bases.some(Boolean))return;
@@ -2043,7 +2077,7 @@ function actPick(){if(!S.bases.some(Boolean))return;
     <button class="med" id="pkOut">Out</button><button class="med accent" id="pkSafe">Safe</button></div>
     <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
     $('#pkOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;
-      recordRunnerOut('Picked off '+f+' — '+pname(r));},'Pickoff — fielders');
+      recordRunnerOut('Picked off '+f+' — '+pname(r),r,bi+1);},'Pickoff — fielders');
     $('#pkSafe').onclick=()=>{snap();ev('r','Pickoff attempt — '+pname(r)+' back safely');closeModal();save();renderAll();};
   },'Pickoff — which runner?');}
 function wppbAdvancePicker(label,alreadySnapped){
@@ -2059,7 +2093,7 @@ function wppbAdvancePicker(label,alreadySnapped){
     const cb=runnerActionCollision(changes);if(cb){runnerCollisionToast(cb);return;}
     if(!alreadySnapped)snap();
     [...adv].sort((a,b)=>b-a).forEach(i=>{const r=S.bases[i];ensureRunnerIdentity(r);S.bases[i]=null;const d=i+2,reason=label==='Passed ball'?'PB':'WP';
-      if(d>=4){scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores on '+label.toLowerCase(),i+1,d,reason));}
+      if(d>=4){setRunnerEnd(r,'scored',4);scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores on '+label.toLowerCase(),i+1,d,reason));}
       else{S.bases[d-1]=r;ev('r',runnerAdvanceEvent(r,pname(r)+' advances on '+label.toLowerCase(),i+1,d,reason));}});
     closeModal();save();renderAll();
   };
