@@ -510,7 +510,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.11','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.12','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -537,6 +537,21 @@ async function main() {
   ok(html.indexOf('id="scoreScaleStage"')>=0 && html.indexOf('id="scoreScaleCanvas"')>=0 &&
      html.indexOf('score-proportional')>=0 && typeof sb.applyScoreProportionalScale==='function',
     'SCALE1: score view has proportional scale stage with responsive fallback');
+
+  /* ===== score card pitcher / bases / batter reflow ===== */
+  const scoreMarkupStart=html.indexOf('<div id="v-score"');
+  const scoreMarkupEnd=html.indexOf('<div id="v-book"',scoreMarkupStart);
+  const scoreMarkup=html.slice(scoreMarkupStart,scoreMarkupEnd);
+  const pitcherPos=scoreMarkup.indexOf('id="hPitcher"');
+  const baseRowPos=scoreMarkup.indexOf('class="basebatterrow"');
+  const batterPos=scoreMarkup.indexOf('id="hBatter"');
+  ok(pitcherPos>=0&&baseRowPos>pitcherPos&&batterPos>baseRowPos,
+    'LAY1: pitcher sits below count and above the bases/batter row');
+  ok(scoreMarkup.indexOf('class="baseswrap"',baseRowPos)>=0&&
+     scoreMarkup.indexOf('id="hBatter"',baseRowPos)>=0,
+    'LAY1: bases and batter share the same side-by-side row');
+  ok(html.indexOf('.basebatterrow{display:grid;grid-template-columns:150px minmax(0,1fr)')>=0,
+    'LAY1: score card reserves a compact left column for the bases');
 
   /* ===== 2026-10-05 compact scoring visual + HR location batch ===== */
   newGame();
