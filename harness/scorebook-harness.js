@@ -82,7 +82,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,extraAdvanceReason,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
@@ -191,11 +191,24 @@ async function main() {
   ok(/on throw/.test(throwEvt.text),'PATH1: on-throw advancement stays readable in play text');
 
   let advanceRedraws=0;
-  sb.extraAdvanceReason({label:'Batter',award:1,to:2,adv:null,err:null},()=>{advanceRedraws++;});
-  ok(el('#sheet').innerHTML.indexOf('On throw')>=0 &&
+  sb.extraAdvanceReason({who:'BR',label:'Batter',from:0,award:1,defaultTo:1,to:2,adv:null,err:null},()=>{advanceRedraws++;});
+  ok(el('#sheet').innerHTML.indexOf('Stolen Base')>=0 &&
+     el('#sheet').innerHTML.indexOf('On Throw')>=0 &&
      el('#sheet').innerHTML.indexOf('Error')>=0 &&
      el('#sheet').innerHTML.indexOf('Other')>=0,
     'PATH1: extra-base placement asks why the batter advanced beyond the hit');
+  ok(sb.needsAdvanceReason({who:'R',from:2,defaultTo:2,to:3,out:null,adv:null,err:null}),
+    'PATH1: existing runner moved beyond default placement requires an advancement reason');
+  ok(!sb.needsAdvanceReason({who:'R',from:2,defaultTo:3,to:3,out:null,adv:null,err:null}),
+    'PATH1: runner at the play-default destination does not get an unnecessary reason prompt');
+  const runnerMove={who:'R',label:'Walked runner',from:2,defaultTo:2,to:3,out:null,adv:null,err:null,r:{t:'away',i:0,rid:'r-placement-sb'}};
+  sb.extraAdvanceReason(runnerMove,()=>{advanceRedraws++;});
+  el('#advSB').onclick();
+  eq(runnerMove.adv,'SB','PATH1: advancement reason picker can explicitly mark stolen base');
+  const placedSteal=sb.moveRunnerEvents(runnerMove,'BB')[0][1];
+  eq(placedSteal.advance.reason,'SB','PATH1: walk-placement steal is stored as SB rather than BB advancement');
+  eq(placedSteal.advance.from,2,'PATH1: placement steal path starts at second');
+  eq(placedSteal.advance.to,3,'PATH1: placement steal path ends at third');
 
   newGame();
   sb.doWalk('BB','Walk',true);
@@ -550,7 +563,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.23','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.24','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
