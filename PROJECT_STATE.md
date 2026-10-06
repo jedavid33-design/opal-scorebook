@@ -591,3 +591,11 @@ replacing the "visco" app she currently uses.
   score-screen scaling added in v2026.10.06.11. App version v2026.10.06.12.
   Full regression harness: 336 passed, 0 failed. App commit a4347a7;
   regression commit 098c90b. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Pitcher/pitch count line moved under the Subs/Undo side and kept
+  on one line. Format is now "P: Name #num · N pitches" with singular "1 pitch".
+  The line is right-aligned so it no longer competes visually with the diamond.
+  App version v2026.10.06.13. Full regression harness: 337 passed, 0 failed.
+  App commit f37940e; regression commit 0e7b0ec. Worker unchanged; no Worker
+  deployment required.
