@@ -445,7 +445,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.2','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.3','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -465,6 +465,17 @@ async function main() {
      outcomeHTML.indexOf('outcomeHead">Out')>=0 &&
      outcomeHTML.indexOf('data-o="SAC"')>=0,
     'V2: In Play is grouped into On base / Out with Sacrifice separate');
+  const outOrder=[
+    'data-o="GO">Groundout</button>',
+    'data-o="LO">Lineout</button>',
+    'data-o="FO">Fly out</button>',
+    'data-o="POP">Pop fly</button>',
+    'id="buntOutBtn" type="button">Bunt</button>',
+    'data-o="FL">Foul out</button>',
+    'data-o="DP">Double Play</button>'
+  ].map(x=>outcomeHTML.indexOf(x));
+  ok(outOrder.every(x=>x>=0) && outOrder.every((x,i)=>i===0||x>outOrder[i-1]),
+    'V2: In Play Out menu orders Groundout / Lineout / Fly out / Pop fly / Bunt / Foul out / Double Play');
 
   eq(sb.homeRunText('LF'),'Home run to left field','V3: HR LF location text');
   eq(sb.homeRunText('LCF'),'Home run to left-center field','V3: HR LCF location text');
