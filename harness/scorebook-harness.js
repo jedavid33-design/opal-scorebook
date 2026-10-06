@@ -74,7 +74,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get substitutionMode(){return substitutionMode;},get pendingSub(){return pendingSub;},` +
   `get viewing(){return viewing;},set viewing(v){viewing=v;},` +
   `APP_VERSION,blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
-  `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,` +
+  `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,fieldingTeam,activePitcherLabel,pitchCountsAsThrown,contactPitchBonus,pitcherPitchCount,` +
   `demoLineups,rosterToPool,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,` +
   `renderScore,openModal,closeModal,baseName,` +
@@ -89,7 +89,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
   `getArchive,updateArchive,addToArchive,archiveCurrentGame,endGame,` +
-  `renderGames,renderPendingCard,renderSyncCard,renderPastList,bindPitchGestures,renderAll,showView,initPullToRefresh,toast,esc,genId` +
+  `renderGames,renderPendingCard,renderSyncCard,renderPastList,bindPitchGestures,applyScoreProportionalScale,renderAll,showView,initPullToRefresh,toast,esc,genId` +
   `}))();`;
 eval(m[1] + exportLine);
 const sb = globalThis.__sb;
@@ -510,10 +510,33 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.10','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.11','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
+
+  /* ===== pitcher strip + pitch count + score scale ===== */
+  newGame();
+  sb.syncPitcherFromLineup('home');
+  ok(/Rival9/.test(sb.activePitcherLabel('home')),'PC1: active pitcher comes from the fielding lineup');
+  sb.doPitch('ball');sb.doPitch('cstr');sb.doPitch('foul');
+  eq(sb.pitcherPitchCount('home'),3,'PC1: thrown pitches accumulate for the active pitcher');
+  sb.doPitch('autoball');
+  eq(sb.pitcherPitchCount('home'),3,'PC1: automatic ball does not increment physical pitch count');
+  sb.renderScore();
+  ok(el('#hPitcher').innerHTML.indexOf('Rival9')>=0 && el('#hPitcher').innerHTML.indexOf('PC 3')>=0,
+    'PC1: scoring matchup strip shows pitcher and running pitch count');
+  sb.applySub('home','P',null,null,{name:'Reliever',num:'55'});
+  sb.doPitch('ball');
+  eq(sb.pitcherPitchCount('home'),1,'PC1: pitching change starts the new pitcher at his own pitch count');
+  ok(sb.S.pa.some(e=>e.t==='p'&&e.pitcher&&/Reliever/.test(e.pitcher)),
+    'PC1: new pitcher identity is attached to subsequent pitch events');
+  eq(sb.contactPitchBonus('1B'),1,'PC1: ball put in play contributes its terminal thrown pitch');
+  eq(sb.contactPitchBonus('HBP'),1,'PC1: HBP contributes a thrown pitch');
+  eq(sb.contactPitchBonus('IBB'),0,'PC1: intentional walk contributes no pitch');
+  ok(html.indexOf('id="scoreScaleStage"')>=0 && html.indexOf('id="scoreScaleCanvas"')>=0 &&
+     html.indexOf('score-proportional')>=0 && typeof sb.applyScoreProportionalScale==='function',
+    'SCALE1: score view has proportional scale stage with responsive fallback');
 
   /* ===== 2026-10-05 compact scoring visual + HR location batch ===== */
   newGame();
