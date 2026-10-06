@@ -79,7 +79,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,selectIncomingSub,cancelIncomingSub,applyIncomingLineupSub,applyIncomingOffensiveSub,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,tapPoolPlayer,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
-  `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
+  `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
@@ -633,7 +633,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.33','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.34','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1129,6 +1129,26 @@ async function main() {
   el('#kDone').onclick();
   eq(sb.S.half,1,'ABS2: Done after upheld third-out strike advances to next half-inning');
   eq(sb.S.outs,0,'ABS2: half-inning transition resets outs after strikeout is finalized');
+
+  /* ===== terminal swinging strike three confirmation ===== */
+  newGame();
+  sb.S.outs=2;
+  sb.doPitch('sstr');sb.doPitch('sstr');sb.doPitch('sstr');
+  ok(el('#sheet').innerHTML.indexOf('Swinging strike three')>=0 &&
+     el('#sheet').innerHTML.indexOf('id="kDone"')>=0,
+    'KCONF1: swinging strike three pauses on a confirmation sheet');
+  ok(el('#sheet').innerHTML.indexOf('id="kChallenge"')<0,
+    'KCONF1: swinging strike confirmation does not offer ABS challenge');
+  eq(sb.S.outs,3,'KCONF1: third-out swinging strike is recorded before confirmation');
+  eq(sb.S.half,0,'KCONF1: third-out swinging strike does not flip the half before Done');
+  el('#kDone').onclick();
+  eq(sb.S.half,1,'KCONF1: Done finalizes a third-out swinging strike');
+  eq(sb.S.outs,0,'KCONF1: half-inning resets after swinging strikeout confirmation');
+
+  newGame();
+  sb.doPitch('sstr');sb.doPitch('sstr');sb.doPitch('foultip');
+  ok(el('#sheet').innerHTML.indexOf('Swinging strike three')<0,
+    'KCONF1: foul-tip strikeout keeps its existing immediate behavior');
 
   /* ===== completed game decisions + past-game official scoring ===== */
   newGame();
