@@ -361,6 +361,10 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 #pitchHoldMenu.on{display:grid;}
 #pitchHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);
   border:1px solid transparent;}
+#pitchHoldMenu .down{grid-column:1/-1;}
+#pitchHoldMenu.onlyDown{grid-template-columns:1fr;}
+#pitchHoldMenu.onlyDown .down{grid-column:1;}
+#pitchHoldMenu span[hidden]{display:none;}
 #pitchHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
 #buntHoldMenu{position:fixed;z-index:96;display:none;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));
   transform:translateX(-50%);grid-template-columns:1fr 1fr;gap:6px;width:min(320px,86vw);
@@ -370,7 +374,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 #buntHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);
   border:1px solid transparent;}
 #buntHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
-.pitch[data-hold-wppb],#buntOutBtn{touch-action:none;}
+.pitch[data-hold-wppb],.pitch[data-hold-down],#buntOutBtn{touch-action:none;}
 .appver{position:fixed;right:10px;bottom:calc(82px + env(safe-area-inset-bottom));z-index:4;
   font-size:9px;letter-spacing:.3px;color:var(--dim);opacity:.38;pointer-events:none;}
 </style>
@@ -480,9 +484,9 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <div class="pitchstack">
     <button class="med pitch ps-inplay" data-p="inplay">In Play</button>
     <button class="big pitch ps-called" data-p="cstr" data-hold-wppb="1" aria-label="Called strike" title="Called strike · hold for wild/passed ball">Called</button>
-    <button class="big pitch ps-swing" data-p="sstr" data-hold-wppb="1" data-variant="swing" aria-label="Swinging strike or missed bunt" title="Tap for swinging/missed bunt · hold for wild/passed ball">Swinging</button>
+    <button class="big pitch ps-swing" data-p="sstr" data-hold-wppb="1" data-hold-down="missbunt" aria-label="Swinging strike" title="Tap Swinging · hold and slide left/right for wild/passed ball or down for missed bunt">Swinging</button>
     <button class="med pitch ps-ball" data-p="ball" data-hold-wppb="1" title="Ball · hold for wild/passed ball">Ball</button>
-    <button class="med pitch ps-foul" data-p="foul" data-variant="foul">Foul</button>
+    <button class="med pitch ps-foul" data-p="foul" data-hold-down="foulbunt" title="Tap Foul · hold and slide down for foul bunt">Foul</button>
     <button class="med pitch ps-foultip" data-p="foultip">Foul Tip</button>
     <button class="med pitch ps-ibb" data-p="ibb">Intentional Walk</button>
     <button class="med pitch ps-hbp" data-p="hbp">Hit by Pitch</button>
@@ -538,7 +542,11 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 </div>
 
 <div id="toast"></div>
-<div id="pitchHoldMenu" aria-hidden="true"><span data-wp="WP">← Wild Pitch</span><span data-wp="PB">Passed Ball →</span></div>
+<div id="pitchHoldMenu" aria-hidden="true">
+  <span data-gesture="WP">← Wild Pitch</span>
+  <span data-gesture="PB">Passed Ball →</span>
+  <span class="down" data-gesture="DOWN">↓ Bunt</span>
+</div>
 <div id="buntHoldMenu" aria-hidden="true"><span data-bunt="BGO">← Ground Out</span><span data-bunt="BPOP">Pop Out →</span></div>
 <div id="pullRefresh">↓ Pull to refresh</div>
 <div id="appVersion" class="appver"></div>
@@ -548,7 +556,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.18';
+const APP_VERSION='2026.10.06.19';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1292,18 +1300,6 @@ function addCountStrike(txt,looking){ev('p',txt);S.strikes++;
 function commitBuntStrikeout(text){
   ev('o',text);S.outs++;commitPA('K');S.order[S.bat]++;S.balls=0;S.strikes=0;
   closeModal();save();renderAll();endHalfCheck();save();renderAll();
-}
-function pitchVariantPicker(kind){
-  const swing=kind==='swing';
-  openModal(`<h2>${swing?'Swinging':'Foul'}</h2>
-    <p class="sub">${swing?'Swinging strike or missed bunt?':'Foul ball or foul bunt?'}</p>
-    <div class="grid2">
-      <button class="med" id="pvNormal">${swing?'Swinging Strike':'Foul Ball'}</button>
-      <button class="med" id="pvBunt">${swing?'Missed Bunt':'Foul Bunt'}</button>
-    </div>
-    <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
-  $('#pvNormal').onclick=()=>{closeModal();doPitch(swing?'sstr':'foul');};
-  $('#pvBunt').onclick=()=>{closeModal();doPitch(swing?'missbunt':'foulbunt');};
 }
 function doPitch(kind){
   if(!S.started)return;
@@ -2468,39 +2464,63 @@ function initPullToRefresh(){
   document.addEventListener('touchcancel',reset,{passive:true});
 }
 function bindPitchGestures(){
-  const menu=$('#pitchHoldMenu'),left=menu&&menu.querySelector('[data-wp="WP"]'),right=menu&&menu.querySelector('[data-wp="PB"]');
-  document.querySelectorAll('[data-hold-wppb]').forEach(btn=>{
-    let timer=null,held=false,choice=null,startX=0,suppressClick=false;
-    const paint=()=>{if(left)left.classList.toggle('sel',choice==='WP');if(right)right.classList.toggle('sel',choice==='PB');};
-    const hide=()=>{if(menu){menu.classList.remove('on');menu.setAttribute&&menu.setAttribute('aria-hidden','true');}choice=null;paint();};
+  const menu=$('#pitchHoldMenu');
+  const left=menu&&menu.querySelector('[data-gesture="WP"]');
+  const right=menu&&menu.querySelector('[data-gesture="PB"]');
+  const down=menu&&menu.querySelector('[data-gesture="DOWN"]');
+  document.querySelectorAll('[data-hold-wppb],[data-hold-down]').forEach(btn=>{
+    let timer=null,held=false,choice=null,startX=0,startY=0,suppressClick=false;
+    const hasLR=!!btn.dataset.holdWppb,downKind=btn.dataset.holdDown||'';
+    const paint=()=>{
+      if(left){left.hidden=!hasLR;left.classList.toggle('sel',choice==='WP');}
+      if(right){right.hidden=!hasLR;right.classList.toggle('sel',choice==='PB');}
+      if(down){
+        down.hidden=!downKind;
+        down.textContent=downKind==='missbunt'?'↓ Missed Bunt':downKind==='foulbunt'?'↓ Foul Bunt':'↓ Bunt';
+        down.classList.toggle('sel',choice==='DOWN');
+      }
+      if(menu)menu.classList.toggle('onlyDown',!hasLR&&!!downKind);
+    };
+    const hide=()=>{
+      if(menu){menu.classList.remove('on','onlyDown');menu.setAttribute&&menu.setAttribute('aria-hidden','true');}
+      choice=null;paint();
+    };
     btn.addEventListener('pointerdown',e=>{
       if(e.button!=null&&e.button!==0)return;
-      held=false;choice=null;startX=e.clientX;paint();
-      timer=setTimeout(()=>{held=true;if(menu){menu.classList.add('on');menu.setAttribute&&menu.setAttribute('aria-hidden','false');}
+      held=false;choice=null;startX=e.clientX;startY=e.clientY;paint();
+      timer=setTimeout(()=>{
+        held=true;
+        if(menu){menu.classList.add('on');menu.setAttribute&&menu.setAttribute('aria-hidden','false');}
         if(btn.setPointerCapture)try{btn.setPointerCapture(e.pointerId);}catch(_){}
       },480);
     });
     btn.addEventListener('pointermove',e=>{
       if(!held)return;
-      const dx=e.clientX-startX;
-      choice=dx<-12?'WP':dx>12?'PB':null;paint();
+      const dx=e.clientX-startX,dy=e.clientY-startY;
+      if(downKind&&dy>12&&dy>Math.abs(dx))choice='DOWN';
+      else if(hasLR&&dx<-12&&Math.abs(dx)>=Math.abs(dy))choice='WP';
+      else if(hasLR&&dx>12&&Math.abs(dx)>=Math.abs(dy))choice='PB';
+      else choice=null;
+      paint();
       if(e.cancelable)e.preventDefault();
     });
     btn.addEventListener('pointerup',e=>{
       clearTimeout(timer);timer=null;suppressClick=true;
       if(held){
         const c=choice;hide();
-        if(c)doPitchWPPB(btn.dataset.p,c);
-        else toast('Hold, then slide left for Wild Pitch or right for Passed Ball.');
-      }else if(btn.dataset.variant)pitchVariantPicker(btn.dataset.variant);
-      else doPitch(btn.dataset.p);
+        if(c==='WP'||c==='PB')doPitchWPPB(btn.dataset.p,c);
+        else if(c==='DOWN')doPitch(downKind);
+        else if(hasLR&&downKind)toast('Slide left for Wild Pitch, right for Passed Ball, or down for Missed Bunt.');
+        else if(hasLR)toast('Slide left for Wild Pitch or right for Passed Ball.');
+        else if(downKind==='foulbunt')toast('Slide down for Foul Bunt.');
+      }else doPitch(btn.dataset.p);
       setTimeout(()=>{suppressClick=false;},0);
     });
     btn.addEventListener('pointercancel',()=>{clearTimeout(timer);timer=null;held=false;hide();});
     btn.addEventListener('contextmenu',e=>e.preventDefault());
     btn.addEventListener('click',e=>{
       if(suppressClick){e.preventDefault();return;}
-      if(e.detail===0){if(btn.dataset.variant)pitchVariantPicker(btn.dataset.variant);else doPitch(btn.dataset.p);} // keyboard / assistive activation
+      if(e.detail===0)doPitch(btn.dataset.p); // keyboard / assistive activation uses common action
     });
   });
 }
@@ -2556,7 +2576,7 @@ function init(){
   $('#subDone').onclick=finishSubstitutionMode;
   $('#gameCompleteBtn').onclick=()=>{if(viewing)return;gameDecisionSheet(true);};
   $('#newGameBtn').onclick=()=>{if(viewing)return;if(confirm('End this game and start over? It will be kept under Games.'))endGame();};
-  document.querySelectorAll('[data-p]:not([data-hold-wppb])').forEach(b=>b.onclick=()=>b.dataset.variant?pitchVariantPicker(b.dataset.variant):doPitch(b.dataset.p));
+  document.querySelectorAll('[data-p]:not([data-hold-wppb]):not([data-hold-down])').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
   bindPitchGestures();
   $('#stealBtn').onclick=actSteal;$('#diBtn').onclick=actDI;$('#pickBtn').onclick=actPick;
   $('#balkBtn').onclick=actBalk;
