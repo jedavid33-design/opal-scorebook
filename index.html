@@ -1093,12 +1093,14 @@ function renderScore(){
   $('#b2').classList.toggle('on',!!S.bases[1]);
   $('#b3').classList.toggle('on',!!S.bases[2]);
   const b=curBatter();
-  $('#hBatter').innerHTML=`${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
+  $('#hBatter').innerHTML=`B: ${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
+  const ft=fieldingTeam(),pl=activePitcherLabel(ft),pc=pitcherPitchCount(ft);
+  $('#hPitcher').innerHTML=`P: ${esc(pl||'—')} <small>PC ${pc}</small>`;
   let pitchNo=0;
   const liveLast=hlp&&hlp.live?hlp:null;
   const liveChTeam=liveLast?challengeTeamFor(liveLast):null;
   $('#hEvents').innerHTML=S.pa.map((e,i)=>{
-    const numbered=e.t!=='r';
+    const numbered=e.t==='p';
     if(numbered)pitchNo++;
     const canChallenge=liveLast&&liveLast.idx===i&&!e.ch&&(!S.chal||S.chal[liveChTeam]>0);
     return `<li><span class="pnum${numbered?'':' eventdot'}">${numbered?pitchNo:'•'}</span><span class="grow">${e.text}</span>${e.ch?` <span class="chb${e.ch.res==='overturned'?' ov':''}" title="Challenge ${e.ch.res} by ${chalTeamName(e.ch.team)}">${e.ch.res==='overturned'?'C↺':'C'}</span>`:''}${canChallenge?'<button class="chBtn" id="eventChallenge">Challenge</button>':''}</li>`;
