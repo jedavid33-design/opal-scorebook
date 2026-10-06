@@ -81,7 +81,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
   `actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,` +
@@ -445,7 +445,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.3','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.4','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -533,6 +533,21 @@ async function main() {
     'V4b: bunt ground-out notation can be repaired later');
   eq(sb.applyNotationFix('BPOP',null,'2').result,'BPO2',
     'V4b: bunt pop-out notation can be repaired later');
+
+  /* ===== sacrifice runner defaults ===== */
+  newGame();
+  sb.S.bases[0]={t:'away',i:4};
+  sb.S.bases[2]={t:'away',i:6};
+  const sacMv=sb.sacrificeMovers('5-3');
+  const sacRunners=sacMv.filter(m=>m.who==='R');
+  eq(sacRunners.length,2,'SAC1: sacrifice placement includes existing runners');
+  ok(sacRunners.every(m=>m.to===m.from),
+    'SAC1: sacrifice runners default to holding their current bases');
+  ok(sacMv[0].who==='BR' && sacMv[0].out && sacMv[0].to===0,
+    'SAC1: sacrifice batter is still recorded out');
+  ok(sacRunners.some(m=>m.from===1&&m.to===1) &&
+     sacRunners.some(m=>m.from===3&&m.to===3),
+    'SAC1: sacrifice does not assume every runner advances');
 
   /* ===== intentional walk button ===== */
   ok(html.indexOf('data-p="ibb"')>=0 &&
