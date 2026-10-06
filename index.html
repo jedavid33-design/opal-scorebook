@@ -579,7 +579,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.32';
+const APP_VERSION='2026.10.06.33';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1876,9 +1876,10 @@ function paErrTag(movers){
 }
 function needsAdvanceReason(m,playCode){
   if(!m||m.out||m.err||m.adv||m.to<=m.from)return false;
-  // Existing baserunners commonly advance as part of hits or a fielder's choice.
-  // Treat that movement as part of the play unless the scorer explicitly marks an error.
-  if(m.who==='R'&&/^(1B|2B|3B|HR|FC)$/.test(playCode||''))return false;
+  // Existing baserunners commonly advance as part of hits, fielder's choices,
+  // and sacrifices. Treat that movement as part of the play unless the scorer
+  // explicitly marks an error.
+  if(m.who==='R'&&/^(1B|2B|3B|HR|FC|SAC|SF)$/.test(playCode||''))return false;
   const baseline=m.who==='BR'?(m.award||m.defaultTo||m.from):(m.defaultTo==null?m.from:m.defaultTo);
   return m.to>baseline;
 }
@@ -1938,6 +1939,10 @@ function placementReview(movers,code,text,alreadySnapped){
         m.to=+v;m.out=null;
         const baseline=m.who==='BR'?(m.award||m.defaultTo||m.from):(m.defaultTo==null?m.from:m.defaultTo);
         if(m.to<=baseline){m.adv=null;m.err=null;draw();}
+        else if(m.who==='R'&&code==='SF'){
+          // Advancing after a sacrifice fly is inherently a tag-up.
+          m.adv='tag';m.err=null;draw();
+        }
         else if(needsAdvanceReason(m,code))extraAdvanceReason(m,draw,code);
         else draw();
       }
