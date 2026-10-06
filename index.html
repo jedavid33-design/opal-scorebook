@@ -579,7 +579,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.31';
+const APP_VERSION='2026.10.06.32';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1884,8 +1884,15 @@ function needsAdvanceReason(m,playCode){
 }
 function advanceReasonChoices(playCode){
   const c=String(playCode||'');
+  const caught=
+    c==='SF' ||
+    /^F[0-9]+$/.test(c) ||
+    /^L[0-9]+$/.test(c) ||
+    /^P[0-9]+$/.test(c) ||
+    /^fP?[0-9]+$/.test(c) ||
+    /^BPOF?[0-9]+$/.test(c);
   return{
-    tag:/^(SF|F\\d+|L\\d+|P\\d+|fP?\\d+|BPO(?:F)?\\d+)/.test(c),
+    tag:caught,
     sb:/^(BB|IBB)$/.test(c)||/^(K|ꓘ)(?:-|$)/.test(c)
   };
 }
