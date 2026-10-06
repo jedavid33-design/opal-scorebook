@@ -700,3 +700,20 @@ replacing the "visco" app she currently uses.
   the same per-pitcher summary logic. App version v2026.10.06.22. Full
   regression harness: 386 passed, 0 failed. App commit 2340138; regression
   commit 9cb7d52. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Structured runner-path capture began for future traditional
+  scorecard rendering. Safe baserunners now receive a stable runner id linked
+  back to the originating PA. Advancement events can carry structured from/to/
+  reason metadata while retaining readable play text. A batter credited with a
+  hit or walk now remembers the awarded base; if the scorer places the batter
+  beyond it, the placement flow asks whether the extra advance was On throw,
+  Error, or Other. Thus a single can remain 1B while separately storing
+  1B -> 2B on throw. Safe stolen bases now store SB path metadata, so a runner
+  who originally reached on BB and later steals 2B -> 3B remains one continuous
+  runner path. WP, PB, defensive indifference, balk advances, generic placement
+  advances, and pinch-runner substitutions also preserve runner identity/path
+  metadata. Existing live-game runners without ids are linked lazily to their
+  most recent originating PA when they next move. App version v2026.10.06.23.
+  Full regression harness: 402 passed, 0 failed. App commit 283b053;
+  regression commit fb39f02. Worker unchanged; no Worker deployment required.
