@@ -829,3 +829,19 @@ replacing the "visco" app she currently uses.
   appropriate team from the scored game. The save picker uses the winning
   team's pitchers and includes an explicit No save option. App version
   v2026.10.06.35. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Book 2.0 Phase 1 landed. Plate-appearance cells now render a
+  real base-path diamond instead of a decorative empty diamond. The path
+  follows the batter/runner through the inning and shows terminal state:
+  current ending base, R when scored, OUT when retired later, or LOB when
+  stranded. Result notation remains centered in the box and the existing
+  tap-for-pitch-audit behavior remains intact. Runner lifecycle metadata is
+  now recorded for scoring, later runner outs, and inning-end stranding so
+  new games render exactly; older saves use conservative best-effort fallback
+  and show END instead of guessing when an anonymous legacy runner-out event
+  makes the terminal state ambiguous. Pinch runners preserve the original
+  runner ID so the path continues through a PR substitution. Phase 2
+  advancement-reason labels (SB/WP/PB/error/etc.) are intentionally not part
+  of this build. App version v2026.10.06.36. Worker unchanged; no Worker
+  deployment required.
