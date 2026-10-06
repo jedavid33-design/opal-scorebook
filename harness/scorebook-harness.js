@@ -81,7 +81,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,commitCaughtStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,homeRunText,homeRunLocation,hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,moveRunnerEvents,paErrTag,placementCollision,placementReview,advanceAll,` +
   `actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,` +
@@ -445,7 +445,7 @@ async function main() {
      liveEvents.indexOf('>2</span><span class="grow">Called strike</span>')>=0,
     'U2: wild pitch displays separately and does not consume a pitch number');
 
-  eq(sb.APP_VERSION,'2026.10.06.1','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.2','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -495,6 +495,33 @@ async function main() {
     'V4: second and third pitch rows share a consistent text size');
   ok(html.indexOf('#v-score .pitchstack .ps-hbp{font-size:14px;}')>=0,
     'V4: fourth pitch row is slightly smaller');
+
+  /* ===== bunt out slide selector ===== */
+  newGame();
+  sb.outcomeModal();
+  const buntOutcomeHTML=el('#sheet').innerHTML;
+  ok(buntOutcomeHTML.indexOf('id="buntOutBtn"')>=0 &&
+     buntOutcomeHTML.indexOf('>Bunt</button>')>=0,
+    'V4b: In Play Out column includes a Bunt slide control');
+  ok(html.indexOf('id="buntHoldMenu"')>=0 &&
+     html.indexOf('← Ground Out')>=0 &&
+     html.indexOf('Pop Out →')>=0,
+    'V4b: Bunt slide overlay offers Ground Out and Pop Out');
+
+  const bgo=sb.buntOutNotation('BGO','1-3');
+  eq(bgo.code,'BGO1-3','V4b: bunt ground out keeps distinct result code');
+  eq(bgo.text,'Bunt ground out 1-3','V4b: bunt ground out keeps distinct play text');
+  const bpo=sb.buntOutNotation('BPOP','2');
+  eq(bpo.code,'BPO2','V4b: bunt pop out keeps distinct result code');
+  eq(bpo.text,'Bunt pop out P2','V4b: bunt pop out keeps distinct play text');
+  eq(sb.clsOf('BGO1-3'),'out','V4b: bunt ground out classifies as an out');
+  eq(sb.clsOf('BPO2'),'out','V4b: bunt pop out classifies as an out');
+  eq(sb.paKind('BGO1-3'),'BGO','V4b: edit flow recognizes bunt ground out');
+  eq(sb.paKind('BPO2'),'BPOP','V4b: edit flow recognizes bunt pop out');
+  eq(sb.applyNotationFix('BGO',null,'5-3').result,'BGO5-3',
+    'V4b: bunt ground-out notation can be repaired later');
+  eq(sb.applyNotationFix('BPOP',null,'2').result,'BPO2',
+    'V4b: bunt pop-out notation can be repaired later');
 
   /* ===== intentional walk button ===== */
   ok(html.indexOf('data-p="ibb"')>=0 &&
