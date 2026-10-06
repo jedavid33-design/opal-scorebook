@@ -491,3 +491,12 @@ replacing the "visco" app she currently uses.
   hold-and-slide interaction. Scoring logic is unchanged. App version
   v2026.10.06.3. Full regression harness: 255 passed, 0 failed. App commit
   902da3d; regression commit 5012404. Worker unchanged.
+
+
+- 2026-10-06: Sacrifice runner placement now defaults runners to holding.
+  Both Sac bunt and Sac fly still record the batter out, but existing runners
+  begin the placement sheet on their current bases instead of being
+  automatically advanced one base. Only runners the scorer explicitly moves
+  will advance. App version v2026.10.06.4. Full regression harness:
+  259 passed, 0 failed. App commit 1ddd839; regression commit b3f24be.
+  Worker unchanged.
