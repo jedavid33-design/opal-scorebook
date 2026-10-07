@@ -73,9 +73,9 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get corruptStashed(){return corruptStashed;},set corruptStashed(v){corruptStashed=v;},` +
   `get substitutionMode(){return substitutionMode;},get pendingSub(){return pendingSub;},get subIncoming(){return subIncoming;},` +
   `get viewing(){return viewing;},set viewing(v){viewing=v;},` +
-  `APP_VERSION,blank,blankTeam,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
+  `APP_VERSION,blank,blankTeam,localISODate,displayGameDate,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,fieldingTeam,activePitcherLabel,pitchCountsAsThrown,contactPitchBonus,pitcherAppearanceOrder,pitcherPitchSummary,pitcherPitchCount,` +
-  `demoLineups,rosterToPool,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
+  `demoLineups,rosterToPool,rosterQuery,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,selectIncomingSub,cancelIncomingSub,applyIncomingLineupSub,applyIncomingOffensiveSub,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,tapPoolPlayer,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
@@ -84,7 +84,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
-  `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookDiamondHTML,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
+  `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookAdvanceBatterSlot,bookAdvanceLabel,bookAdvanceLabelPos,bookDiamondHTML,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
   `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,decisionList,decisionInputRow,decisionPitcherPicker,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
@@ -396,6 +396,33 @@ async function main() {
   ok(sb.bookDiamondHTML(directOut).indexOf('>OUT<')>=0,
     'BOOK2-1: direct batter out gets OUT marker');
 
+  /* ===== Book 2.0 Phase 2: advancement reasons + batter slot ===== */
+  newGame();
+  sb.S.pas=[
+    {team:'away',b:3,inning:1,half:0,result:'BB',batter:'Astro4',events:[]}
+  ];
+  eq(sb.bookAdvanceLabel({reason:'SB',from:1,to:2,pa:0}),'SB4',
+    'BOOK2-2: stolen-base label includes the coinciding batter slot');
+  eq(sb.bookAdvanceLabel({reason:'WP',from:1,to:2,pa:0}),'WP4',
+    'BOOK2-2: wild-pitch label includes the coinciding batter slot');
+  eq(sb.bookAdvanceLabel({reason:'tag',from:3,to:4,pa:0}),'TAG4',
+    'BOOK2-2: tag-up label includes the coinciding batter slot');
+  eq(sb.bookAdvanceLabel({reason:'throw',from:1,to:2,pa:0}),'TH4',
+    'BOOK2-2: on-throw label includes the coinciding batter slot');
+  eq(sb.bookAdvanceLabel({reason:'error',fielder:'5',from:1,to:2,pa:0}),'E5/4',
+    'BOOK2-2: error label separates fielder number from coinciding batter slot');
+
+  newGame();
+  sb.placementReview(sb.hitMovers(1),'1B','Singled');
+  el('#plDone').onclick();
+  const phase2Pa=sb.S.pas[0],phase2Runner=sb.S.bases[0];
+  sb.S.bases[0]=null;sb.S.bases[1]=phase2Runner;
+  sb.ev('r',sb.runnerAdvanceEvent(phase2Runner,'Runner steals Second',1,2,'SB'));
+  const phase2Dia=sb.bookDiamondHTML(phase2Pa);
+  ok(phase2Dia.indexOf('class="bdReason"')>=0 && phase2Dia.indexOf('>SB2<')>=0,
+    'BOOK2-2: live Book diamond renders the advance reason with the current batter slot');
+
+
 
   newGame();
   sb.S.pa = [{ t: 'p', text: 'Ball' }, { t: 'p', text: 'Called strike' }, { t: 'p', text: 'Foul ball' }];
@@ -695,6 +722,26 @@ async function main() {
   eq(sb.scoreTeamAbbr({name:'Cubs'},'AWY'),'CHC','ABBR1: manual Cubs name falls back to CHC');
   eq(sb.scoreTeamAbbr({name:'Queens'},'AWY'),'QUEE','ABBR1: non-MLB team keeps existing short-name fallback');
 
+  /* ===== shared game date / historical roster date ===== */
+  newGame();
+  ok(/^\d{4}-\d{2}-\d{2}$/.test(sb.S.gameDate),
+    'DATE1: a new game starts with one shared Game date');
+  sb.S.gameDate='2018-04-19';
+  el('#awayMLB').value='117';
+  el('#homeMLB').value='136';
+  const awayRQ=sb.rosterQuery('away'),homeRQ=sb.rosterQuery('home');
+  eq(awayRQ.date,'2018-04-19','DATE1: away roster query uses the Game date');
+  eq(homeRQ.date,'2018-04-19','DATE1: home roster query uses the same Game date');
+  eq(awayRQ.season,2018,'DATE1: historical Game date supplies the roster season');
+  ok(awayRQ.url.indexOf('date=2018-04-19')>=0 && homeRQ.url.indexOf('date=2018-04-19')>=0,
+    'DATE1: both MLB roster URLs are date-scoped to the game');
+  sb.renderSetup();
+  eq(el('#gameDate').value,'2018-04-19','DATE1: setup displays the saved Game date');
+  ok(html.indexOf('id="gameDate"')>=0 &&
+     html.indexOf('id="awayDate"')<0 &&
+     html.indexOf('id="homeDate"')<0,
+    'DATE1: separate team roster-date fields are replaced by one Game date');
+
   /* ===== 2026-10-05 scoring usability batch ===== */
   newGame();
   sb.S.away.lineup[0] = { name:'A', num:'1', pos:'6' };
@@ -729,7 +776,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.41','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.42','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
