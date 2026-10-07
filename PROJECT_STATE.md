@@ -913,3 +913,17 @@ replacing the "visco" app she currently uses.
   saved Game date and its season. The date is also shown in the Book subtitle
   and retained with local archived games. App version v2026.10.06.42. Worker
   unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Historical roster loading now follows a same-day transaction
+  union rule. For the selected Game date, each MLB team pool is built from the
+  dated roster snapshot plus every player returned by MLB transactions for
+  that team/date whose fromTeam or toTeam matches the club. This deliberately
+  keeps both outgoing and incoming players available when a roster move occurs
+  on game day. Snapshot and transaction copies are deduplicated by MLB player
+  ID (with name fallback), preserving richer snapshot jersey/position data
+  when available. Roster metadata reports when same-day moves were checked and
+  how many transaction-only players were added. If the roster endpoint works
+  but the transaction lookup fails, the roster still loads but shows a clear
+  warning that same-day moves could not be verified. App version
+  v2026.10.06.43. Worker unchanged; no Worker deployment required.
