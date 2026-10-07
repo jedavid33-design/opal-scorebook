@@ -690,10 +690,16 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.36','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.37','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
+  ok(html.indexOf('-webkit-user-select:none')>=0 &&
+     html.indexOf('-webkit-touch-callout:none')>=0 &&
+     html.indexOf('#pitchHoldMenu span')>=0 &&
+     html.indexOf('#buntHoldMenu span')>=0 &&
+     html.indexOf('#foulOutHoldMenu span')>=0,
+    'U5: slide-over gesture controls suppress iOS text selection and touch callouts');
 
   /* ===== per-PA pitch audit ===== */
   newGame();
