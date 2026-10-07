@@ -899,3 +899,17 @@ replacing the "visco" app she currently uses.
   are 0 outs and at least two runners on base, so it cannot appear with one
   out. App version v2026.10.06.41. Worker unchanged; no Worker deployment
   required.
+
+
+- 2026-10-06: Book 2.0 Phase 2 landed together with shared Game date.
+  Runner-path segments now show compact advancement-reason labels for stored
+  special movement: SB, WP, PB, BK (balk), DI, TAG, TH (on throw), errors,
+  and ADV/other. Every label includes the batting-order slot whose plate
+  appearance the movement occurred during, e.g. SB4, WP4, TAG4, TH4. Error
+  notation separates the defensive fielder from the batter slot, e.g. E5/4.
+  Ordinary advancement already explained by the PA result remains unlabeled.
+  Setup now has one Game date instead of separate away/home roster dates. New
+  games default to the local calendar date; both MLB roster loads use that
+  saved Game date and its season. The date is also shown in the Book subtitle
+  and retained with local archived games. App version v2026.10.06.42. Worker
+  unchanged; no Worker deployment required.
