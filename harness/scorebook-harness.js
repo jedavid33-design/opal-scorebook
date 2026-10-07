@@ -83,7 +83,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
-  `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
+  `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookDiamondHTML,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
   `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,decisionList,decisionInputRow,decisionPitcherPicker,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
@@ -164,6 +164,41 @@ async function main() {
   fakeB[0].onclick();
   ok(!sb.S.bases[0] && !!sb.S.bases[1], 'defensive indifference advances the runner');
   eq(sb.S.pas.length, 0, 'DI does not end the PA');
+
+  /* ===== runner actions live on base diamonds ===== */
+  newGame();
+  sb.S.bases[1]={t:'away',i:2};
+  sb.runnerActionMenu(1);
+  ok(el('#sheet').innerHTML.indexOf('Steal')>=0 &&
+     el('#sheet').innerHTML.indexOf('Pickoff')>=0 &&
+     el('#sheet').innerHTML.indexOf('Def. Indiff.')>=0,
+    'RA1: tapping an occupied base opens Steal / Pickoff / Defensive Indifference for that runner');
+  ok(el('#sheet').innerHTML.indexOf('on 2nd')>=0,
+    'RA1: base action menu identifies the tapped runner base');
+  el('#raDI').onclick();
+  ok(!sb.S.bases[1]&&!!sb.S.bases[2],
+    'RA1: direct base Defensive Indifference acts on the tapped runner without another runner picker');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:0};
+  sb.runnerActionMenu(0);
+  el('#raSteal').onclick();
+  ok(el('#sheet').innerHTML.indexOf('Steal — Astro1')>=0,
+    'RA1: direct base Steal goes straight to that runner safe/out flow');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:0};
+  sb.renderScore();
+  ok(el('#b1').classList.contains('runnerTap'),
+    'RA1: occupied base is rendered as an actionable runner target');
+  ok(el('#hPitcher').classList.contains('balkTap'),
+    'RA1: pitcher becomes the Balk tap target when runners are aboard');
+  ok(html.indexOf('id="stealBtn"')<0 &&
+     html.indexOf('id="diBtn"')<0 &&
+     html.indexOf('id="pickBtn"')<0 &&
+     html.indexOf('id="balkBtn"')<0,
+    'RA1: old bottom runner-action buttons are removed');
+
 
   newGame();
   sb.S.bases[0] = { t: 'away', i: 0 };
@@ -690,7 +725,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.38','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.39','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
