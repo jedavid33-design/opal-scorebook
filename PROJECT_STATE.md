@@ -855,3 +855,16 @@ replacing the "visco" app she currently uses.
   labels. Normal tap/keyboard behavior remains handled by the existing
   pointerup/click paths. App version v2026.10.06.37. Worker unchanged; no
   Worker deployment required.
+
+
+- 2026-10-06: Added generic Triple Play scoring. In Play now includes Triple
+  Play, enabled only with 0 outs and at least two occupied bases. The scorer
+  chooses the three retired players in out order, and records a separate
+  fielding sequence for each out. The batter is not assumed to be one of the
+  outs: with bases loaded, all three runners may be retired while the batter
+  is recorded safe at first and then stranded by the inning-ending third out.
+  TP stores structured tpOuts data, long-form Book/PBP display preserves the
+  three fielding sequences, runner lifecycle metadata marks retired runners,
+  and the terminal ball in play counts toward the pitcher. The third out ends
+  the half automatically with no runner-placement screen. App version
+  v2026.10.06.38. Worker unchanged; no Worker deployment required.
