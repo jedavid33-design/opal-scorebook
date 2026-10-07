@@ -887,3 +887,15 @@ replacing the "visco" app she currently uses.
   advance as part of the ground-ball play. Errors can still be marked directly
   from placement. App version v2026.10.06.40. Worker unchanged; no Worker
   deployment required.
+
+
+- 2026-10-06: Added Ground-rule Double as a hold-and-slide-down action on
+  Double. A normal tap still opens the ordinary Double hit-detail flow; hold
+  Double and slide down opens the same hit type/fielder detail but stores a
+  distinct GRD result. GRD counts as a hit and terminal pitch, awards the
+  batter two bases, gives existing runners their two-base defaults, and shows
+  GRD in compact Book notation / Ground-rule double in long form. Also fixed
+  Triple Play visibility: the TP button is now omitted entirely unless there
+  are 0 outs and at least two runners on base, so it cannot appear with one
+  out. App version v2026.10.06.41. Worker unchanged; no Worker deployment
+  required.
