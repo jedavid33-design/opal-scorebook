@@ -879,3 +879,11 @@ replacing the "visco" app she currently uses.
   display remains non-interactive for this purpose. Occupied bases and the
   pitcher line expose button semantics and keyboard activation when active.
   App version v2026.10.06.39. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Existing runners advancing on a groundout no longer trigger
+  the "How did the runner advance?" reason picker. Ordinary numeric groundout
+  notation (for example 6-3 or 4-3) and bunt groundouts (BGO...) now treat the
+  advance as part of the ground-ball play. Errors can still be marked directly
+  from placement. App version v2026.10.06.40. Worker unchanged; no Worker
+  deployment required.
