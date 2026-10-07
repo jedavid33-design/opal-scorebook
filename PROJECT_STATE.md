@@ -868,3 +868,14 @@ replacing the "visco" app she currently uses.
   and the terminal ball in play counts toward the pitcher. The third out ends
   the half automatically with no runner-placement screen. App version
   v2026.10.06.38. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-06: Runner actions moved off the bottom of the Score screen. The
+  Steal, Pickoff, Defensive Indifference, and Balk buttons were removed.
+  Tapping an occupied base now opens a runner-specific action menu with Steal,
+  Pickoff, and Def. Indiff., and those actions skip the old second runner
+  picker because the tapped base already identifies the runner. Tapping the
+  active pitcher line records a Balk when runners are aboard. The batter
+  display remains non-interactive for this purpose. Occupied bases and the
+  pitcher line expose button semantics and keyboard activation when active.
+  App version v2026.10.06.39. Worker unchanged; no Worker deployment required.
