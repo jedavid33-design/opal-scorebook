@@ -79,7 +79,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,selectIncomingSub,cancelIncomingSub,applyIncomingLineupSub,applyIncomingOffensiveSub,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,tapPoolPlayer,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
-  `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
+  `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,fielderChoiceMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
@@ -246,6 +246,41 @@ async function main() {
     'PATH1: batter taking second after a single still needs an advancement reason');
   ok(!sb.needsAdvanceReason({who:'R',from:1,defaultTo:1,to:2,out:null,adv:null,err:null},'FC'),
     'PATH1: surviving runner advancing on a fielder\'s choice does not need an advancement reason');
+
+  /* ===== fielder's choice with no out ===== */
+  newGame();
+  sb.outcomeModal();
+  ok(el('#sheet').innerHTML.indexOf('data-o="FC"')<0,
+    'FCNO1: fielder\'s choice is hidden with no runners aboard');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:1};
+  sb.outcomeModal();
+  ok(el('#sheet').innerHTML.indexOf('data-o="FC"')>=0,
+    'FCNO1: fielder\'s choice appears when a preceding runner exists');
+
+  let fcm=sb.fielderChoiceMovers(null,'6-4');
+  const fcBr=fcm.find(m=>m.who==='BR');
+  const fcR1=fcm.find(m=>m.who==='R'&&m.from===1);
+  eq(fcBr.to,1,'FCNO1: no-out FC awards batter first base');
+  eq(fcR1.to,2,'FCNO1: runner on first is forced to second');
+  ok(!fcm.some(m=>m.out),'FCNO1: no-out FC mover set records no outs');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:1};
+  sb.S.bases[1]={t:'away',i:2};
+  fcm=sb.fielderChoiceMovers(null,'6-4');
+  eq(fcm.find(m=>m.who==='R'&&m.from===1).to,2,
+    'FCNO1: runner from first advances one forced base');
+  eq(fcm.find(m=>m.who==='R'&&m.from===2).to,3,
+    'FCNO1: force chain advances runner from second to third');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:1};
+  const fcout=sb.fielderChoiceMovers(0,'6-4');
+  ok(fcout.some(m=>m.who==='R'&&m.from===1&&m.out&&m.out.f==='6-4'),
+    'FCNO1: existing FC-with-out path still marks selected runner out');
+
   ok(!sb.needsAdvanceReason({who:'R',from:1,defaultTo:1,to:2,out:null,adv:null,err:null},'SAC'),
     'PATH1: runner advancing on a sacrifice bunt does not need an advancement reason');
   ok(!sb.needsAdvanceReason({who:'R',from:3,defaultTo:3,to:4,out:null,adv:null,err:null},'SF'),
@@ -833,7 +868,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.44','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.45','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
