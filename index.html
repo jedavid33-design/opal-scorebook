@@ -614,7 +614,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.44';
+const APP_VERSION='2026.10.06.45';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1585,6 +1585,15 @@ function walkMovers(){
   if(r1){r1.to=2;const r2=at(2);if(r2){r2.to=3;const r3=at(3);if(r3)r3.to=4;}}
   return mv;
 }
+function fielderChoiceMovers(outBase,f){
+  if(outBase==null)return walkMovers();
+  const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,award:1,adv:null,out:null}];
+  [2,1,0].forEach(i=>{if(S.bases[i]){
+    const isOut=i===outBase;
+    mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:isOut?{f}:null});
+  }});
+  return mv;
+}
 function doWalk(code,text,alreadySnapped){
   ev('o',text);
   placementReview(walkMovers(),code,text,!!alreadySnapped);
@@ -1692,7 +1701,7 @@ function outcomeModal(){
         <button class="med" data-o="3B">Triple</button>
         <button class="med" data-o="HR">Home run</button>
         <button class="med" data-o="E">Error</button>
-        <button class="med" data-o="FC">Fielder's choice</button>
+        ${S.bases.some(Boolean)?'<button class="med" data-o="FC">Fielder\'s choice</button>':''}
         <button class="med" data-o="CI">Catcher Interference</button>
       </div>
       <div class="outcomeCol"><div class="outcomeHead">Out</div>
@@ -2090,11 +2099,29 @@ function handleOutcome(kind){
     const mv=walkMovers();mv[0].err='2';
     placementReview(mv,'CI',"Catcher's interference · E2");return;
   }
-  if(kind==='FC'){fielderPad(f=>{pickRunner((bi,r)=>{ev('o',"Fielder's choice "+f);
-    const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:1,out:null}];
-    [2,1,0].forEach(i=>{if(S.bases[i]){const isOut=i===bi;
-      mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:isOut?{f}:null});}});
-    placementReview(mv,'FC',"Fielder's choice "+f);},"Fielder's choice — runner out");},'FC — fielders');return;}
+  if(kind==='FC'){
+    if(!S.bases.some(Boolean)){toast("Fielder's choice needs a runner on base.");return;}
+    fielderPad(f=>{
+      const choose=()=>{
+        openModal('<h2>Fielder\'s choice '+esc(f)+'</h2><p class="sub">Was an out recorded on the play?</p>'+
+          '<div class="grid2"><button class="med" id="fcOut">Out recorded</button><button class="med accent" id="fcNoOut">No out</button></div>'+
+          '<div style="margin-top:10px"><button class="sml ghost" id="fcCancel" style="width:100%">Cancel</button></div>');
+        $('#fcOut').onclick=()=>pickRunner((bi,r)=>{
+          const txt="Fielder's choice "+f;
+          ev('o',txt);
+          placementReview(fielderChoiceMovers(bi,f),'FC',txt);
+        },"Fielder's choice — runner out");
+        $('#fcNoOut').onclick=()=>{
+          const txt="Fielder's choice "+f+" — no out";
+          ev('o',txt);
+          placementReview(fielderChoiceMovers(null,f),'FC',txt);
+        };
+        $('#fcCancel').onclick=closeModal;
+      };
+      choose();
+    },'FC — fielders');
+    return;
+  }
   if(kind==='SAC'){openModal(`<h2>Sacrifice</h2><div class="grid2">
     <button class="med" id="sacB">Sac bunt</button><button class="med" id="sacF">Sac fly</button></div>
     <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
