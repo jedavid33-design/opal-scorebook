@@ -414,9 +414,17 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 #foulOutHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);
   border:1px solid transparent;}
 #foulOutHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
-.pitch[data-hold-wppb],.pitch[data-hold-down],#buntOutBtn,#foulOutBtn,
-#pitchHoldMenu,#buntHoldMenu,#foulOutHoldMenu,
-#pitchHoldMenu span,#buntHoldMenu span,#foulOutHoldMenu span{
+#doubleHoldMenu{position:fixed;z-index:96;display:none;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);grid-template-columns:1fr;width:min(320px,86vw);
+  padding:7px;background:rgba(23,16,33,.97);border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,.38);pointer-events:none;}
+#doubleHoldMenu.on{display:grid;}
+#doubleHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);
+  border:1px solid transparent;}
+#doubleHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
+.pitch[data-hold-wppb],.pitch[data-hold-down],#buntOutBtn,#foulOutBtn,#doubleBtn,
+#pitchHoldMenu,#buntHoldMenu,#foulOutHoldMenu,#doubleHoldMenu,
+#pitchHoldMenu span,#buntHoldMenu span,#foulOutHoldMenu span,#doubleHoldMenu span{
   touch-action:none;
   -webkit-user-select:none;
   user-select:none;
@@ -589,6 +597,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 </div>
 <div id="buntHoldMenu" aria-hidden="true"><span data-bunt="BGO">← Ground Out</span><span data-bunt="BPOP">Pop Out →</span></div>
 <div id="foulOutHoldMenu" aria-hidden="true"><span data-foulout="FFLY">← Fly</span><span data-foulout="FPOP">Pop Up →</span></div>
+<div id="doubleHoldMenu" aria-hidden="true"><span data-double="GRD">↓ Ground-rule Double</span></div>
 <div id="pullRefresh">↓ Pull to refresh</div>
 <div id="appVersion" class="appver"></div>
 
@@ -597,7 +606,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.40';
+const APP_VERSION='2026.10.06.41';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -714,7 +723,7 @@ function pitchCountsAsThrown(e){
 function contactPitchBonus(result){
   if(!result)return 0;
   if(result==='HBP'||result==='CI')return 1;
-  if(/^(1B|2B|3B|HR|E\d+|FC|SAC|SF|BGO|BPO|DP|TP)/.test(result))return 1;
+  if(/^(1B|2B|3B|GRD|HR|E\d+|FC|SAC|SF|BGO|BPO|DP|TP)/.test(result))return 1;
   if(/^fP\d/.test(result)||/^[FfLP]\d/.test(result)||/^\d/.test(result))return 1;
   return 0;
 }
@@ -1587,7 +1596,7 @@ function outcomeModal(){
     <div class="outcomeCols">
       <div class="outcomeCol"><div class="outcomeHead">On base</div>
         <button class="med" data-o="1B">Single</button>
-        <button class="med" data-o="2B">Double</button>
+        <button class="med" id="doubleBtn" type="button">Double</button>
         <button class="med" data-o="3B">Triple</button>
         <button class="med" data-o="HR">Home run</button>
         <button class="med" data-o="E">Error</button>
@@ -1602,7 +1611,7 @@ function outcomeModal(){
         <button class="med" id="buntOutBtn" type="button">Bunt</button>
         <button class="med" id="foulOutBtn" type="button">Foul out</button>
         <button class="med" data-o="DP">Double Play</button>
-        <button class="med" data-o="TP"${triplePlayEligible()?'':' disabled'}>Triple Play</button>
+        ${triplePlayEligible()?'<button class="med" data-o="TP">Triple Play</button>':''}
       </div>
     </div>
     <button class="med" data-o="SAC" style="width:100%;margin-top:8px">Sacrifice</button>
@@ -1610,6 +1619,7 @@ function outcomeModal(){
   $('#sheet').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>handleOutcome(b.dataset.o));
   bindBuntOutGesture();
   bindFoulOutGesture();
+  bindDoubleGesture();
 }
 function hitMovers(n){
   const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:n,award:n,adv:null,out:null}];
@@ -1652,6 +1662,49 @@ function hitPicker(verb,cb){
 function hitDetail(n,kind,verb){
   hitPicker(verb,(ht,f)=>{const txt=`${verb} on a ${ht} to ${POS[f]}`;
     ev('o',txt);placementReview(hitMovers(n),kind,txt);});
+}
+function groundRuleDouble(){
+  hitPicker('Ground-rule double',(ht,f)=>{
+    const txt='Ground-rule double on a '+ht+' to '+POS[f];
+    ev('o',txt);
+    placementReview(hitMovers(2),'GRD',txt);
+  });
+}
+function bindDoubleGesture(){
+  const btn=$('#doubleBtn'),menu=$('#doubleHoldMenu');if(!btn||!menu)return;
+  const down=menu.querySelector('[data-double="GRD"]');
+  let timer=null,held=false,choice=null,startX=0,startY=0,suppressClick=false;
+  const paint=()=>{if(down)down.classList.toggle('sel',choice==='GRD');};
+  const hide=()=>{menu.classList.remove('on');menu.setAttribute&&menu.setAttribute('aria-hidden','true');choice=null;paint();};
+  btn.addEventListener('pointerdown',e=>{
+    if(e.button!=null&&e.button!==0)return;
+    held=false;choice=null;startX=e.clientX;startY=e.clientY;paint();
+    if(e.cancelable)e.preventDefault();
+    timer=setTimeout(()=>{held=true;menu.classList.add('on');menu.setAttribute&&menu.setAttribute('aria-hidden','false');
+      if(btn.setPointerCapture)try{btn.setPointerCapture(e.pointerId);}catch(_){}
+    },480);
+  });
+  btn.addEventListener('pointermove',e=>{
+    if(!held)return;
+    const dx=e.clientX-startX,dy=e.clientY-startY;
+    choice=dy>12&&dy>Math.abs(dx)?'GRD':null;paint();
+    if(e.cancelable)e.preventDefault();
+  });
+  btn.addEventListener('pointerup',e=>{
+    clearTimeout(timer);timer=null;suppressClick=true;
+    if(held){
+      const c=choice;hide();
+      if(c==='GRD')groundRuleDouble();
+      else toast('Hold Double, then slide down for Ground-rule Double.');
+    }else handleOutcome('2B');
+    setTimeout(()=>{suppressClick=false;},0);
+  });
+  btn.addEventListener('pointercancel',()=>{clearTimeout(timer);timer=null;held=false;hide();});
+  btn.addEventListener('contextmenu',e=>e.preventDefault());
+  btn.addEventListener('click',e=>{
+    if(suppressClick){e.preventDefault();return;}
+    if(e.detail===0)handleOutcome('2B');
+  });
 }
 function dpModal(){
   if(!S.bases.some(Boolean)){
@@ -1962,7 +2015,7 @@ function handleOutcome(kind){
 
 function resultAwardBase(result){
   if(result==='1B'||result==='BB'||result==='IBB'||result==='HBP'||result==='CI'||result==='FC'||/^E\d+/.test(result||'')||/^(K|ꓘ)-(PB|WP)$/.test(result||''))return 1;
-  if(result==='2B')return 2;
+  if(result==='2B'||result==='GRD')return 2;
   if(result==='3B')return 3;
   if(result==='HR')return 4;
   return 0;
@@ -2395,7 +2448,7 @@ function subModal(){
 /* ================= book view ================= */
 function pasAt(t,i,n){const half=t==='away'?0:1;return S.pas.filter(p=>p.team===t&&p.b===i&&p.inning===n&&p.half===half);}
 function paAt(t,i,n){return pasAt(t,i,n)[0]||null;}
-function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|HR)$/.test(r))return'hit';
+function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|GRD|HR)$/.test(r))return'hit';
   if(/^(BGO|BPO)/.test(r)||/^(K|ꓘ)$/.test(r)||/^(SAC|SF|DP|TP)$/.test(r)||/^[FLPf]/.test(r)||/^\d/.test(r))return'out';return'';}
 function isSacrificeDoublePlay(pa){
   return !!(pa&&pa.result==='SF'&&(pa.sacDP||(pa.events||[]).some(e=>e.t==='o'&&/^Runner out /.test(e.text||''))));
@@ -2415,6 +2468,7 @@ function paResultDisplay(pa,longForm){
     return (f.catcher?'SF'+f.catcher:'SF')+'-DP'+(f.runnerOut?' '+f.runnerOut:'');
   }
   if(pa&&pa.result==='TP')return triplePlayDisplay(pa,!!longForm);
+  if(pa&&pa.result==='GRD')return longForm?'Ground-rule double':'GRD';
   return pa&&pa.result||'';
 }
 function paBatterIsOut(pa){
@@ -2495,7 +2549,7 @@ function bookDiamondHTML(pa){
     '<path class="bdOutline" d="M30 52 L52 30 L30 8 L8 30 Z"/>'+route+marker+'</svg>'+
     '<span class="resultCode">'+esc(code)+'</span>'+(status?'<span class="journeyStatus'+sc+'">'+status+'</span>':'');
 }
-function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|HR)$/.test(p.result)).length;}
+function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|GRD|HR)$/.test(p.result)).length;}
 /* Errors belong to the fielding team — the opponent of the batting team in p.team.
    Counts distinct fielder errors per PA: an E-type outcome plus any extra tags. */
 function paErrDisp(pa){return stripDupErr(pa.result,pa.err);}
@@ -2705,6 +2759,7 @@ function confirmEditPA(idx){
 function outcomeIdx(pa){for(let i=pa.events.length-1;i>=0;i--)if(pa.events[i].t==='o')return i;return -1;}
 function describePA(pa){return `${pa.half?'B':'T'}${pa.inning} · ${pa.batter||''} · ${paResultDisplay(pa,true)}`;}
 function paKind(r){
+  if(r==='GRD')return 'GRD';
   if(/^(1B|2B|3B)$/.test(r))return r;
   if(/^fP\d/.test(r))return 'FPOP';
   if(/^[Ff]\d/.test(r))return 'FO';
@@ -2721,9 +2776,9 @@ function paKind(r){
   if(/^\d/.test(r))return 'GO';
   return 'TEXT';
 }
-const HITVERB={'1B':'Singled','2B':'Doubled','3B':'Tripled'};
+const HITVERB={'1B':'Singled','2B':'Doubled','3B':'Tripled','GRD':'Ground-rule double'};
 function applyNotationFix(kind,ht,f,wasFoul){
-  if(kind==='1B'||kind==='2B'||kind==='3B')
+  if(kind==='1B'||kind==='2B'||kind==='3B'||kind==='GRD')
     return{result:kind,text:`${HITVERB[kind]} on a ${ht} to ${POS[f]}`};
   if(kind==='GO')return{result:f,text:'Grounded out '+f};
   if(kind==='FO')return wasFoul?{result:'f'+f,text:'Foul fly out to '+f}:{result:'F'+f,text:'Flied out to '+f};
@@ -2782,13 +2837,13 @@ function fixNotation(idx){
       <p class="sub">${viewing&&viewing.editing?'Finished-game correction: the official ruling/notation changes, but the physical play, runs, outs and runner locations stay where they happened.':'Only the bookkeeping changes — outs, runners and score are <b>not</b> touched. If the outcome itself was wrong, use Re-score instead.'}</p>
       <label>Result code (diamond)</label><input id="fxResult" value="${esc(fxR)}" maxlength="12">
       <label>Play text</label><input id="fxText" value="${esc(fxT)}" maxlength="90">
-      ${kind==='1B'||kind==='2B'||kind==='3B'
+      ${kind==='1B'||kind==='2B'||kind==='3B'||kind==='GRD'
         ?'<button class="med" id="fxHit" style="width:100%;margin-top:8px">Re-pick hit type + fielder</button>'
         :['GO','FO','FPOP','POP','BGO','BPOP','LO','E','FC','SAC','SF'].includes(kind)
         ?'<button class="med" id="fxF" style="width:100%;margin-top:8px">Re-pick fielders</button>':''}
       <button class="med accent" id="fxSave" style="width:100%;margin-top:10px">Save notation</button>
       <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
-    const rh=$('#fxHit');if(rh)rh.onclick=()=>hitPicker(HITVERB[pa.result],(ht,f)=>{
+    const rh=$('#fxHit');if(rh)rh.onclick=()=>hitPicker(HITVERB[kind],(ht,f)=>{
       const m=applyNotationFix(kind,ht,f);fxR=m.result;fxT=m.text;draw();});
     const rf=$('#fxF');if(rf)rf.onclick=()=>fielderPad(f=>{
       const m=applyNotationFix(kind,null,f,/^Fouled out/.test(fxT));fxR=m.result;fxT=m.text;draw();},'Re-pick fielders');
