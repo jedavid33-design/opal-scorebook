@@ -845,3 +845,13 @@ replacing the "visco" app she currently uses.
   advancement-reason labels (SB/WP/PB/error/etc.) are intentionally not part
   of this build. App version v2026.10.06.36. Worker unchanged; no Worker
   deployment required.
+
+
+- 2026-10-06: Slide-over gesture controls no longer trigger iOS text
+  highlighting or the long-press touch callout. Added user-select:none,
+  -webkit-user-select:none, -webkit-touch-callout:none, and pointerdown
+  default suppression to the pitch WP/PB + bunt gestures, Bunt out
+  Ground/Pop gesture, and Foul out Fly/Pop gesture, including their overlay
+  labels. Normal tap/keyboard behavior remains handled by the existing
+  pointerup/click paths. App version v2026.10.06.37. Worker unchanged; no
+  Worker deployment required.
