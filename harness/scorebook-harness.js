@@ -82,7 +82,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookDiamondHTML,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
@@ -729,7 +729,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.40','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.41','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -737,7 +737,8 @@ async function main() {
      html.indexOf('-webkit-touch-callout:none')>=0 &&
      html.indexOf('#pitchHoldMenu span')>=0 &&
      html.indexOf('#buntHoldMenu span')>=0 &&
-     html.indexOf('#foulOutHoldMenu span')>=0,
+     html.indexOf('#foulOutHoldMenu span')>=0 &&
+     html.indexOf('#doubleHoldMenu span')>=0,
     'U5: slide-over gesture controls suppress iOS text selection and touch callouts');
 
   /* ===== per-PA pitch audit ===== */
@@ -762,6 +763,7 @@ async function main() {
     'AUD1: terminal in-play pitch is included in the audit');
   eq(sb.contactPitchBonus('DP'),1,'AUD1: in-play double play now credits its terminal pitch');
   eq(sb.contactPitchBonus('TP'),1,'AUD1: in-play triple play credits its terminal pitch');
+  eq(sb.contactPitchBonus('GRD'),1,'AUD1: ground-rule double credits its terminal pitch');
   let c=sb.countAfterPitch('Foul bunt',1,2);
   eq(c.s,3,'AUD1: two-strike foul bunt reconstructs strike three');
   c=sb.countAfterPitch('Missed bunt',0,1);
@@ -869,22 +871,31 @@ async function main() {
     'data-o="POP">Pop fly</button>',
     'id="buntOutBtn" type="button">Bunt</button>',
     'id="foulOutBtn" type="button">Foul out</button>',
-    'data-o="DP">Double Play</button>',
-    'data-o="TP"'
+    'data-o="DP">Double Play</button>'
   ].map(x=>outcomeHTML.indexOf(x));
   ok(outOrder.every(x=>x>=0) && outOrder.every((x,i)=>i===0||x>outOrder[i-1]),
-    'V2: In Play Out menu orders Groundout / Lineout / Fly out / Pop fly / Bunt / Foul out / Double Play / Triple Play');
+    'V2: In Play Out menu orders Groundout / Lineout / Fly out / Pop fly / Bunt / Foul out / Double Play');
 
   /* ===== generic triple play ===== */
   newGame();
   sb.outcomeModal();
-  ok(el('#sheet').innerHTML.indexOf('data-o="TP" disabled')>=0,
-    'TP1: Triple Play is disabled without 0 outs + at least two runners');
+  ok(el('#sheet').innerHTML.indexOf('data-o="TP"')<0,
+    'TP1: Triple Play is hidden when there are not enough runners');
 
   newGame();
   sb.S.bases[0]={t:'away',i:1};
   sb.S.bases[1]={t:'away',i:2};
-  ok(sb.triplePlayEligible(),'TP1: 0 outs with two runners enables triple play');
+  sb.S.outs=1;
+  sb.outcomeModal();
+  ok(!sb.triplePlayEligible() && el('#sheet').innerHTML.indexOf('data-o="TP"')<0,
+    'TP1: Triple Play is hidden with one out even when two runners are aboard');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:1};
+  sb.S.bases[1]={t:'away',i:2};
+  sb.outcomeModal();
+  ok(sb.triplePlayEligible() && el('#sheet').innerHTML.indexOf('data-o="TP"')>=0,
+    'TP1: 0 outs with two runners shows and enables Triple Play');
   const tpCand=sb.triplePlayCandidates();
   eq(tpCand.length,3,'TP1: two-runner situation offers batter plus both runners');
   const tpOuts=[
@@ -922,6 +933,32 @@ async function main() {
   eq(tpJourney.status,'stranded','TP2: safe batter is ended as stranded when third out finishes inning');
   eq(tpJourney.routeTo,1,'TP2: safe batter path reaches first before inning ends');
 
+
+  /* ===== ground-rule double slide action ===== */
+  newGame();
+  sb.outcomeModal();
+  const grdOutcome=el('#sheet').innerHTML;
+  ok(grdOutcome.indexOf('id="doubleBtn"')>=0 &&
+     html.indexOf('id="doubleHoldMenu"')>=0 &&
+     html.indexOf('↓ Ground-rule Double')>=0,
+    'GRD1: Double has a hold-slide-down Ground-rule Double action');
+  eq(sb.resultAwardBase('GRD'),2,'GRD1: ground-rule double awards batter two bases');
+  eq(sb.clsOf('GRD'),'hit','GRD1: ground-rule double classifies as a hit');
+  eq(sb.paKind('GRD'),'GRD','GRD1: edit flow preserves ground-rule-double identity');
+  eq(sb.contactPitchBonus('GRD'),1,'GRD1: ground-rule double credits the terminal pitch');
+  eq(sb.paResultDisplay({result:'GRD'}),'GRD','GRD1: compact Book notation stays GRD');
+  eq(sb.paResultDisplay({result:'GRD'},true),'Ground-rule double',
+    'GRD1: long-form display names the ground-rule double');
+  const grdMv=sb.hitMovers(2);
+  eq(grdMv[0].award,2,'GRD1: batter receives the normal two-base award');
+  sb.S.bases[0]={t:'away',i:1};
+  sb.S.bases[1]={t:'away',i:2};
+  const grdWithRunners=sb.hitMovers(2).filter(m=>m.who==='R');
+  ok(grdWithRunners.some(m=>m.from===1&&m.to===3) &&
+     grdWithRunners.some(m=>m.from===2&&m.to===4),
+    'GRD1: existing runners receive two bases on a ground-rule double');
+  sb.S.pas=[{team:'away',result:'GRD'}];
+  eq(sb.teamHits('away'),1,'GRD1: ground-rule double counts in team hits');
 
   eq(sb.homeRunText('LF'),'Home run to left field','V3: HR LF location text');
   eq(sb.homeRunText('LCF'),'Home run to left-center field','V3: HR LCF location text');
