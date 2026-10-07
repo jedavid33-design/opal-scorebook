@@ -410,7 +410,14 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 #foulOutHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);
   border:1px solid transparent;}
 #foulOutHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
-.pitch[data-hold-wppb],.pitch[data-hold-down],#buntOutBtn,#foulOutBtn{touch-action:none;}
+.pitch[data-hold-wppb],.pitch[data-hold-down],#buntOutBtn,#foulOutBtn,
+#pitchHoldMenu,#buntHoldMenu,#foulOutHoldMenu,
+#pitchHoldMenu span,#buntHoldMenu span,#foulOutHoldMenu span{
+  touch-action:none;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
 .appver{position:fixed;right:10px;bottom:calc(82px + env(safe-area-inset-bottom));z-index:4;
   font-size:9px;letter-spacing:.3px;color:var(--dim);opacity:.38;pointer-events:none;}
 </style>
@@ -593,7 +600,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.36';
+const APP_VERSION='2026.10.06.37';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1720,6 +1727,7 @@ function bindBuntOutGesture(){
   btn.addEventListener('pointerdown',e=>{
     if(e.button!=null&&e.button!==0)return;
     held=false;choice=null;startX=e.clientX;paint();
+    if(e.cancelable)e.preventDefault();
     timer=setTimeout(()=>{held=true;menu.classList.add('on');menu.setAttribute&&menu.setAttribute('aria-hidden','false');
       if(btn.setPointerCapture)try{btn.setPointerCapture(e.pointerId);}catch(_){}
     },480);
@@ -1762,6 +1770,7 @@ function bindFoulOutGesture(){
   btn.addEventListener('pointerdown',e=>{
     if(e.button!=null&&e.button!==0)return;
     held=false;choice=null;startX=e.clientX;paint();
+    if(e.cancelable)e.preventDefault();
     timer=setTimeout(()=>{held=true;menu.classList.add('on');menu.setAttribute&&menu.setAttribute('aria-hidden','false');
       if(btn.setPointerCapture)try{btn.setPointerCapture(e.pointerId);}catch(_){}
     },480);
@@ -3062,6 +3071,7 @@ function bindPitchGestures(){
     btn.addEventListener('pointerdown',e=>{
       if(e.button!=null&&e.button!==0)return;
       held=false;choice=null;startX=e.clientX;startY=e.clientY;paint();
+      if(e.cancelable)e.preventDefault();
       timer=setTimeout(()=>{
         held=true;
         if(menu){menu.classList.add('on');menu.setAttribute&&menu.setAttribute('aria-hidden','false');}
