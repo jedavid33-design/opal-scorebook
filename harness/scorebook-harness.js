@@ -75,7 +75,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get viewing(){return viewing;},set viewing(v){viewing=v;},` +
   `APP_VERSION,blank,blankTeam,localISODate,displayGameDate,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,fieldingTeam,activePitcherLabel,pitchCountsAsThrown,contactPitchBonus,pitcherAppearanceOrder,pitcherPitchSummary,pitcherPitchCount,` +
-  `demoLineups,rosterToPool,rosterQuery,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
+  `demoLineups,rosterPoolSort,rosterToPool,transactionQuery,transactionPlayersToPool,mergeRosterPool,rosterQuery,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,selectIncomingSub,cancelIncomingSub,applyIncomingLineupSub,applyIncomingOffensiveSub,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,tapPoolPlayer,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
@@ -742,6 +742,33 @@ async function main() {
      html.indexOf('id="homeDate"')<0,
     'DATE1: separate team roster-date fields are replaced by one Game date');
 
+  const txURL=sb.transactionQuery('away');
+  ok(txURL.indexOf('teamId=117')>=0 && txURL.indexOf('date=2018-04-19')>=0,
+    'DATE2: same-day transaction query is scoped to selected team + Game date');
+  const txPool=sb.transactionPlayersToPool([
+    {person:{id:1001,fullName:'Outgoing Player'},fromTeam:{id:117},toTeam:{id:999}},
+    {person:{id:1002,fullName:'Incoming Player'},fromTeam:{id:999},toTeam:{id:117}},
+    {person:{id:1003,fullName:'Other Team Player'},fromTeam:{id:136},toTeam:{id:999}}
+  ],117);
+  eq(txPool.map(p=>p.name).sort().join('|'),'Incoming Player|Outgoing Player',
+    'DATE2: both outgoing and incoming same-day transaction players are collected');
+  const mergedDay=sb.mergeRosterPool(
+    [{mlbId:2000,name:'Snapshot Player',num:'10',pos:'6'}],
+    txPool
+  );
+  ok(mergedDay.some(p=>p.name==='Snapshot Player') &&
+     mergedDay.some(p=>p.name==='Outgoing Player') &&
+     mergedDay.some(p=>p.name==='Incoming Player'),
+    'DATE2: roster snapshot is unioned with both sides of same-day roster moves');
+  const dedupeDay=sb.mergeRosterPool(
+    [{mlbId:1002,name:'Incoming Player',num:'22',pos:'8'}],
+    [{mlbId:1002,name:'Incoming Player',num:'',pos:'',transactionDay:true}]
+  );
+  eq(dedupeDay.length,1,'DATE2: player already present in snapshot is not duplicated');
+  eq(dedupeDay[0].num,'22','DATE2: roster snapshot metadata wins when transaction copy is sparse');
+  ok(dedupeDay[0].transactionDay===true,
+    'DATE2: snapshot player is still marked as involved in a same-day transaction');
+
   /* ===== 2026-10-05 scoring usability batch ===== */
   newGame();
   sb.S.away.lineup[0] = { name:'A', num:'1', pos:'6' };
@@ -776,7 +803,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.42','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.43','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
