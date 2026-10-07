@@ -1213,6 +1213,7 @@ function clearSlot(team,i){
   const T=S[team],s=T.lineup[i];if(!s)return;
   T.lineup[i]=(i===9&&T.dh)?{name:'',num:'',pos:'1',nb:true}:{name:'',num:'',pos:''};
   poolAdd(T,s);
+  syncPitcherFromLineup(team);
   if(S.selSlot&&S.selSlot.t===team)S.selSlot=null;
   save();renderSetup();
 }
