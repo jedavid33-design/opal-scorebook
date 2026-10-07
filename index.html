@@ -610,7 +610,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.42';
+const APP_VERSION='2026.10.06.43';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1147,10 +1147,56 @@ function rosterSortLastName(name){
   while(start>0&&particle.test(parts[start-1]))start--;
   return parts.slice(start).join(' ');
 }
+function rosterPoolSort(a,b){
+  return rosterSortLastName(a.name).localeCompare(rosterSortLastName(b.name))||a.name.localeCompare(b.name);
+}
 function rosterToPool(roster){
-  return (roster||[]).map(r=>({name:(r.person&&r.person.fullName)||'',num:r.jerseyNumber||'',pos:MLB_POS[(r.position&&r.position.abbreviation)]||''}))
-    .filter(p=>p.name)
-    .sort((a,b)=>rosterSortLastName(a.name).localeCompare(rosterSortLastName(b.name))||a.name.localeCompare(b.name));
+  return (roster||[]).map(r=>({
+    mlbId:r.person&&r.person.id||null,
+    name:(r.person&&r.person.fullName)||'',
+    num:r.jerseyNumber||'',
+    pos:MLB_POS[(r.position&&r.position.abbreviation)]||''
+  })).filter(p=>p.name).sort(rosterPoolSort);
+}
+function transactionQuery(team){
+  const id=+$('#'+team+'MLB').value,dv=String(S.gameDate||'').trim();
+  if(!id||!/^\d{4}-\d{2}-\d{2}$/.test(dv))return null;
+  return 'https://statsapi.mlb.com/api/v1/transactions?teamId='+id+'&date='+dv+'&sportId=1';
+}
+function transactionPlayersToPool(transactions,teamId){
+  const out=new Map(),tid=+teamId;
+  for(const tr of transactions||[]){
+    const p=tr&&tr.person||{},from=tr&&tr.fromTeam,to=tr&&tr.toTeam;
+    if(!p.fullName)continue;
+    if(!(from&&+from.id===tid)&&!(to&&+to.id===tid))continue;
+    const key=p.id?'id:'+p.id:'name:'+p.fullName.toLowerCase();
+    if(!out.has(key))out.set(key,{
+      mlbId:p.id||null,
+      name:p.fullName,
+      num:p.primaryNumber||'',
+      pos:MLB_POS[p.primaryPosition&&p.primaryPosition.abbreviation]||'',
+      transactionDay:true
+    });
+  }
+  return[...out.values()].sort(rosterPoolSort);
+}
+function mergeRosterPool(rosterPool,transactionPool){
+  const out=[],byId=new Map(),byName=new Map();
+  const add=p=>{
+    if(!p||!p.name)return;
+    const id=p.mlbId?String(p.mlbId):'',nm=p.name.toLowerCase();
+    const old=(id&&byId.get(id))||byName.get(nm);
+    if(old){
+      if(!old.num&&p.num)old.num=p.num;
+      if(!old.pos&&p.pos)old.pos=p.pos;
+      if(p.transactionDay)old.transactionDay=true;
+      return;
+    }
+    const c={...p};out.push(c);
+    if(id)byId.set(id,c);byName.set(nm,c);
+  };
+  (rosterPool||[]).forEach(add);(transactionPool||[]).forEach(add);
+  return out.sort(rosterPoolSort);
 }
 function poolMsg(team,txt){const el=$('#'+team+'PoolMsg');if(el)el.textContent=txt||'';}
 function poolRemove(T,name){T.pool=T.pool.filter(b=>b.name!==name);}
@@ -1174,19 +1220,34 @@ function loadRoster(team){
   if(substitutionMode&&pendingSub){toast('Finish or cancel the open substitution before reloading the roster.');return;}
   const id=+$('#'+team+'MLB').value;
   if(!id){poolMsg(team,'Pick an MLB team first.');return;}
-  const q=rosterQuery(team);
-  const btn=$('#'+team+'Load');btn.disabled=true;btn.textContent='Loading…';
-  fetch(q.url)
-    .then(r=>{if(!r.ok)throw new Error('http '+r.status);return r.json();})
-    .then(d=>{
-      const T=S[team];
-      const inLU=new Set(T.lineup.map(s=>s.name).filter(Boolean));
-      T.pool=rosterToPool(d.roster).filter(p=>!inLU.has(p.name));
-      T.poolMeta={mlbId:id,season:q.season,date:q.date,at:Date.now()};
+  const q=rosterQuery(team),txUrl=transactionQuery(team);
+  const btn=$('#'+team+'Load');btn.disabled=true;btn.textContent='Loading…';poolMsg(team,'');
+  const rosterReq=fetch(q.url).then(r=>{if(!r.ok)throw new Error('roster http '+r.status);return r.json();});
+  const txReq=txUrl
+    ?fetch(txUrl).then(r=>{if(!r.ok)throw new Error('transactions http '+r.status);return r.json();})
+      .then(d=>({data:d,failed:false})).catch(()=>({data:{transactions:[]},failed:true}))
+    :Promise.resolve({data:{transactions:[]},failed:false});
+  Promise.all([rosterReq,txReq])
+    .then(([d,tx])=>{
+      const T=S[team],inLU=new Set(T.lineup.map(s=>s.name).filter(Boolean));
+      const rosterPool=rosterToPool(d.roster);
+      const txPool=transactionPlayersToPool(tx.data.transactions,id);
+      const merged=mergeRosterPool(rosterPool,txPool);
+      T.pool=merged.filter(p=>!inLU.has(p.name));
+      const txAdded=merged.filter(p=>p.transactionDay&&!rosterPool.some(r=>
+        (p.mlbId&&r.mlbId&&String(p.mlbId)===String(r.mlbId))||p.name.toLowerCase()===r.name.toLowerCase())).length;
+      T.poolMeta={mlbId:id,season:q.season,date:q.date,at:Date.now(),
+        transactionChecked:!!txUrl,transactionFailed:!!tx.failed,transactionPlayers:txPool.length,transactionAdded:txAdded};
       const tm=MLB_TEAMS.find(t=>t[0]===id);if(tm)T.name=tm[1];
-      S.selSlot=null;save();renderSetup();
+      S.selSlot=null;
+      btn.disabled=false;btn.textContent='Load roster';
+      save();renderSetup();
+      if(tx.failed)poolMsg(team,'Roster loaded, but MLB same-day transactions could not be checked. Reload before scoring if roster moves occurred that day.');
     })
-    .catch(()=>{btn.disabled=false;btn.textContent='Load roster';poolMsg(team,'Couldn’t load the roster — check your connection and try again.');});
+    .catch(()=>{
+      btn.disabled=false;btn.textContent='Load roster';
+      poolMsg(team,'Couldn’t load the roster — check your connection and try again.');
+    });
 }
 function renderPool(team){
   const T=S[team],el=$('#'+team+'Pool');if(!el)return;
@@ -1196,7 +1257,11 @@ function renderPool(team){
   }).join('')
     ||'<span class="sub">No roster loaded — pick an MLB team above and tap Load roster, or type names into the lineup directly.</span>';
   const meta=$('#'+team+'PoolMeta');
-  if(meta)meta.textContent=T.pool.length?(T.pool.length+' players'+(T.poolMeta?(T.poolMeta.date?' · roster for '+T.poolMeta.date:' · '+T.poolMeta.season+' active roster'):'')+(substitutionMode?' — tap the incoming player first':' — tap a player to add them')):''; 
+  if(meta)meta.textContent=T.pool.length?(T.pool.length+' players'+(T.poolMeta?(T.poolMeta.date?' · roster for '+T.poolMeta.date:' · '+T.poolMeta.season+' active roster'):'')+
+    (T.poolMeta&&T.poolMeta.transactionChecked&&!T.poolMeta.transactionFailed
+      ?' · same-day moves checked'+(T.poolMeta.transactionAdded?' · +'+T.poolMeta.transactionAdded+' transaction player'+(T.poolMeta.transactionAdded===1?'':'s'):'')
+      :'')+
+    (substitutionMode?' — tap the incoming player first':' — tap a player to add them')):''; 
 }
 function tapPoolPlayer(team,pi){
   const T=S[team],p=T.pool[pi];if(!p)return;
