@@ -936,3 +936,14 @@ replacing the "visco" app she currently uses.
   started so it cannot be confused with an official substitution. Returning
   a pitcher also re-syncs the active pitcher reference. App version
   v2026.10.06.44. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-07: Fielder's choice now supports plays where no out is recorded.
+  FC only appears in the In Play menu when a preceding runner exists. After
+  selecting the fielding sequence, Scorebook asks Out recorded vs No out.
+  No out keeps the result code FC, records the play text as an FC with no out,
+  awards the batter first base, and automatically applies only forced runner
+  advances before the normal placement confirmation. Existing runners can be
+  moved farther on the FC without an extra advance-reason prompt. The original
+  FC-with-runner-out path remains available. App version v2026.10.06.45.
+  Worker unchanged; no Worker deployment required.
