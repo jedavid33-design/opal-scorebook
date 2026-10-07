@@ -114,8 +114,12 @@ label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .base{position:absolute; width:34px; height:34px; transform:rotate(45deg);
   border:2px solid rgba(255,255,255,.35); background:rgba(255,255,255,.05); border-radius:6px;}
 .base.on{background:var(--plum); border-color:#fff; box-shadow:0 0 12px var(--plum);}
+.base.on.runnerTap{cursor:pointer;}
+.base.on.runnerTap:active{filter:brightness(1.15);}
 #b2{left:43px; top:6px;} #b1{left:80px; top:43px;} #b3{left:6px; top:43px;}
 .pitcherline{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;text-align:right;margin:0 0 4px auto;max-width:74%;overflow:hidden;text-overflow:ellipsis;}
+.pitcherline.balkTap{cursor:pointer;border-radius:8px;padding:3px 5px;margin:-3px -5px 1px auto;}
+.pitcherline.balkTap:active{background:rgba(201,160,232,.12);}
 .basebatterrow{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;align-items:center;min-width:0;}
 .basebatterrow .baseswrap{justify-content:center;padding:2px 0;}
 .batter{font-size:19px;font-weight:700;min-width:0;line-height:1.25;}
@@ -540,13 +544,6 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <button class="med pitch auto" data-p="autostrike">Auto Strike<br><small>⏱ batter</small></button>
     <button class="med pitch auto" data-p="illegal">Illegal<br><small>pitch</small></button>
   </div>
-  <div class="sect">Runners</div>
-  <div class="rgrid">
-    <button class="med" id="stealBtn">Steal</button>
-    <button class="med" id="diBtn">Def. Indiff.</button>
-    <button class="med" id="pickBtn">Pickoff</button>
-    <button class="med" id="balkBtn">Balk</button>
-  </div>
   </div></div>
 </div>
 
@@ -600,7 +597,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.38';
+const APP_VERSION='2026.10.06.39';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1246,13 +1243,24 @@ function renderScore(){
   const hlp=!viewing&&S.started?lastPitch():null;
   $('#hCount').textContent=S.balls+'-'+S.strikes;
   $('#hOuts').textContent='● '.repeat(S.outs)+'○ '.repeat(Math.max(0,3-S.outs));
-  $('#b1').classList.toggle('on',!!S.bases[0]);
-  $('#b2').classList.toggle('on',!!S.bases[1]);
-  $('#b3').classList.toggle('on',!!S.bases[2]);
+  [0,1,2].forEach(i=>{
+    const el=$('#b'+(i+1)),r=S.bases[i],active=!!r&&!viewing&&S.started;
+    el.classList.toggle('on',!!r);
+    el.classList.toggle('runnerTap',active);
+    el.setAttribute('role',active?'button':'img');
+    el.setAttribute('tabindex',active?'0':'-1');
+    el.setAttribute('aria-label',r?('Runner '+pname(r)+' on '+baseName(i+1)+' — tap for runner actions'):(baseName(i+1)+' empty'));
+    el.title=r?'Tap for Steal, Pickoff, or Defensive Indifference':'';
+  });
   const b=curBatter();
   $('#hBatter').innerHTML=`B: ${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
-  const ft=fieldingTeam(),pl=activePitcherLabel(ft),pc=pitcherPitchCount(ft);
+  const ft=fieldingTeam(),pl=activePitcherLabel(ft),pc=pitcherPitchCount(ft),canBalk=!viewing&&S.started&&S.bases.some(Boolean);
   $('#hPitcher').textContent='P: '+(pl||'—')+' · '+pc+' '+(pc===1?'pitch':'pitches');
+  $('#hPitcher').classList.toggle('balkTap',canBalk);
+  $('#hPitcher').setAttribute('role',canBalk?'button':'text');
+  $('#hPitcher').setAttribute('tabindex',canBalk?'0':'-1');
+  $('#hPitcher').setAttribute('aria-label',(pl||'Pitcher')+(canBalk?' — tap to record balk':''));
+  $('#hPitcher').title=canBalk?'Tap to record Balk':'';
   let pitchNo=0;
   const liveLast=hlp&&hlp.live?hlp:null;
   const liveChTeam=liveLast?challengeTeamFor(liveLast):null;
@@ -2185,8 +2193,22 @@ function recordRunnerOut(text,r,from){
   endHalfCheck();
   save();renderAll();
 }
-function actSteal(){if(!S.bases.some(Boolean))return;
-  pickRunner((bi,r)=>{openModal(`<h2>Steal — ${pname(r)}</h2><div class="grid2">
+function runnerAtBase(bi){return Number.isInteger(bi)&&bi>=0&&bi<3?S.bases[bi]:null;}
+function runnerActionMenu(bi){
+  const r=runnerAtBase(bi);if(!r||viewing)return;
+  openModal('<h2>'+esc(pname(r))+'</h2><p class="sub">On '+baseName(bi+1)+'</p>'+
+    '<div class="grid3">'+
+      '<button class="med" id="raSteal">Steal</button>'+
+      '<button class="med" id="raPick">Pickoff</button>'+
+      '<button class="med" id="raDI">Def. Indiff.</button>'+
+    '</div><div style="margin-top:10px"><button class="sml ghost" id="raCancel" style="width:100%">Cancel</button></div>');
+  $('#raSteal').onclick=()=>actSteal(bi);
+  $('#raPick').onclick=()=>actPick(bi);
+  $('#raDI').onclick=()=>actDI(bi);
+  $('#raCancel').onclick=closeModal;
+}
+function actSteal(baseIndex){
+  const go=(bi,r)=>{openModal(`<h2>Steal — ${pname(r)}</h2><div class="grid2">
     <button class="med accent" id="stSafe">Safe</button><button class="med" id="stOut">Out</button></div>
     <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
     $('#stSafe').onclick=()=>{closeModal();
@@ -2202,22 +2224,34 @@ function actSteal(){if(!S.bases.some(Boolean))return;
         closeModal();save();renderAll();});};
     $('#stOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;
       recordRunnerOut('Caught stealing '+f+' — '+pname(r),r,bi+1);},'CS — fielders (e.g. 2-6)');
-  },'Steal — which runner?');}
-function actDI(){if(!S.bases.some(Boolean))return;
-  pickRunner((bi,r)=>{const d=Math.min(4,bi+2),changes={};changes[bi]=d;
+  };
+  if(Number.isInteger(baseIndex)){const r=runnerAtBase(baseIndex);if(r)go(baseIndex,r);return;}
+  if(!S.bases.some(Boolean))return;
+  pickRunner(go,'Steal — which runner?');
+}
+function actDI(baseIndex){
+  const go=(bi,r)=>{const d=Math.min(4,bi+2),changes={};changes[bi]=d;
     const cb=runnerActionCollision(changes);if(cb){runnerCollisionToast(cb);return;}
     snap();ensureRunnerIdentity(r);S.bases[bi]=null;
     if(d>=4){setRunnerEnd(r,'scored',4);scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' scores on defensive indifference',bi+1,d,'DI'));}
     else{S.bases[d-1]=r;ev('r',runnerAdvanceEvent(r,'Defensive indifference — '+pname(r)+' takes '+baseName(d),bi+1,d,'DI'));}
-    save();renderAll();},'Defensive indifference — runner');}
-function actPick(){if(!S.bases.some(Boolean))return;
-  pickRunner((bi,r)=>{openModal(`<h2>Pickoff — ${pname(r)}</h2><div class="grid2">
+    closeModal();save();renderAll();};
+  if(Number.isInteger(baseIndex)){const r=runnerAtBase(baseIndex);if(r)go(baseIndex,r);return;}
+  if(!S.bases.some(Boolean))return;
+  pickRunner(go,'Defensive indifference — runner');
+}
+function actPick(baseIndex){
+  const go=(bi,r)=>{openModal(`<h2>Pickoff — ${pname(r)}</h2><div class="grid2">
     <button class="med" id="pkOut">Out</button><button class="med accent" id="pkSafe">Safe</button></div>
     <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
     $('#pkOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;
       recordRunnerOut('Picked off '+f+' — '+pname(r),r,bi+1);},'Pickoff — fielders');
     $('#pkSafe').onclick=()=>{snap();ev('r','Pickoff attempt — '+pname(r)+' back safely');closeModal();save();renderAll();};
-  },'Pickoff — which runner?');}
+  };
+  if(Number.isInteger(baseIndex)){const r=runnerAtBase(baseIndex);if(r)go(baseIndex,r);return;}
+  if(!S.bases.some(Boolean))return;
+  pickRunner(go,'Pickoff — which runner?');
+}
 function wppbAdvancePicker(label,alreadySnapped){
   if(!S.bases.some(Boolean)){save();renderAll();return;}
   const adv=new Set();
@@ -3279,8 +3313,13 @@ function init(){
   $('#newGameBtn').onclick=()=>{if(viewing)return;if(confirm('End this game and start over? It will be kept under Games.'))endGame();};
   document.querySelectorAll('[data-p]:not([data-hold-wppb]):not([data-hold-down])').forEach(b=>b.onclick=()=>doPitch(b.dataset.p));
   bindPitchGestures();
-  $('#stealBtn').onclick=actSteal;$('#diBtn').onclick=actDI;$('#pickBtn').onclick=actPick;
-  $('#balkBtn').onclick=actBalk;
+  [0,1,2].forEach(i=>{
+    const el=$('#b'+(i+1));
+    el.onclick=()=>runnerActionMenu(i);
+    el.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&S.bases[i]){e.preventDefault();runnerActionMenu(i);}});
+  });
+  $('#hPitcher').onclick=()=>{if(S.bases.some(Boolean)&&!viewing)actBalk();};
+  $('#hPitcher').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&S.bases.some(Boolean)&&!viewing){e.preventDefault();actBalk();}});
   $('#undoBtn').onclick=undo;
   $('#subBtn').onclick=openSubstitutionLineup;
   $('#tab-score').onclick=()=>{if(substitutionMode){finishSubstitutionMode();return;}showView('score');};$('#tab-book').onclick=()=>showView('book');$('#tab-games').onclick=()=>{renderGames();showView('games');};
