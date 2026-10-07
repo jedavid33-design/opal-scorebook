@@ -450,6 +450,10 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
       <div><label>Home team</label><input id="homeName" value="Opponent" maxlength="24">
         <label class="dhrow"><input type="checkbox" id="homeDH"> DH — pitcher doesn't bat</label></div>
     </div>
+    <div style="margin-top:10px;max-width:260px">
+      <label>Game date</label><input id="gameDate" type="date">
+      <div class="sub" style="margin-top:4px">Both MLB rosters load for this date.</div>
+    </div>
   </div>
   <div class="setupnav" id="setupNav">
     <div class="setupteamtabs">
@@ -466,9 +470,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <div id="awayPanel" class="teamPanel">
     <div class="card setupAnchor" id="awayRosterArea">
       <div class="sect" style="margin-top:0">Away roster pool</div>
-      <div class="grid3 rload">
+      <div class="grid2 rload">
         <div><label>MLB team</label><select id="awayMLB" class="mlbSel" data-team="away"><option value="">—</option></select></div>
-        <div><label>Roster date <span style="opacity:.55">(optional)</span></label><input id="awayDate" type="date"></div>
         <div class="loadcell"><label>&nbsp;</label><button class="med" id="awayLoad" style="width:100%">Load roster</button></div>
       </div>
       <p class="sub" id="awayPoolMeta" style="margin:6px 0 0"></p>
@@ -486,9 +489,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <div id="homePanel" class="teamPanel" hidden>
     <div class="card setupAnchor" id="homeRosterArea">
       <div class="sect" style="margin-top:0">Home roster pool</div>
-      <div class="grid3 rload">
+      <div class="grid2 rload">
         <div><label>MLB team</label><select id="homeMLB" class="mlbSel" data-team="home"><option value="">—</option></select></div>
-        <div><label>Roster date <span style="opacity:.55">(optional)</span></label><input id="homeDate" type="date"></div>
         <div class="loadcell"><label>&nbsp;</label><button class="med" id="homeLoad" style="width:100%">Load roster</button></div>
       </div>
       <p class="sub" id="homePoolMeta" style="margin:6px 0 0"></p>
@@ -606,15 +608,25 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.41';
+const APP_VERSION='2026.10.06.42';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
 
 function blankTeam(name){return{name:name,pitcher:'',bench:[],pool:[],poolMeta:null,dh:false,lineup:Array.from({length:9},()=>({name:'',num:'',pos:''}))};}
 function genId(){return 'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);}
+function localISODate(d){
+  d=d||new Date();
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return y+'-'+m+'-'+day;
+}
+function displayGameDate(v){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v||''));
+  if(!m)return'';
+  return new Date(+m[1],+m[2]-1,+m[3],12).toLocaleDateString([],{month:'short',day:'numeric',year:'numeric'});
+}
 function blank(){return{
-  gid:genId(),
+  gid:genId(),gameDate:localISODate(),
   away:blankTeam('Astros'),home:blankTeam('Opponent'),
   bat:'away',inning:1,half:0,outs:0,balls:0,strikes:0,
   bases:[null,null,null],order:{away:0,home:0},
@@ -644,6 +656,10 @@ function ensureShape(){
     T.pool=T.pool.filter(p=>!inLU2.has(p.name));
     if(T.pitcher===undefined)T.pitcher='';});
   if(!S.subLog)S.subLog=[];
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(S.gameDate||''))){
+    const inherited=(S.away&&S.away.poolMeta&&S.away.poolMeta.date)||(S.home&&S.home.poolMeta&&S.home.poolMeta.date)||'';
+    S.gameDate=/^\d{4}-\d{2}-\d{2}$/.test(String(inherited))?inherited:'';
+  }
   if(!S.runnerEnds||typeof S.runnerEnds!=='object')S.runnerEnds={};
   if(!Array.isArray(S.interruptedPAs))S.interruptedPAs=[];
   if(S.decisions===undefined)S.decisions=null;
@@ -1089,6 +1105,7 @@ function finishSubstitutionMode(){
 }
 function renderSetup(){
   $('#awayName').value=S.away.name; $('#homeName').value=S.home.name;
+  $('#gameDate').value=S.gameDate||'';
   $('#awayDH').checked=!!S.away.dh; $('#homeDH').checked=!!S.home.dh;
   renderPool('away');renderPool('home');
   lineupHTML($('#awayLU'),S.away); lineupHTML($('#homeLU'),S.home);
@@ -1144,8 +1161,7 @@ function clearSlot(team,i){
   save();renderSetup();
 }
 function rosterQuery(team){
-  const id=+$('#'+team+'MLB').value, cy=new Date().getFullYear();
-  const dv=($('#'+team+'Date').value||'').trim();
+  const id=+$('#'+team+'MLB').value,cy=new Date().getFullYear(),dv=String(S.gameDate||'').trim();
   if(/^\d{4}-\d{2}-\d{2}$/.test(dv)){
     const yr=+dv.slice(0,4);
     if(yr>=2015&&yr<=cy)return{url:'https://statsapi.mlb.com/api/v1/teams/'+id+'/roster?season='+yr+'&date='+dv,season:yr,date:dv};
@@ -2601,7 +2617,7 @@ function renderBookBanner(bb){
   }
 }
 function renderBook(){
-  $('#bookSub').textContent=`${S.away.name} @ ${S.home.name}`;
+  $('#bookSub').textContent=`${S.away.name} @ ${S.home.name}${S.gameDate?' · '+displayGameDate(S.gameDate):''}`;
   const bb=$('#bookBanner');
   renderBookBanner(bb);
   const ng=$('#newGameBtn');if(ng)ng.style.display=viewing?'none':'';
@@ -3139,7 +3155,7 @@ function addToArchive(entry){const a=getArchive().filter(x=>x.gid!==entry.gid);a
   try{localStorage.setItem('osb1-archive',JSON.stringify(a));}catch(e){}}
 async function endGame(){
   if(gameStarted()){const st=S;
-    addToArchive({gid:st.gid,name:gameName(st),score:gameScore(st),date:st.completedAt||Date.now(),state:st,pendingFinish:true});
+    addToArchive({gid:st.gid,name:gameName(st),score:gameScore(st),date:st.completedAt||Date.now(),gameDate:st.gameDate||'',state:st,pendingFinish:true});
     const ok=await pushGame(true,st); // A12: on failure the entry keeps pendingFinish and is retried on next pull
     if(ok)updateArchive(st.gid,{pendingFinish:false,state:st});}
   S=blank();undoStack.length=0;undoMeta.length=0;persistUndo();save();renderSetup();renderGames();showView('setup');
@@ -3166,7 +3182,7 @@ async function deletePastGame(gid,remote){
 function renderGames(){renderPendingCard();renderSyncCard();renderPastList();}
 function archiveCurrentGame(){ // A10: the outgoing local game is real — keep it, don't drop it
   if(!gameStarted())return;
-  addToArchive({gid:S.gid,name:gameName(),score:gameScore(),date:Date.now(),state:JSON.parse(JSON.stringify(S))});
+  addToArchive({gid:S.gid,name:gameName(),score:gameScore(),date:Date.now(),gameDate:S.gameDate||'',state:JSON.parse(JSON.stringify(S))});
 }
 function renderPendingCard(){
   const el=$('#pendingCard');if(!el)return;
@@ -3224,12 +3240,12 @@ function renderPastList(){
   const seen=new Set(local.map(x=>x.gid));
   const remote=remoteGames.filter(g=>g.finished&&!seen.has(g.id));
   const items=[
-    ...local.map(x=>({gid:x.gid,name:x.name,score:x.score,date:x.date,local:true,state:x.state,decisions:x.state&&x.state.decisions})),
+    ...local.map(x=>({gid:x.gid,name:x.name,score:x.score,date:x.date,gameDate:x.gameDate||(x.state&&x.state.gameDate)||'',local:true,state:x.state,decisions:x.state&&x.state.decisions})),
     ...remote.map(g=>({gid:g.id,name:g.name,score:g.score,date:g.updated_at,local:false,device:g.device}))
   ].sort((a,b)=>(b.date||0)-(a.date||0));
   if(!items.length){el.innerHTML='<p class="sub">No past games yet. Ended games show up here.</p>';return;}
   el.innerHTML=items.map((g,i)=>{
-    const d=g.date?new Date(g.date).toLocaleDateString([],{month:'short',day:'numeric'})+' '+new Date(g.date).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'';
+    const d=g.gameDate?displayGameDate(g.gameDate):(g.date?new Date(g.date).toLocaleDateString([],{month:'short',day:'numeric'})+' '+new Date(g.date).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'');
     const dec=g.decisions?(' · W '+g.decisions.wp+' · L '+g.decisions.lp+(g.decisions.sv?' · SV '+g.decisions.sv:'')):'';
     return `<div class="pastRow"><div class="meta"><div class="nm">${esc(g.name)}</div><div class="dt">${esc(d)}${g.device?' · '+esc(g.device):''}${g.local?'':' · ☁️'}${esc(dec)}</div></div><div class="sc">${esc(g.score)}</div><button class="sml" data-view="${i}">View</button><button class="sml ghost" data-del="${i}">✕</button></div>`;
   }).join('');
@@ -3353,6 +3369,7 @@ function init(){
   if(window&&window.addEventListener)window.addEventListener('resize',applyScoreProportionalScale);
   $('#awayName').addEventListener('change',e=>{S.away.name=e.target.value||'Away';save();renderSetupNav();});
   $('#homeName').addEventListener('change',e=>{S.home.name=e.target.value||'Home';save();renderSetupNav();});
+  $('#gameDate').addEventListener('change',e=>{S.gameDate=(e.target.value||'').trim();save();renderSetup();});
   document.querySelectorAll('.mlbSel').forEach(sel=>{
     MLB_TEAMS.forEach(t=>{const o=document.createElement('option');o.value=t[0];o.textContent=t[1];sel.appendChild(o);});
   });
