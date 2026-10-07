@@ -1257,9 +1257,15 @@ function renderScore(){
   const ft=fieldingTeam(),pl=activePitcherLabel(ft),pc=pitcherPitchCount(ft),canBalk=!viewing&&S.started&&S.bases.some(Boolean);
   $('#hPitcher').textContent='P: '+(pl||'—')+' · '+pc+' '+(pc===1?'pitch':'pitches');
   $('#hPitcher').classList.toggle('balkTap',canBalk);
-  $('#hPitcher').setAttribute('role',canBalk?'button':'text');
-  $('#hPitcher').setAttribute('tabindex',canBalk?'0':'-1');
-  $('#hPitcher').setAttribute('aria-label',(pl||'Pitcher')+(canBalk?' — tap to record balk':''));
+  if(canBalk){
+    $('#hPitcher').setAttribute('role','button');
+    $('#hPitcher').setAttribute('tabindex','0');
+    $('#hPitcher').setAttribute('aria-label',(pl||'Pitcher')+' — tap to record balk');
+  }else{
+    $('#hPitcher').removeAttribute('role');
+    $('#hPitcher').removeAttribute('tabindex');
+    $('#hPitcher').removeAttribute('aria-label');
+  }
   $('#hPitcher').title=canBalk?'Tap to record Balk':'';
   let pitchNo=0;
   const liveLast=hlp&&hlp.live?hlp:null;
