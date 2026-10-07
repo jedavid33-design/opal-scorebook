@@ -203,6 +203,8 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 .dcell.out .bookDia .bdOutline{stroke:var(--out);}
 .bookDia .bdScoreFill{fill:rgba(127,224,178,.12);stroke:none;}
 .bookDia .bdRoute{stroke:var(--plum);stroke-width:3.2;stroke-linecap:round;fill:none;}
+.bookDia .bdReason{font-size:7px;font-weight:900;fill:#fff;text-anchor:middle;dominant-baseline:middle;
+  paint-order:stroke;stroke:#171020;stroke-width:2.8px;stroke-linejoin:round;}
 .bookDia .bdEnd{fill:var(--plum);stroke:#fff;stroke-width:1;}
 .bookDia .bdStrand{fill:#171020;stroke:var(--plum);stroke-width:2;}
 .bookDia .bdOut{stroke:var(--out);stroke-width:2.4;stroke-linecap:round;}
@@ -2539,12 +2541,45 @@ function paBookJourney(pa){
   }
   return{status:'onbase',base:routeTo,routeTo,steps};
 }
+function bookAdvanceBatterSlot(step){
+  if(!step)return null;
+  if(Number.isInteger(step.pa)&&S.pas[step.pa]&&Number.isInteger(S.pas[step.pa].b))return (S.pas[step.pa].b%9)+1;
+  if(step.pa==null&&S&&S.started)return(curIdx()%9)+1;
+  return null;
+}
+function bookAdvanceLabel(step){
+  if(!step)return'';
+  const slot=bookAdvanceBatterSlot(step),suffix=slot?String(slot):'',r=String(step.reason||'');
+  if(r==='SB')return'SB'+suffix;
+  if(r==='WP'||/^(K|ꓘ)-WP$/.test(r))return'WP'+suffix;
+  if(r==='PB'||/^(K|ꓘ)-PB$/.test(r))return'PB'+suffix;
+  if(r==='BALK')return'BK'+suffix;
+  if(r==='DI')return'DI'+suffix;
+  if(r==='tag')return'TAG'+suffix;
+  if(r==='throw')return'TH'+suffix;
+  if(r==='error')return'E'+(step.fielder||'')+(suffix?'/'+suffix:'');
+  if(/^E[0-9]+/.test(r)&&+step.from>0){
+    const e=(r.match(/^E[0-9]+/)||[''])[0];
+    return e+(suffix?'/'+suffix:'');
+  }
+  if(r==='other')return'ADV'+suffix;
+  return'';
+}
+function bookAdvanceLabelPos(step){
+  const b=Math.max(0,Math.min(3,+step.from||0));
+  return[{x:45,y:46},{x:45,y:14},{x:15,y:14},{x:15,y:46}][b];
+}
 function bookDiamondHTML(pa){
   const j=paBookJourney(pa),pts={0:[30,52],1:[52,30],2:[30,8],3:[8,30],4:[30,52]};
   let route='';
   for(let b=0;b<Math.min(4,j.routeTo);b++){
     const a=pts[b],z=pts[b+1];route+='<path class="bdRoute" d="M '+a[0]+' '+a[1]+' L '+z[0]+' '+z[1]+'"/>';
   }
+  const reasons=j.steps.map(st=>{
+    const label=bookAdvanceLabel(st);if(!label)return'';
+    const p=bookAdvanceLabelPos(st);
+    return '<text class="bdReason" x="'+p.x+'" y="'+p.y+'">'+esc(label)+'</text>';
+  }).join('');
   let marker='',status='',sc='';
   const ep=pts[j.status==='scored'?4:(j.base||0)]||pts[0];
   if(j.status==='scored'){
@@ -2562,7 +2597,7 @@ function bookDiamondHTML(pa){
   const fill=j.status==='scored'?'<path class="bdScoreFill" d="M30 52 L52 30 L30 8 L8 30 Z"/>':'';
   const code=paResultDisplay(pa)+(paErrDisp(pa)?', '+paErrDisp(pa):'');
   return '<svg class="bookDia" viewBox="0 0 60 60" aria-hidden="true">'+fill+
-    '<path class="bdOutline" d="M30 52 L52 30 L30 8 L8 30 Z"/>'+route+marker+'</svg>'+
+    '<path class="bdOutline" d="M30 52 L52 30 L30 8 L8 30 Z"/>'+route+reasons+marker+'</svg>'+
     '<span class="resultCode">'+esc(code)+'</span>'+(status?'<span class="journeyStatus'+sc+'">'+status+'</span>':'');
 }
 function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|GRD|HR)$/.test(p.result)).length;}
