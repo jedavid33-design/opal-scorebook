@@ -250,6 +250,10 @@ async function main() {
     'PATH1: runner advancing on a sacrifice bunt does not need an advancement reason');
   ok(!sb.needsAdvanceReason({who:'R',from:3,defaultTo:3,to:4,out:null,adv:null,err:null},'SF'),
     'PATH1: runner advancing on a sacrifice fly does not need an advancement reason');
+  ok(!sb.needsAdvanceReason({who:'R',from:1,defaultTo:1,to:2,out:null,adv:null,err:null},'6-3'),
+    'PATH1: runner advancing on an ordinary groundout does not need an advancement reason');
+  ok(!sb.needsAdvanceReason({who:'R',from:2,defaultTo:2,to:3,out:null,adv:null,err:null},'BGO5-3'),
+    'PATH1: runner advancing on a bunt groundout does not need an advancement reason');
   ok(sb.needsAdvanceReason({who:'BR',from:0,award:1,defaultTo:1,to:2,out:null,adv:null,err:null},'FC'),
     'PATH1: batter taking second after a fielder\'s choice still needs an advancement reason');
   const fcRunnerMove={who:'R',label:'Runner',from:1,defaultTo:1,to:2,out:null,adv:null,err:null,r:{t:'away',i:0,rid:'r-fc-extra'}};
@@ -725,7 +729,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.39','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.40','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
