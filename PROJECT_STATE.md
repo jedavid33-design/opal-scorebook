@@ -927,3 +927,12 @@ replacing the "visco" app she currently uses.
   but the transaction lookup fails, the roster still loads but shows a clear
   warning that same-day moves could not be verified. App version
   v2026.10.06.43. Worker unchanged; no Worker deployment required.
+
+
+- 2026-10-07: Added a compact pregame return-to-roster control to each
+  occupied lineup row. The tiny ↩︎ button immediately removes that player
+  from the lineup and places them back in the roster pool, making lineup-entry
+  mistakes a one-tap correction. It is intentionally hidden after scoring has
+  started so it cannot be confused with an official substitution. Returning
+  a pitcher also re-syncs the active pitcher reference. App version
+  v2026.10.06.44. Worker unchanged; no Worker deployment required.
