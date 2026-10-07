@@ -63,6 +63,10 @@ input::placeholder{color:#8d84a0;}
 label{font-size:12px; color:var(--dim); display:block; margin-bottom:2px;}
 .lu-row{display:grid; grid-template-columns:52px 56px 1fr; gap:6px; margin-bottom:6px; align-items:end;
   border:1px solid transparent; border-radius:12px; padding:4px;}
+.lu-row.setupRow{grid-template-columns:52px 56px 1fr 34px;}
+.returnPool{width:32px;height:32px;min-height:32px;padding:0;border-radius:50%;font-size:17px;font-weight:800;
+  align-self:end;margin-bottom:4px;display:flex;align-items:center;justify-content:center;color:var(--dim);background:rgba(255,255,255,.045);}
+.returnPool:active{color:#fff;background:rgba(201,160,232,.2);}
 .lu-row.sel{border-color:var(--plum); box-shadow:0 0 0 1px var(--plum); background:rgba(201,160,232,.07);}
 .lu-row.posdup{border-color:rgba(255,212,121,.72); background:rgba(255,212,121,.055);}
 .lu-row.posdup select{border-color:var(--warn); box-shadow:0 0 0 1px rgba(255,212,121,.28);}
@@ -610,7 +614,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.43';
+const APP_VERSION='2026.10.06.44';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -865,12 +869,13 @@ function lineupHTML(el,team){
     el.innerHTML=team.lineup.map((p,i)=>{
       const sel=S.selSlot&&S.selSlot.t===tk&&S.selSlot.i===i;
       const isP=team.dh&&i===9;
-      return `<div class="lu-row${sel?' sel':''}${dup.has(i)?' posdup':''}" data-slot="${tk}" data-i="${i}">
+      return `<div class="lu-row setupRow${sel?' sel':''}${dup.has(i)?' posdup':''}" data-slot="${tk}" data-i="${i}">
         <div><label>#</label><input inputmode="numeric" data-t="${tk}" data-i="${i}" data-f="num" value="${p.num||''}" placeholder="${isP?'P':i+1}"></div>
         <div><label>Pos</label>${isP?'<div style="padding:10px 8px;color:var(--dim)">P</div>':`<select data-t="${tk}" data-i="${i}" data-f="pos">
           <option value="">–</option>${Object.entries(POS).map(([k,v])=>`<option value="${k}"${String(p.pos)===k?' selected':''}>${v}</option>`).join('')}
         </select>`}</div>
         <div><label>${isP?"P · doesn't bat":(i+1)+' · Name'}</label><input data-t="${tk}" data-i="${i}" data-f="name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="${isP?'Pitcher name':'Player name'}"></div>
+        ${p.name&&!S.started?`<button class="returnPool" type="button" data-return-pool="${tk}" data-i="${i}" title="Return ${esc(p.name)} to roster" aria-label="Return ${esc(p.name)} to roster">↩︎</button>`:'<span></span>'}
       </div>`;}).join('');
   }
   el.querySelectorAll('input,select').forEach(inp=>{
@@ -889,6 +894,9 @@ function lineupHTML(el,team){
       }else if(f==='name'||f==='num')syncPitcherFromLineup(t);
       save();renderPositionWarning(t);
     });
+  });
+  el.querySelectorAll('[data-return-pool]').forEach(btn=>btn.onclick=()=>{
+    clearSlot(btn.dataset.returnPool,+btn.dataset.i);
   });
   if(substitutionMode){
     el.querySelectorAll('[data-offsub]').forEach(btn=>btn.onclick=()=>{
