@@ -75,7 +75,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get viewing(){return viewing;},set viewing(v){viewing=v;},` +
   `APP_VERSION,blank,blankTeam,localISODate,displayGameDate,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,fieldingTeam,activePitcherLabel,pitchCountsAsThrown,contactPitchBonus,pitcherAppearanceOrder,pitcherPitchSummary,pitcherPitchCount,` +
-  `demoLineups,rosterPoolSort,rosterToPool,transactionQuery,transactionPlayersToPool,mergeRosterPool,rosterQuery,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
+  `demoLineups,rosterPoolSort,rosterToPool,transactionQuery,transactionPlayersToPool,mergeRosterPool,rosterQuery,clearSlot,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,selectIncomingSub,cancelIncomingSub,applyIncomingLineupSub,applyIncomingOffensiveSub,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,tapPoolPlayer,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
@@ -769,6 +769,36 @@ async function main() {
   ok(dedupeDay[0].transactionDay===true,
     'DATE2: snapshot player is still marked as involved in a same-day transaction');
 
+  /* ===== quick return-to-roster lineup correction ===== */
+  newGame();
+  sb.S.started=false;
+  sb.S.away.pool=[{name:'Bench Guy',num:'90',pos:'8'}];
+  sb.S.away.lineup[2]={name:'Wrong Guy',num:'33',pos:'3'};
+  sb.renderSetup();
+  ok(el('#awayLU').innerHTML.indexOf('data-return-pool="away"')>=0 &&
+     el('#awayLU').innerHTML.indexOf('aria-label="Return Wrong Guy to roster"')>=0,
+    'LU1: occupied pregame lineup row shows tiny return-to-roster control');
+  sb.clearSlot('away',2);
+  eq(sb.S.away.lineup[2].name,'','LU1: return control clears only that lineup slot');
+  ok(sb.S.away.pool.some(p=>p.name==='Wrong Guy'),
+    'LU1: returned player goes back into the roster pool');
+
+  newGame();
+  sb.S.started=true;
+  sb.S.away.lineup[2]={name:'Live Guy',num:'44',pos:'3'};
+  sb.renderSetup();
+  ok(el('#awayLU').innerHTML.indexOf('data-return-pool=')<0,
+    'LU1: quick return control disappears once scoring has started');
+
+  newGame();
+  sb.S.started=false;sb.S.away.dh=true;sb.ensureShape();
+  sb.S.away.lineup[9]={name:'Wrong Pitcher',num:'55',pos:'1',nb:true};
+  sb.syncPitcherFromLineup('away');
+  ok(sb.S.away.pitcher.indexOf('Wrong Pitcher')>=0,'LU1: pitcher test starts with active pitcher');
+  sb.clearSlot('away',9);
+  eq(sb.S.away.pitcher,'','LU1: returning pitcher also clears active pitcher reference');
+
+
   /* ===== 2026-10-05 scoring usability batch ===== */
   newGame();
   sb.S.away.lineup[0] = { name:'A', num:'1', pos:'6' };
@@ -803,7 +833,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.43','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.44','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
