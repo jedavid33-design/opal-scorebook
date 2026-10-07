@@ -82,7 +82,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookDiamondHTML,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
@@ -690,7 +690,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.37','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.06.38','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -722,6 +722,7 @@ async function main() {
   ok(paAudit.rows[4].inferred===true&&paAudit.rows[4].text==='Ball put in play',
     'AUD1: terminal in-play pitch is included in the audit');
   eq(sb.contactPitchBonus('DP'),1,'AUD1: in-play double play now credits its terminal pitch');
+  eq(sb.contactPitchBonus('TP'),1,'AUD1: in-play triple play credits its terminal pitch');
   let c=sb.countAfterPitch('Foul bunt',1,2);
   eq(c.s,3,'AUD1: two-strike foul bunt reconstructs strike three');
   c=sb.countAfterPitch('Missed bunt',0,1);
@@ -829,10 +830,59 @@ async function main() {
     'data-o="POP">Pop fly</button>',
     'id="buntOutBtn" type="button">Bunt</button>',
     'id="foulOutBtn" type="button">Foul out</button>',
-    'data-o="DP">Double Play</button>'
+    'data-o="DP">Double Play</button>',
+    'data-o="TP"'
   ].map(x=>outcomeHTML.indexOf(x));
   ok(outOrder.every(x=>x>=0) && outOrder.every((x,i)=>i===0||x>outOrder[i-1]),
-    'V2: In Play Out menu orders Groundout / Lineout / Fly out / Pop fly / Bunt / Foul out / Double Play');
+    'V2: In Play Out menu orders Groundout / Lineout / Fly out / Pop fly / Bunt / Foul out / Double Play / Triple Play');
+
+  /* ===== generic triple play ===== */
+  newGame();
+  sb.outcomeModal();
+  ok(el('#sheet').innerHTML.indexOf('data-o="TP" disabled')>=0,
+    'TP1: Triple Play is disabled without 0 outs + at least two runners');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:1};
+  sb.S.bases[1]={t:'away',i:2};
+  ok(sb.triplePlayEligible(),'TP1: 0 outs with two runners enables triple play');
+  const tpCand=sb.triplePlayCandidates();
+  eq(tpCand.length,3,'TP1: two-runner situation offers batter plus both runners');
+  const tpOuts=[
+    {...tpCand.find(x=>x.key==='R1'),fielders:'5'},
+    {...tpCand.find(x=>x.key==='R0'),fielders:'5-4'},
+    {...tpCand.find(x=>x.key==='BR'),fielders:'4-3'}
+  ];
+  ok(sb.commitTriplePlay(tpOuts),'TP1: generic three-out sequence commits');
+  const tpPa=sb.S.pas[sb.S.pas.length-1];
+  eq(tpPa.result,'TP','TP1: triple play stores TP result');
+  eq(tpPa.tpOuts.length,3,'TP1: all three outs are retained structurally');
+  eq(tpPa.tpOuts[0].fielders,'5','TP1: first out fielding sequence is preserved');
+  eq(tpPa.tpOuts[1].fielders,'5-4','TP1: second out fielding sequence is preserved');
+  eq(tpPa.tpOuts[2].fielders,'4-3','TP1: third out fielding sequence is preserved');
+  ok(tpPa.tpBatterOut===true,'TP1: standard TP records batter as one of the outs');
+  eq(sb.paResultDisplay(tpPa),'TP','TP1: compact scorebook notation is TP');
+  eq(sb.paResultDisplay(tpPa,true),'Triple play · 5 / 5-4 / 4-3',
+    'TP1: long-form TP display preserves each out sequence');
+  eq(sb.S.half,1,'TP1: triple play immediately ends the top half');
+  eq(sb.S.outs,0,'TP1: outs reset after triple play ends the half');
+  eq(sb.S.order.away,1,'TP1: batter order advances exactly once');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:1};
+  sb.S.bases[1]={t:'away',i:2};
+  sb.S.bases[2]={t:'away',i:3};
+  const tpLoaded=sb.triplePlayCandidates();
+  const runnerOnly=tpLoaded.filter(x=>x.who==='R').map((x,i)=>({...x,fielders:['5','5-4','4-3'][i]}));
+  ok(sb.commitTriplePlay(runnerOnly),'TP2: bases-loaded triple play may retire three runners and not batter');
+  const tpSafe=sb.S.pas[sb.S.pas.length-1];
+  ok(tpSafe.tpBatterOut===false&&!!tpSafe.runnerId,
+    'TP2: batter-safe triple play records a continuing batter-runner identity');
+  eq(sb.paBatterIsOut(tpSafe),false,'TP2: Book does not falsely mark safe batter out');
+  const tpJourney=sb.paBookJourney(tpSafe);
+  eq(tpJourney.status,'stranded','TP2: safe batter is ended as stranded when third out finishes inning');
+  eq(tpJourney.routeTo,1,'TP2: safe batter path reaches first before inning ends');
+
 
   eq(sb.homeRunText('LF'),'Home run to left field','V3: HR LF location text');
   eq(sb.homeRunText('LCF'),'Home run to left-center field','V3: HR LCF location text');
