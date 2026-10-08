@@ -1330,14 +1330,14 @@ async function main() {
   eq(intentionalAudit.final.b,4,'IB3: audit final count reaches ball four');
 
   newGame();
-  const corrected={result:'1B',events:[{t:'p',text:'Ball'},{t:'o',text:'Single'}]};
-  eq(sb.tryAddPitch(corrected,'Intentional ball'),'',
+  const intentionalCorrected={result:'1B',events:[{t:'p',text:'Ball'},{t:'o',text:'Single'}]};
+  eq(sb.tryAddPitch(intentionalCorrected,'Intentional ball'),'',
     'IB4: missed-pitch editor accepts intentional balls');
-  eq(corrected.events[1].text,'Intentional ball',
+  eq(intentionalCorrected.events[1].text,'Intentional ball',
     'IB4: added intentional ball is inserted before the PA outcome');
-  eq(sb.pitchCounts(corrected).b,2,
+  eq(sb.pitchCounts(intentionalCorrected).b,2,
     'IB4: inserted intentional ball rebuilds the count correctly');
-  sb.S.pas=[corrected];
+  sb.S.pas=[intentionalCorrected];
   sb.addPitchPA(0);
   ok(el('#sheet').innerHTML.includes('data-ap="Intentional ball"'),
     'IB4: missed-pitch editor offers Intentional ball as a correction');
