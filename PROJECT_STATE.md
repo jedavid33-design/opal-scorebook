@@ -957,3 +957,14 @@ replacing the "visco" app she currently uses.
   contact and fielders without changing the bases/outs. App version
   v2026.10.08.1, Worker unchanged. Added FC regression assertions and a
   GitHub Actions job to run the harness on pushes to main.
+
+- 2026-10-08: Intentional Ball notation added to the Ball pitch hold gesture:
+  tap Ball for a normal ball; hold and slide left/right for WP/PB or down for
+  Intentional Ball. Intentional balls are real thrown pitches, count as balls
+  and appear distinctly in live pitch chips and PA pitch audits. The standard
+  Intentional Walk button still awards a zero-pitch IBB. A pitched ball four
+  follows the normal BB runner-placement flow. Past-play pitch correction
+  now offers Intentional ball as a separate kind of thrown ball.
+  App v2026.10.08.2. Worker unchanged. 583 regression checks passed (0 failed)
+  at commit 1dc7681, including thrown-pitch totals, fourth-ball walk,
+  count reconstruction, and editor validation.
