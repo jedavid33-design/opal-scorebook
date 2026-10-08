@@ -18,6 +18,7 @@ function makeEl() {
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     style: {}, dataset: {},
     addEventListener() {}, removeEventListener() {},
+    setAttribute() {}, removeAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; },
     querySelector() { return makeEl(); },
     querySelectorAll() { return []; },
     appendChild() {}, closest() { return null; },
