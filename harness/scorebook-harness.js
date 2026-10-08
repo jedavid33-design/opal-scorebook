@@ -82,7 +82,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,fielderChoiceMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,fcPlayText,fielderChoicePicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookAdvanceBatterSlot,bookAdvanceLabel,bookAdvanceLabelPos,bookDiamondHTML,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
@@ -280,6 +280,30 @@ async function main() {
   const fcout=sb.fielderChoiceMovers(0,'6-4');
   ok(fcout.some(m=>m.who==='R'&&m.from===1&&m.out&&m.out.f==='6-4'),
     'FCNO1: existing FC-with-out path still marks selected runner out');
+
+  /* ===== FC contact + fielding sequence: ground bunt force-out ===== */
+  newGame();
+  sb.S.bases[0]={t:'away',i:1};
+  sb.fielderChoicePicker(()=>{});
+  const fcSheet=el('#sheet').innerHTML;
+  const fcTypes=[
+    'data-fcht="ground ball"','data-fcht="line drive"','data-fcht="fly ball"',
+    'data-fcht="pop up"','data-fcht="ground bunt"'
+  ];
+  const fcTypeOrder=fcTypes.map(x=>fcSheet.indexOf(x));
+  ok(fcTypeOrder.every(x=>x>=0) && fcTypeOrder.every((x,i)=>i===0||x>fcTypeOrder[i-1]),
+    'FC2: fielder choice picker has Ground / Line / Fly / Pop Up / Bunt in order');
+  ok(fcSheet.includes('Fielders — tap in order') && fcSheet.includes('id="fcDone" disabled')
+    && fcSheet.includes('id="fcCancel"') && fcSheet.includes('id="fcBack"'),
+    'FC2: contact and fielding sequence share a screen with gated Done/Back/Cancel');
+  eq(sb.fcPlayText('ground bunt','1-6',false),"Fielder's choice on a ground bunt 1-6",
+    'FC2: ground bunt force-out stores contact and 1-6 fielders');
+  eq(sb.fcPlayText('ground bunt','1-6',true),"Fielder's choice on a ground bunt 1-6 — no out",
+    'FC2: no-out FC retains contact type and fielders');
+  const fcFixed=sb.applyNotationFix('FC','ground bunt','1-6');
+  eq(fcFixed.result,'FC','FC2: correcting FC notation keeps FC score code');
+  eq(fcFixed.text,"Fielder's choice on a ground bunt 1-6",
+    'FC2: past FC notation edits preserve ground bunt and 1-6');
 
   ok(!sb.needsAdvanceReason({who:'R',from:1,defaultTo:1,to:2,out:null,adv:null,err:null},'SAC'),
     'PATH1: runner advancing on a sacrifice bunt does not need an advancement reason');
