@@ -947,3 +947,13 @@ replacing the "visco" app she currently uses.
   moved farther on the FC without an extra advance-reason prompt. The original
   FC-with-runner-out path remains available. App version v2026.10.06.45.
   Worker unchanged; no Worker deployment required.
+
+- 2026-10-08: Fielder's Choice uses a combined contact + fielder-sequence picker
+  (Ground / Line / Fly / Pop Up / Bunt, with Bunt recorded as ground bunt).
+  Fielders are tapped in order (e.g. 1-6); the existing Out recorded / No out
+  and runner-placement flows are preserved. Play text now records contact type
+  and fielders, e.g. "Fielder's choice on a ground bunt 1-6", with "— no out"
+  for FCs where nobody was retired. FC notation corrections can re-pick both
+  contact and fielders without changing the bases/outs. App version
+  v2026.10.08.1, Worker unchanged. Added FC regression assertions and a
+  GitHub Actions job to run the harness on pushes to main.
