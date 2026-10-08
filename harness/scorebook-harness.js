@@ -903,7 +903,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.08.1','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.08.2','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1371,7 +1371,7 @@ async function main() {
      html.indexOf('id="wppbBtn"')<0 &&
      html.indexOf('id="pitchHoldMenu"')>=0,
     'W1: Ball/Called/Swinging use hold gesture and separate WP/PB button is gone');
-  ok(html.indexOf('Slide left for Wild Pitch, right for Passed Ball, or down for Missed Bunt.')>=0 &&
+  ok(html.indexOf("downKind==='intentball'?'Intentional Ball':'Missed Bunt'")>=0 &&
      html.indexOf('Slide down for Foul Bunt.')>=0,
     'W1: hold gesture exposes horizontal uncaught-pitch choices plus downward bunt choices');
 
