@@ -619,7 +619,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.08.4';
+const APP_VERSION='2026.10.08.5';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1768,7 +1768,8 @@ function hitPicker(verb,cb){
 }
 /* Keep FC contact type and fielding sequence together, including bunts. */
 function fcPlayText(ht,f,noOut){
-  return "Fielder's choice on a "+ht+" "+f+(noOut?' — no out':'');
+  const contact=ht==='unspecified'?' (contact not specified)':' on a '+ht;
+  return "Fielder's choice"+(ht==='unspecified'?' '+f+contact:contact+' '+f)+(noOut?' — no out':'');
 }
 function fielderChoicePicker(cb){
   let ht=null,taps=[];
@@ -1778,8 +1779,9 @@ function fielderChoicePicker(cb){
       <div class="sect" style="margin-top:0">Contact type</div>
       <div class="grid2">${[
         ['ground ball','Ground'],['line drive','Line'],['fly ball','Fly'],
-        ['pop up','Pop Up'],['ground bunt','Bunt']
+        ['pop up','Pop Up'],['ground bunt','Bunt'],['unspecified','Not specified']
       ].map(([h,label])=>`<button class="med${ht===h?' accent':''}" data-fcht="${h}">${label}</button>`).join('')}</div>
+      <p class="sub" style="margin:5px 0 8px">Choose Not specified when the tracker feed doesn't identify the ball's contact type.</p>
       <div class="sect">Fielders — tap in order</div>
       ${fieldSVG(taps)}
       <div class="fread" style="font-size:16px;min-height:30px">${taps.length?taps.join('-'):'Tap fielders in order'}</div>

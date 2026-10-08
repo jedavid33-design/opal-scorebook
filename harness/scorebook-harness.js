@@ -403,11 +403,11 @@ async function main() {
   const fcSheet=el('#sheet').innerHTML;
   const fcTypes=[
     'data-fcht="ground ball"','data-fcht="line drive"','data-fcht="fly ball"',
-    'data-fcht="pop up"','data-fcht="ground bunt"'
+    'data-fcht="pop up"','data-fcht="ground bunt"','data-fcht="unspecified"'
   ];
   const fcTypeOrder=fcTypes.map(x=>fcSheet.indexOf(x));
   ok(fcTypeOrder.every(x=>x>=0) && fcTypeOrder.every((x,i)=>i===0||x>fcTypeOrder[i-1]),
-    'FC2: fielder choice picker has Ground / Line / Fly / Pop Up / Bunt in order');
+    'FC2: fielder choice picker has Ground / Line / Fly / Pop Up / Bunt / Not specified in order');
   ok(fcSheet.includes('Fielders — tap in order') && fcSheet.includes('id="fcDone" disabled')
     && fcSheet.includes('id="fcCancel"') && fcSheet.includes('id="fcBack"'),
     'FC2: contact and fielding sequence share a screen with gated Done/Back/Cancel');
@@ -419,6 +419,41 @@ async function main() {
   eq(fcFixed.result,'FC','FC2: correcting FC notation keeps FC score code');
   eq(fcFixed.text,"Fielder's choice on a ground bunt 1-6",
     'FC2: past FC notation edits preserve ground bunt and 1-6');
+  eq(sb.fcPlayText('unspecified','6-4',false),
+    "Fielder's choice 6-4 (contact not specified)",
+    'FC3: unknown tracker-feed contact stays explicitly unknown and keeps fielders');
+  eq(sb.fcPlayText('unspecified','1-6',true),
+    "Fielder's choice 1-6 (contact not specified) — no out",
+    'FC3: no-out FC with unknown contact retains no-out status');
+  const unknownFC=sb.applyNotationFix('FC','unspecified','6-4');
+  eq(unknownFC.result,'FC','FC3: unknown-contact notation remains the correct FC ruling');
+  eq(unknownFC.text,"Fielder's choice 6-4 (contact not specified)",
+    'FC3: correction preserves unknown contact instead of inventing a grounder');
+  ok(fcSheet.includes('Not specified when the tracker feed')&&
+     fcSheet.includes('data-fcht="unspecified"'),
+    'FC3: scorer can explicitly select unreported contact without guessing');
+
+  const fcRoot=el('#sheet'),savedFcQuery=fcRoot.querySelectorAll;
+  const unknownBtn={dataset:{fcht:'unspecified'},onclick:null};
+  const shortstop={dataset:{n:'6'},onclick:null};
+  const secondBase={dataset:{n:'4'},onclick:null};
+  fcRoot.querySelectorAll=sel=>sel==='[data-fcht]'?[unknownBtn]:
+    sel==='.fnode'?[shortstop,secondBase]:[];
+  let selectedFC=null;
+  sb.fielderChoicePicker((contact,fielders)=>{selectedFC={contact,fielders};});
+  ok(el('#sheet').innerHTML.includes('id="fcDone" disabled'),
+    'FC3: choosing fielders and a contact value is still required');
+  unknownBtn.onclick();
+  ok(el('#sheet').innerHTML.includes('id="fcDone" disabled'),
+    'FC3: selecting Not specified alone does not finalize a play');
+  shortstop.onclick();secondBase.onclick();
+  ok(!el('#sheet').innerHTML.includes('id="fcDone" disabled'),
+    'FC3: Not specified with 6-4 fielders enables Done');
+  el('#fcDone').onclick();
+  eq(JSON.stringify(selectedFC),JSON.stringify({contact:'unspecified',fielders:'6-4'}),
+    'FC3: Done returns unknown contact plus full fielding sequence');
+  fcRoot.querySelectorAll=savedFcQuery;
+
 
   ok(!sb.needsAdvanceReason({who:'R',from:1,defaultTo:1,to:2,out:null,adv:null,err:null},'SAC'),
     'PATH1: runner advancing on a sacrifice bunt does not need an advancement reason');
@@ -1071,7 +1106,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.08.4','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.08.5','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
