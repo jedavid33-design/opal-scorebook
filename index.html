@@ -221,6 +221,11 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 .dcell .journeyStatus.lob{color:var(--plum);}
 .dcell .journeyStatus.base{color:#fff;}
 .paStack{display:flex;flex-direction:column;align-items:center;gap:2px;padding:1px 0;}
+.interruptedCell{display:block;margin:3px auto;padding:5px 4px;min-width:54px;max-width:74px;
+  border:1px dashed var(--plum);border-radius:7px;color:var(--plum);font-size:10px;
+  font-weight:800;line-height:1.25;text-align:center;background:rgba(155,111,211,.1);}
+.pbpRow.interruptedRow{border-style:dashed;border-color:rgba(201,160,232,.5);}
+.interruptedLabel{color:var(--plum);font-weight:800;}
 .plname{text-align:left !important; font-size:11px; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .ls{font-size:14px; margin-top:10px;}
 .ls td,.ls th{padding:4px 6px;}
@@ -614,7 +619,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.08.2';
+const APP_VERSION='2026.10.08.3';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2751,13 +2756,36 @@ function renderFielding(){const el=$('#fielding');if(!el)return;
   const sec=t=>{const ns=Object.keys(pe[t]);if(!ns.length)return '';
     return `<div class="subRow"><b>${S[t].name||t}</b> — ${ns.map(n=>`${n}: ${pe[t][n]} E`).join(' · ')}</div>`;};
   el.innerHTML=(sec('away')+sec('home'))||'<p class="sub">No errors.</p>';}
+/* The third out can end an inning without completing the current batter's PA.
+   Keep it visible for pitch reconciliation, but never turn it into an official PA. */
+function interruptedPAReason(pa){
+  const events=(pa&&pa.events)||[];
+  const last=[...events].reverse().find(e=>e&&e.t==='o'&&/Picked off|Caught stealing|Runner out/i.test(String(e.text||'')));
+  return last?String(last.text):'Runner out for third out';
+}
+function interruptedPADescription(pa){
+  return (pa.half?'B':'T')+pa.inning+' · '+(pa.batter||'Batter')+
+    ' · PA unfinished (third out)';
+}
+function bookPAEntries(){
+  const completed=(S.pas||[]).map((pa,idx)=>({pa,idx,interrupted:false}));
+  const interrupted=(S.interruptedPAs||[]).map((pa,idx)=>({pa,idx,interrupted:true}));
+  return completed.concat(interrupted).sort((a,b)=>
+    (+a.pa.inning||0)-(+b.pa.inning||0) ||
+    (+a.pa.half||0)-(+b.pa.half||0) ||
+    Number(a.interrupted)-Number(b.interrupted) || a.idx-b.idx);
+}
 function bookTable(t){
   const team=S[t],nInn=Math.max(9,S.inning);
   let h=`<table class="book"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}</tr>`;
   team.lineup.forEach((p,i)=>{
     h+=`<tr><td class="plname">${p.num?'#'+p.num+' ':''}${p.name||'—'}${p.hist&&p.hist.length>1?' ⇄':''}</td>`;
     for(let n=1;n<=nInn;n++){const ps=pasAt(t,i,n);
-      h+=`<td>${ps.length?'<div class="paStack">'+ps.map(pa=>`<div class="dcell ${clsOf(pa.result)}" data-pa-audit="${S.pas.indexOf(pa)}" role="button" tabindex="0" title="View pitches">${bookDiamondHTML(pa)}</div>`).join('')+'</div>':''}</td>`;}
+      const interrupted=(S.interruptedPAs||[]).map((pa,idx)=>({pa,idx}))
+        .filter(x=>x.pa.team===t&&x.pa.b===i&&x.pa.inning===n);
+      const cells=ps.map(pa=>`<div class="dcell ${clsOf(pa.result)}" data-pa-audit="${S.pas.indexOf(pa)}" role="button" tabindex="0" title="View pitches">${bookDiamondHTML(pa)}</div>`)
+        .concat(interrupted.map(x=>`<button class="interruptedCell" data-interrupted-audit="${x.idx}" title="Unfinished PA, third out. View recorded pitches">3rd out<br>${paPitchAudit(x.pa).credited} pitches</button>`));
+      h+=`<td>${cells.length?'<div class="paStack">'+cells.join('')+'</div>':''}</td>`;}
     h+=`</tr>`;});
   return h+'</table>';
 }
@@ -2794,6 +2822,9 @@ function renderBook(){
     x.onclick=()=>pitchAuditModal(+x.dataset.paAudit);
     x.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pitchAuditModal(+x.dataset.paAudit);}};
   });
+  document.querySelectorAll('[data-interrupted-audit]').forEach(x=>{
+    x.onclick=()=>pitchAuditModal(+x.dataset.interruptedAudit,true);
+  });
   const nInn=Math.max(9,S.inning);
   const H=teamHits;
   const E=teamErrs;
@@ -2805,13 +2836,19 @@ function renderBook(){
 }
 function renderPbp(){
   const el=$('#pbp');if(!el)return;
-  el.innerHTML=S.pas.map((p,idx)=>{
-    const e0=p.events.length?p.events[0].text:'';
+  el.innerHTML=bookPAEntries().map(({pa:p,idx,interrupted})=>{
+    const e0=(p.events||[]).length?p.events[0].text:'';
     const pc=paPitchAudit(p).credited;
-    return `<div class="pbpRow"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${p.batter||''} · <b>${paResultDisplay(p,true)}${paErrDisp(p)?', '+paErrDisp(p):''}</b>${e0?`<br><small style="opacity:.6">${e0.slice(0,64)}</small>`:''}</div><div class="pbpActions"><button class="sml ghost" data-audit="${idx}">${pc} pitch${pc===1?'':'es'}</button>${viewing&&!viewing.editing?'':`<button class="sml" data-edit="${idx}">Edit</button>`}</div></div>`;
+    const outcome=interrupted
+      ?'<span class="interruptedLabel">PA unfinished · third out</span>'
+      :'<b>'+esc(paResultDisplay(p,true)+(paErrDisp(p)?', '+paErrDisp(p):''))+'</b>';
+    const detail=interrupted?interruptedPAReason(p):e0;
+    return `<div class="pbpRow${interrupted?' interruptedRow':''}"><div><b>${p.half?'B':'T'}${p.inning}</b> · ${esc(p.batter||'')} · ${outcome}${detail?`<br><small style="opacity:.8">${esc(String(detail).slice(0,100))}</small>`:''}${interrupted?'<br><small>Not a completed PA · batter remains due up</small>':''}</div><div class="pbpActions"><button class="sml ghost" ${interrupted?'data-interrupted-audit':'data-audit'}="${idx}">${pc} pitch${pc===1?'':'es'}</button>${viewing&&!viewing.editing?'':`<button class="sml" ${interrupted?'data-interrupted-edit':'data-edit'}="${idx}">${interrupted?'Edit pitches':'Edit'}</button>`}</div></div>`;
   }).join('')||'<p class="sub">No plays yet.</p>';
   el.querySelectorAll('[data-audit]').forEach(b=>b.onclick=()=>pitchAuditModal(+b.dataset.audit));
   el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>editPA(+b.dataset.edit));
+  el.querySelectorAll('[data-interrupted-audit]').forEach(b=>b.onclick=()=>pitchAuditModal(+b.dataset.interruptedAudit,true));
+  el.querySelectorAll('[data-interrupted-edit]').forEach(b=>b.onclick=()=>addPitchPA(+b.dataset.interruptedEdit,true));
 }
 function renderSubLog(){
   const el=$('#sublog');if(!el)return;
@@ -2857,8 +2894,8 @@ function beginPastEditIfNeeded(){
     renderAll();renderGames();
   }
 }
-function deleteStoredPitch(idx,eventIndex){
-  const pa=S.pas[idx];
+function deleteStoredPitch(idx,eventIndex,interrupted=false){
+  const pa=interrupted?(S.interruptedPAs||[])[idx]:S.pas[idx];
   if(!pa||!pa.events||!pa.events[eventIndex]||pa.events[eventIndex].t!=='p')return false;
   beginPastEditIfNeeded();
   snap();
@@ -2884,11 +2921,12 @@ function auditEditPA(idx){
   beginPastEditIfNeeded();
   editPA(idx);
 }
-function pitchAuditModal(idx){
-  const pa=S.pas[idx];if(!pa)return;
+function pitchAuditModal(idx,interrupted=false){
+  const pa=interrupted?(S.interruptedPAs||[])[idx]:S.pas[idx];if(!pa)return;
   const a=paPitchAudit(pa),fromResult=a.rows.filter(r=>r.inferred).length,nonPitch=a.rows.filter(r=>!r.physical).length;
   openModal(`<h2>Pitch audit</h2>
-    <p class="sub">${esc(describePA(pa))}</p>
+    <p class="sub">${esc(interrupted?interruptedPADescription(pa):describePA(pa))}</p>
+    ${interrupted?'<p class="sub">Third-out runner play · not a completed PA. These pitches still count toward the pitcher total.</p>':''}
     <div class="auditSummary">
       <b>${a.credited} pitch${a.credited===1?'':'es'} credited to pitcher</b> · ${a.stored} stored pitch event${a.stored===1?'':'s'}
       ${fromResult?' · '+fromResult+' terminal pitch from PA result':''}
@@ -2906,13 +2944,13 @@ function pitchAuditModal(idx){
     </div>`).join('')||'<p class="sub">No pitch events stored for this PA.</p>'}</div>
     ${a.notes.length?'<div class="sect">Other PA events</div>'+a.notes.map(n=>'<div class="subRow">'+esc(n)+'</div>').join(''):''}
     <div class="grid2" style="margin-top:10px">
-      <button class="med" id="auditEdit">Edit PA</button>
+      <button class="med" id="auditEdit">${interrupted?'Add missed pitch':'Edit PA'}</button>
       <button class="med accent" id="auditDone">Done</button>
     </div>`);
   $('#sheet').querySelectorAll('[data-audit-delete]').forEach(b=>b.onclick=()=>{
-    if(deleteStoredPitch(idx,+b.dataset.auditDelete))pitchAuditModal(idx);
+    if(deleteStoredPitch(idx,+b.dataset.auditDelete,interrupted))pitchAuditModal(idx,interrupted);
   });
-  $('#auditEdit').onclick=()=>auditEditPA(idx);
+  $('#auditEdit').onclick=()=>interrupted?addPitchPA(idx,true):auditEditPA(idx);
   $('#auditDone').onclick=closeModal;
 }
 
@@ -3060,34 +3098,35 @@ function pitchCounts(pa){
   return{b,s};
 }
 // Returns '' on success, or a plain-English reason the pitch can't be added.
-function tryAddPitch(pa,label){
+function tryAddPitch(pa,label,interrupted=false){
   const pc=pitchCounts(pa),isK=/^(K|ꓘ)(?:-(?:PB|WP))?$/.test(pa.result),isBB=pa.result==='BB';
   if(label==='Ball'||label==='Intentional ball'){
     if(isBB&&pc.b>=4)return 'this PA ended in a walk — 4 balls are already logged.';
-    if(!isBB&&pc.b>=3)return pc.b+' balls already logged — a '+(pc.b+1)+'th would be ball four, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
+    if(!isBB&&pc.b>=3)return interrupted?'An unfinished PA cannot contain ball four. Check the recorded count before editing.':pc.b+' balls already logged — a '+(pc.b+1)+'th would be ball four, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
   }else if(label!=='Foul ball'){
     if(isK)return 'this PA ended in a strikeout — 3 strikes are already logged.';
-    if(pc.s>=2)return pc.s+' strikes already logged — another would be strike three, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
+    if(pc.s>=2)return interrupted?'An unfinished PA cannot contain strike three. Check the recorded count before editing.':pc.s+' strikes already logged — another would be strike three, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
   }
+  if(interrupted)beginPastEditIfNeeded();
   snap();
   const j=outcomeIdx(pa);
   if(j>=0)pa.events.splice(j,0,{t:'p',text:label});else pa.events.push({t:'p',text:label});
   save();
   return '';
 }
-function addPitchPA(idx){
-  const pa=S.pas[idx];
+function addPitchPA(idx,interrupted=false){
+  const pa=interrupted?(S.interruptedPAs||[])[idx]:S.pas[idx];if(!pa)return;
   const P=['Ball','Intentional ball','Called strike','Swinging strike','Foul tip','Foul ball'];
   const draw=(err)=>{
     const plist=pa.events.filter(e=>e.t==='p').map(e=>e.text);
     $('#sheet').innerHTML=`<h2>Add missed pitch</h2>
-      <p class="sub">${describePA(pa)} — tap each pitch that happened but wasn't entered. It goes at the end of the pitch list, right before the outcome.</p>
+      <p class="sub">${esc(interrupted?interruptedPADescription(pa):describePA(pa))}${interrupted?' — tap missing pitches before the runner out; the batter remains due up.':' — tap each pitch that happened but was not entered, right before the outcome.'}</p>
       <p class="sub"><b>Pitches logged (${plist.length}):</b> ${plist.length?plist.join(' · '):'none'}</p>
       ${err?`<p class="sub" style="color:#ff9d9d"><b>Can't add that:</b> ${err}</p>`:''}
       <div class="grid2">${P.map(p=>`<button class="med" data-ap="${p}">${p}</button>`).join('')}</div>
       <div style="margin-top:10px"><button class="med accent" id="apDone" style="width:100%">Done</button></div>`;
     $('#sheet').querySelectorAll('[data-ap]').forEach(b=>b.onclick=()=>{
-      const why=tryAddPitch(pa,b.dataset.ap);
+      const why=tryAddPitch(pa,b.dataset.ap,interrupted);
       draw(why);renderAll();
     });
     $('#apDone').onclick=()=>closeModal();
