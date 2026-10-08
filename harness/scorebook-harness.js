@@ -1277,6 +1277,71 @@ async function main() {
   ok(midPaIbb.events.filter(e=>e.t==='p').every(e=>e.text==='Ball'),
     'V5: preserved pitch events remain the two thrown balls');
 
+  /* ===== held Ball → intentional thrown ball ===== */
+  ok(html.includes('data-p="ball" data-hold-wppb="1" data-hold-down="intentball"') &&
+     html.includes("downKind==='intentball'?'↓ Intentional Ball'") &&
+     html.includes("else if(c==='DOWN')doPitch(downKind)"),
+    'IB1: holding Ball and sliding down records the intentional-ball variant');
+  ok(html.includes('data-p="ibb">Intentional Walk</button>'),
+    'IB1: automatic zero-pitch Intentional Walk stays available separately');
+
+  newGame();
+  sb.syncPitcherFromLineup('home');
+  sb.doPitch('intentball');
+  eq(sb.S.balls,1,'IB2: intentional ball advances the live ball count');
+  eq(sb.S.pa.filter(e=>e.t==='p').length,1,
+    'IB2: intentional ball records exactly one pitch event');
+  eq(sb.S.pa[0].text,'Intentional ball',
+    'IB2: intentional ball preserves distinct pitch notation');
+  eq(sb.pitcherPitchCount('home'),1,
+    'IB2: intentional ball counts toward the pitcher physical pitch total');
+  sb.renderScore();
+  ok(el('#hEvents').innerHTML.includes('Int. Ball'),
+    'IB2: live pitch rail distinguishes intentional balls');
+  eq(sb.countAfterPitch('Intentional ball',2,1).b,3,
+    'IB2: pitch audit reconstructs an intentional ball as a ball');
+  eq(sb.pitchCounts({events:[{t:'p',text:'Ball'},{t:'p',text:'Intentional ball'}]}).b,2,
+    'IB2: past-PA pitch recount includes intentional balls');
+  sb.S.pa=[{t:'p',text:'Intentional ball'}];sb.S.balls=0;
+  sb.recountCount(sb.S.pa);
+  eq(sb.S.balls,1,'IB2: restored live count includes intentional ball');
+
+  newGame();
+  sb.syncPitcherFromLineup('home');
+  sb.doPitch('ball');
+  sb.doPitch('intentball');
+  sb.doPitch('intentball');
+  eq(sb.S.balls,3,'IB3: ordinary and intentional balls share the same count');
+  sb.doPitch('intentball');
+  ok(el('#sheet').innerHTML.includes('Walk'),
+    'IB3: fourth intentional ball goes through ordinary walk placement');
+  el('#plDone').onclick();
+  const intentionalWalkPitched=sb.S.pas[sb.S.pas.length-1];
+  eq(intentionalWalkPitched.result,'BB',
+    'IB3: pitched fourth ball remains a BB rather than free no-pitch IBB');
+  eq(intentionalWalkPitched.events.filter(e=>e.t==='p').length,4,
+    'IB3: all four physical pitches are preserved on the walk');
+  eq(intentionalWalkPitched.events.filter(e=>e.t==='p'&&e.text==='Intentional ball').length,3,
+    'IB3: final PA retains intentional-ball labels');
+  eq(sb.pitcherPitchCount('home'),4,
+    'IB3: fourth intentional ball remains charged as one physical pitch');
+  const intentionalAudit=sb.paPitchAudit(intentionalWalkPitched);
+  eq(intentionalAudit.credited,4,'IB3: pitch audit credits four real pitches on the walk');
+  eq(intentionalAudit.final.b,4,'IB3: audit final count reaches ball four');
+
+  newGame();
+  const corrected={result:'1B',events:[{t:'p',text:'Ball'},{t:'o',text:'Single'}]};
+  eq(sb.tryAddPitch(corrected,'Intentional ball'),'',
+    'IB4: missed-pitch editor accepts intentional balls');
+  eq(corrected.events[1].text,'Intentional ball',
+    'IB4: added intentional ball is inserted before the PA outcome');
+  eq(sb.pitchCounts(corrected).b,2,
+    'IB4: inserted intentional ball rebuilds the count correctly');
+  sb.S.pas=[corrected];
+  sb.addPitchPA(0);
+  ok(el('#sheet').innerHTML.includes('data-ap="Intentional ball"'),
+    'IB4: missed-pitch editor offers Intentional ball as a correction');
+
   /* ===== foul tip pitch ===== */
   ok(html.indexOf('data-p="foultip"')>=0 && html.indexOf('Foul Tip</button>')>=0,
     'V6: Foul Tip has its own scoring button');
