@@ -614,7 +614,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.06.45';
+const APP_VERSION='2026.10.08.1';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1760,6 +1760,38 @@ function hitPicker(verb,cb){
   };
   draw();$('#modal').classList.add('on');
 }
+/* Keep FC contact type and fielding sequence together, including bunts. */
+function fcPlayText(ht,f,noOut){
+  return "Fielder's choice on a "+ht+" "+f+(noOut?' — no out':'');
+}
+function fielderChoicePicker(cb){
+  let ht=null,taps=[];
+  const draw=()=>{
+    const ready=!!(ht&&taps.length);
+    $('#sheet').innerHTML=`<h2>Fielder's choice — how, and who played it?</h2>
+      <div class="sect" style="margin-top:0">Contact type</div>
+      <div class="grid2">${[
+        ['ground ball','Ground'],['line drive','Line'],['fly ball','Fly'],
+        ['pop up','Pop Up'],['ground bunt','Bunt']
+      ].map(([h,label])=>`<button class="med${ht===h?' accent':''}" data-fcht="${h}">${label}</button>`).join('')}</div>
+      <div class="sect">Fielders — tap in order</div>
+      ${fieldSVG(taps)}
+      <div class="fread" style="font-size:16px;min-height:30px">${taps.length?taps.join('-'):'Tap fielders in order'}</div>
+      <div class="fread" style="font-size:14px;color:var(--dim);min-height:22px">${taps.map(n=>POS[n]).join(' → ')}</div>
+      <div class="grid2"><button class="med" id="fcBack">⌫ Back</button><button class="med" id="fcClear">Clear</button></div>
+      <div class="sheetActions">
+        <button class="med${ready?' accent':''}" id="fcDone"${ready?'':' disabled'}>Done</button>
+        <button class="med ghost" id="fcCancel">Cancel</button>
+      </div>`;
+    $('#sheet').querySelectorAll('[data-fcht]').forEach(b=>b.onclick=()=>{ht=b.dataset.fcht;draw();});
+    bindField($('#sheet'),n=>{taps.push(n);draw();});
+    $('#fcBack').onclick=()=>{taps.pop();draw();};
+    $('#fcClear').onclick=()=>{taps=[];draw();};
+    $('#fcCancel').onclick=closeModal;
+    if(ready)$('#fcDone').onclick=()=>{closeModal();cb(ht,taps.join('-'));};
+  };
+  draw();$('#modal').classList.add('on');
+}
 function hitDetail(n,kind,verb){
   hitPicker(verb,(ht,f)=>{const txt=`${verb} on a ${ht} to ${POS[f]}`;
     ev('o',txt);placementReview(hitMovers(n),kind,txt);});
@@ -2101,25 +2133,22 @@ function handleOutcome(kind){
   }
   if(kind==='FC'){
     if(!S.bases.some(Boolean)){toast("Fielder's choice needs a runner on base.");return;}
-    fielderPad(f=>{
-      const choose=()=>{
-        openModal('<h2>Fielder\'s choice '+esc(f)+'</h2><p class="sub">Was an out recorded on the play?</p>'+
-          '<div class="grid2"><button class="med" id="fcOut">Out recorded</button><button class="med accent" id="fcNoOut">No out</button></div>'+
-          '<div style="margin-top:10px"><button class="sml ghost" id="fcCancel" style="width:100%">Cancel</button></div>');
-        $('#fcOut').onclick=()=>pickRunner((bi,r)=>{
-          const txt="Fielder's choice "+f;
-          ev('o',txt);
-          placementReview(fielderChoiceMovers(bi,f),'FC',txt);
-        },"Fielder's choice — runner out");
-        $('#fcNoOut').onclick=()=>{
-          const txt="Fielder's choice "+f+" — no out";
-          ev('o',txt);
-          placementReview(fielderChoiceMovers(null,f),'FC',txt);
-        };
-        $('#fcCancel').onclick=closeModal;
+    fielderChoicePicker((ht,f)=>{
+      openModal(`<h2>${fcPlayText(ht,f)}</h2><p class="sub">Was an out recorded on the play?</p>
+        <div class="grid2"><button class="med" id="fcOut">Out recorded</button><button class="med accent" id="fcNoOut">No out</button></div>
+        <div style="margin-top:10px"><button class="sml ghost" id="fcCancel" style="width:100%">Cancel</button></div>`);
+      $('#fcOut').onclick=()=>pickRunner((bi,r)=>{
+        const txt=fcPlayText(ht,f,false);
+        ev('o',txt);
+        placementReview(fielderChoiceMovers(bi,f),'FC',txt);
+      },"Fielder's choice — runner out");
+      $('#fcNoOut').onclick=()=>{
+        const txt=fcPlayText(ht,f,true);
+        ev('o',txt);
+        placementReview(fielderChoiceMovers(null,f),'FC',txt);
       };
-      choose();
-    },'FC — fielders');
+      $('#fcCancel').onclick=closeModal;
+    });
     return;
   }
   if(kind==='SAC'){openModal(`<h2>Sacrifice</h2><div class="grid2">
@@ -2941,7 +2970,7 @@ function applyNotationFix(kind,ht,f,wasFoul){
   if(kind==='BFPOP'){const n=buntOutNotation('BFPOP',f);return{result:n.code,text:n.text};}
   if(kind==='LO')return{result:'L'+f,text:'Lined out to '+f};
   if(kind==='E')return{result:'E'+f,text:'Reached on error E'+f};
-  if(kind==='FC')return{result:'FC',text:"Fielder's choice "+f};
+  if(kind==='FC')return{result:'FC',text:fcPlayText(ht,f,false)};
   if(kind==='SAC')return{result:'SAC',text:'Sac bunt '+f};
   if(kind==='SF')return{result:'SF',text:'Sac fly F'+f};
   return null;
@@ -2992,13 +3021,22 @@ function fixNotation(idx){
       ${kind==='1B'||kind==='2B'||kind==='3B'||kind==='GRD'
         ?'<button class="med" id="fxHit" style="width:100%;margin-top:8px">Re-pick hit type + fielder</button>'
         :['GO','FO','FPOP','POP','BGO','BPOP','LO','E','FC','SAC','SF'].includes(kind)
-        ?'<button class="med" id="fxF" style="width:100%;margin-top:8px">Re-pick fielders</button>':''}
+        ?`<button class="med" id="fxF" style="width:100%;margin-top:8px">${kind==='FC'?'Re-pick contact type + fielders':'Re-pick fielders'}</button>`:''}
       <button class="med accent" id="fxSave" style="width:100%;margin-top:10px">Save notation</button>
       <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
     const rh=$('#fxHit');if(rh)rh.onclick=()=>hitPicker(HITVERB[kind],(ht,f)=>{
       const m=applyNotationFix(kind,ht,f);fxR=m.result;fxT=m.text;draw();});
-    const rf=$('#fxF');if(rf)rf.onclick=()=>fielderPad(f=>{
-      const m=applyNotationFix(kind,null,f,/^Fouled out/.test(fxT));fxR=m.result;fxT=m.text;draw();},'Re-pick fielders');
+    const rf=$('#fxF');if(rf)rf.onclick=()=>{
+      if(kind==='FC'){
+        fielderChoicePicker((ht,f)=>{
+          const noOut=/— no out/.test(fxT);
+          const m=applyNotationFix(kind,ht,f);
+          fxR=m.result;fxT=m.text+(noOut?' — no out':'');draw();
+        });return;
+      }
+      fielderPad(f=>{
+        const m=applyNotationFix(kind,null,f,/^Fouled out/.test(fxT));fxR=m.result;fxT=m.text;draw();},'Re-pick fielders');
+    };
     $('#fxSave').onclick=()=>{
       const nr=$('#fxResult').value.trim()||pa.result,nt=$('#fxText').value.trim();
       const c0=clsOf(pa.result),c1=clsOf(nr);
