@@ -94,8 +94,8 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,fcPlayText,fielderChoicePicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
-  `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
-  `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookAdvanceBatterSlot,bookAdvanceLabel,bookAdvanceLabelPos,bookDiamondHTML,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
+  `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actError,scoreRunnerErrorAdvance,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
+  `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookAdvanceBatterSlot,bookAdvanceLabel,bookAdvanceLabelPos,bookDiamondHTML,teamHits,paErrDisp,teamErrs,liveBallErrors,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
   `pitchCounts,tryAddPitch,addPitchPA,teamRunTotal,cleanPitcherName,pitcherCandidates,decisionList,decisionInputRow,decisionPitcherPicker,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
@@ -182,8 +182,9 @@ async function main() {
   sb.runnerActionMenu(1);
   ok(el('#sheet').innerHTML.indexOf('Steal')>=0 &&
      el('#sheet').innerHTML.indexOf('Pickoff')>=0 &&
-     el('#sheet').innerHTML.indexOf('Def. Indiff.')>=0,
-    'RA1: tapping an occupied base opens Steal / Pickoff / Defensive Indifference for that runner');
+     el('#sheet').innerHTML.indexOf('Def. Indiff.')>=0 &&
+     el('#sheet').innerHTML.indexOf('Advance on Error')>=0,
+    'RA1: tapping an occupied base opens Steal / Pickoff / DI / Advance on Error');
   ok(el('#sheet').innerHTML.indexOf('On 2nd')>=0,
     'RA1: base action menu identifies the tapped runner base');
   el('#raDI').onclick();
@@ -210,6 +211,110 @@ async function main() {
      html.indexOf('id="balkBtn"')<0,
     'RA1: old bottom runner-action buttons are removed');
 
+
+  /* ===== Runner Advance on Error while the same batter remains at bat ===== */
+  newGame();
+  sb.S.inning=7;sb.S.outs=2;sb.S.balls=2;sb.S.strikes=2;sb.S.order.away=3;
+  sb.S.pa=[
+    {t:'p',text:'Foul ball'},
+    {t:'p',text:'Ball'},
+    {t:'p',text:'Foul ball'},
+    {t:'p',text:'Ball'},
+  ];
+  sb.S.pas=[{team:'away',b:1,inning:7,half:0,result:'3B',
+    batter:'Earlier runner',pitcher:'Rival9 #18',runnerId:'r-run7',
+    events:[{t:'o',text:'Tripled to CF'}]}];
+  sb.S.bases[2]={t:'away',i:1,rid:'r-run7',originPa:0};
+  sb.syncPitcherFromLineup('home');
+  const beforeErrorPitcher=sb.pitcherPitchCount('home'),beforeErrorPA=sb.S.pa.filter(e=>e.t==='p').length;
+  sb.runnerActionMenu(2);
+  ok(el('#sheet').innerHTML.includes('id="raError"'),'ER1: runner menu includes Advance on Error');
+  const fakeFielder={dataset:{n:'2'},onclick:null};
+  el('#fs1').querySelectorAll=()=>[fakeFielder];
+  el('#raError').onclick();
+  ok(el('#sheet').innerHTML.includes('Error by which fielder?'),'ER1: error flow asks which fielder');
+  fakeFielder.onclick();el('#fs1ok').onclick();
+  const fakeDest={dataset:{errorDest:'4'},onclick:null};
+  el('#sheet').querySelectorAll=sel=>sel==='[data-error-dest]'?[fakeDest]:[];
+  // Reopen the fielder callback so destination choices are bound against the DOM stub.
+  el('#raError').onclick=null;
+  // Target is already open. Explicitly use the scorer that the destination action calls.
+  ok(el('#sheet').innerHTML.includes('Home · scores') &&
+     el('#sheet').innerHTML.includes('Advance on Error · E2'),
+     'ER1: E2 from third offers Home · scores');
+  ok(sb.scoreRunnerErrorAdvance(2,4,'2'),'ER1: live E2 scores runner from third');
+  eq(sb.S.bases[2],null,'ER1: scoring runner is removed from third');
+  eq(sb.S.runs.away[6],1,'ER1: runner from third crosses home and adds a run');
+  eq(sb.S.outs,2,'ER1: runner error does not produce an out');
+  eq(sb.S.balls,2,'ER1: 2-2 ball count remains unchanged');
+  eq(sb.S.strikes,2,'ER1: 2-2 strike count remains unchanged');
+  eq(sb.S.order.away,3,'ER1: same batter stays up during the live-ball error');
+  eq(sb.S.pas.length,1,'ER1: live-ball error does not end the PA');
+  eq(sb.S.pa.filter(e=>e.t==='p').length,beforeErrorPA,
+    'ER1: error adds no extra pitch');
+  eq(sb.pitcherPitchCount('home'),beforeErrorPitcher,
+    'ER1: no extra charged pitch to the pitcher');
+  const errorEvent=sb.S.pa.find(e=>e.advance&&e.advance.reason==='error');
+  ok(errorEvent&&errorEvent.advance.from===3&&errorEvent.advance.to===4 &&
+    errorEvent.advance.fielder==='2'&&errorEvent.advance.fieldingError.team==='home' &&
+    errorEvent.advance.fieldingError.player==='Rival8',
+    'ER1: error event stores E2, point-in-time catcher, run, and runner path');
+  ok(errorEvent&&errorEvent.text.includes('scores on error E2'),
+    'ER1: live-ball event is readable in play notes');
+  eq(sb.teamErrs('home'),1,'ER1: E2 charges one immediate Toronto-side fielding error');
+  eq(sb.teamErrs('away'),0,'ER1: E2 does not charge batting team');
+  eq(sb.playerErrs().home.Rival8,1,'ER1: catcher is charged before PA completes');
+  sb.renderBook();
+  ok(el('#linescore').innerHTML.includes('<td>1</td>') &&
+    el('#fielding').innerHTML.includes('Rival8: 1 E'),
+    'ER1: Book shows live score and catcher fielding error');
+  const liveErrPath=sb.runnerPathById('r-run7');
+  ok(liveErrPath.steps.some(e=>e.reason==='error'&&e.from===3&&e.to===4),
+    'ER1: batter origin scorecard tracks 3rd-to-home on E2 before PA ends');
+  ok(sb.bookDiamondHTML(sb.S.pas[0]).includes('E2/4'),
+    'ER1: scorecard visually labels advance on E2 with batter slot');
+  sb.doPitch('foul');
+  eq(sb.S.balls,2,'ER1: next pitch preserves the 2-2 ball count');
+  eq(sb.S.strikes,2,'ER1: two-strike foul keeps the same PA');
+  eq(sb.S.pas.length,1,'ER1: next pitch follows error without new PA');
+  sb.doPitch('sstr'); // third strike ends Choo-style batter PA
+  const committedErrorPA=sb.S.pas[sb.S.pas.length-1];
+  ok(committedErrorPA.events.some(e=>e.advance&&e.advance.fieldingError),
+    'ER2: live-ball E2 persists into completed PA events');
+  eq(sb.teamErrs('home'),1,'ER2: error is not doubled once the batter finishes');
+  eq(sb.playerErrs().home.Rival8,1,'ER2: catcher error remains attributed after completion');
+  ok(sb.runnerPathById('r-run7').steps.some(e=>e.reason==='error'&&e.to===4),
+    'ER2: completed PA still carries scorecard error path');
+
+  /* Collision safety and interrupted-PA carryover. */
+  newGame();
+  sb.S.bases[0]={t:'away',i:0};
+  sb.S.bases[1]={t:'away',i:1};
+  const rejected=sb.scoreRunnerErrorAdvance(0,2,'6');
+  eq(rejected,false,'ER3: cannot advance onto occupied second base');
+  eq(sb.teamErrs('home'),0,'ER3: rejected collision adds no error');
+  ok(sb.S.bases[0]&&sb.S.bases[1],'ER3: collision preserves both baserunners');
+  eq(sb.scoreRunnerErrorAdvance(0,4,'6'),true,
+    'ER3: direct first-to-home E6 is allowed when destination is clear');
+  eq(sb.S.runs.away[0],1,'ER3: multiple-base advance scores exactly one run');
+  eq(sb.teamErrs('home'),1,'ER3: multi-base advance credits exactly one fielding error');
+
+  newGame();
+  sb.S.inning=4;sb.S.outs=2;sb.S.balls=1;
+  sb.S.pa=[{t:'p',text:'Ball'}];
+  sb.S.bases[2]={t:'away',i:2,rid:'r-finish'};
+  sb.S.bases[0]={t:'away',i:1,rid:'r-out'};
+  ok(sb.scoreRunnerErrorAdvance(2,4,'2'),
+     'ER4: third-base error followed by inning-ending CS still records a run');
+  sb.S.bases[0]=null;
+  sb.recordRunnerOut('Caught stealing 2-6 — Rival runner',{t:'away',i:1,rid:'r-out'},1);
+  eq(sb.S.interruptedPAs.length,1,'ER4: third out stores interrupted PA');
+  eq(sb.teamErrs('home'),1,'ER4: E2 survives into interrupted PA fielding totals');
+  eq(sb.playerErrs().home.Rival8,1,'ER4: catcher error survives interruption');
+  eq(sb.S.runs.away[3],1,'ER4: the scored run survives the third-out transition');
+  eq(sb.S.order.away,0,'ER4: the batter is still due up next half inning');
+  eq(sb.S.interruptedPAs[0].events.filter(e=>e.t==='p').length,1,
+    'ER4: interrupted PA retains its single physical pitch');
 
   newGame();
   sb.S.bases[0] = { t: 'away', i: 0 };
@@ -966,7 +1071,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.08.3','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.08.4','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');

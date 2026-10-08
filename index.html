@@ -619,7 +619,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.08.3';
+const APP_VERSION='2026.10.08.4';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1356,7 +1356,7 @@ function renderScore(){
     el.setAttribute('role',active?'button':'img');
     el.setAttribute('tabindex',active?'0':'-1');
     el.setAttribute('aria-label',r?('Runner '+pname(r)+' on '+baseName(i+1)+' — tap for runner actions'):(baseName(i+1)+' empty'));
-    el.title=r?'Tap for Steal, Pickoff, or Defensive Indifference':'';
+    el.title=r?'Tap for Steal, Pickoff, Defensive Indifference, or Advance on Error':'';
   });
   const b=curBatter();
   $('#hBatter').innerHTML=`B: ${b.num?'#'+b.num+' ':''}${b.name||'Batter '+(curIdx()+1)} <small>${POS[b.pos]||''} · ${S.bat==='away'?a.name:h.name}</small>`;
@@ -2216,9 +2216,10 @@ function runnerPathById(rid){
     const to=resultAwardBase(origin.pa.result);
     if(to)steps.push({from:0,to,reason:origin.pa.result,pa:origin.idx});
   }
-  const scan=(events,paIndex)=>{for(const e of events||[])if(e.advance&&e.advance.rid===rid)
-    steps.push({...e.advance,text:e.text||'',pa:paIndex});};
-  S.pas.forEach((pa,i)=>scan(pa.events,i));scan(S.pa,null);
+  const scan=(events,paIndex,batterSlot)=>{for(const e of events||[])if(e.advance&&e.advance.rid===rid)
+    steps.push({...e.advance,text:e.text||'',pa:paIndex,...(Number.isInteger(batterSlot)?{batterSlot}:null)});};
+  bookPAEntries().forEach(entry=>scan(entry.pa.events,entry.interrupted?null:entry.idx,entry.interrupted?entry.pa.b:null));
+  scan(S.pa,null,curIdx());
   return{rid,origin:origin&&origin.idx,steps};
 }
 
@@ -2415,14 +2416,16 @@ function runnerAtBase(bi){return Number.isInteger(bi)&&bi>=0&&bi<3?S.bases[bi]:n
 function runnerActionMenu(bi){
   const r=runnerAtBase(bi);if(!r||viewing)return;
   openModal('<h2>'+esc(pname(r))+'</h2><p class="sub">On '+baseName(bi+1)+'</p>'+
-    '<div class="grid3">'+
+    '<div class="grid2">'+
       '<button class="med" id="raSteal">Steal</button>'+
       '<button class="med" id="raPick">Pickoff</button>'+
       '<button class="med" id="raDI">Def. Indiff.</button>'+
+      '<button class="med" id="raError">Advance on Error</button>'+
     '</div><div style="margin-top:10px"><button class="sml ghost" id="raCancel" style="width:100%">Cancel</button></div>');
   $('#raSteal').onclick=()=>actSteal(bi);
   $('#raPick').onclick=()=>actPick(bi);
   $('#raDI').onclick=()=>actDI(bi);
+  $('#raError').onclick=()=>actError(bi);
   $('#raCancel').onclick=closeModal;
 }
 function actSteal(baseIndex){
@@ -2446,6 +2449,38 @@ function actSteal(baseIndex){
   if(Number.isInteger(baseIndex)){const r=runnerAtBase(baseIndex);if(r)go(baseIndex,r);return;}
   if(!S.bases.some(Boolean))return;
   pickRunner(go,'Steal — which runner?');
+}
+
+/* Live-ball runner advancement on an error, independent of batter's PA.
+   The extra fielding-error identity remains with this event when the PA
+   completes or becomes an interrupted third-out PA. */
+function scoreRunnerErrorAdvance(bi,dest,f){
+  const r=runnerAtBase(bi),from=bi+1,position=String(f||'');
+  if(!S.started||viewing||!r||!Number.isInteger(dest)||dest<=from||dest>4||!/^[1-9]$/.test(position))return false;
+  const occupied=runnerActionCollision({[bi]:dest});
+  if(occupied){runnerCollisionToast(occupied);return false;}
+  const def=fieldingTeam(),player=fielderName(def,position)||'',name=pname(r);
+  snap();ensureRunnerIdentity(r);S.bases[bi]=null;
+  const text=name+(dest===4?' scores':' advances to '+baseName(dest))+' on error E'+position;
+  const extra={fielder:position,fieldingError:{team:def,position,player}};
+  if(dest===4){setRunnerEnd(r,'scored',4);scoreRun(S.bat);}else S.bases[dest-1]=r;
+  ev('r',runnerAdvanceEvent(r,text,from,dest,'error',extra));
+  save();renderAll();return true;
+}
+function actError(bi){
+  if(!S.started||viewing||!runnerAtBase(bi))return;
+  const name=pname(runnerAtBase(bi)),from=bi+1;
+  fielderSingle(f=>{
+    const destinations=[1,2,3,4].filter(d=>d>from);
+    openModal('<h2>Advance on Error · E'+esc(f)+'</h2><p class="sub">'+esc(name)+' on '+baseName(from)+'. Where did the runner end up?</p>'+
+      '<div class="grid2">'+destinations.map(d=>
+        '<button class="med" data-error-dest="'+d+'">'+(d===4?'Home · scores':baseName(d))+'</button>').join('')+
+      '</div><div style="margin-top:10px"><button class="sml ghost" id="errorCancel" style="width:100%">Cancel</button></div>');
+    $('#sheet').querySelectorAll('[data-error-dest]').forEach(b=>b.onclick=()=>{
+      if(scoreRunnerErrorAdvance(bi,+b.dataset.errorDest,f))closeModal();
+    });
+    $('#errorCancel').onclick=()=>runnerActionMenu(bi);
+  },'Error by which fielder?',()=>runnerActionMenu(bi));
 }
 function actDI(baseIndex){
   const go=(bi,r)=>{const d=Math.min(4,bi+2),changes={};changes[bi]=d;
@@ -2679,6 +2714,7 @@ function paBookJourney(pa){
 }
 function bookAdvanceBatterSlot(step){
   if(!step)return null;
+  if(Number.isInteger(step.batterSlot))return(step.batterSlot%9)+1;
   if(Number.isInteger(step.pa)&&S.pas[step.pa]&&Number.isInteger(S.pas[step.pa].b))return (S.pas[step.pa].b%9)+1;
   if(step.pa==null&&S&&S.started)return(curIdx()%9)+1;
   return null;
@@ -2740,17 +2776,35 @@ function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|GRD|HR)$/.te
 /* Errors belong to the fielding team — the opponent of the batting team in p.team.
    Counts distinct fielder errors per PA: an E-type outcome plus any extra tags. */
 function paErrDisp(pa){return stripDupErr(pa.result,pa.err);}
+/* Live-ball error events are independent of the batter result, and may live
+   in the current PA, a completed PA, or an inning-ending interrupted PA. */
+function liveBallErrors(){
+  const out=[],scan=events=>{for(const e of events||[]){
+    const x=e&&e.advance&&e.advance.fieldingError;
+    if(x&&x.team&&x.position)out.push(x);
+  }};
+  (S.pas||[]).forEach(pa=>scan(pa.events));
+  (S.interruptedPAs||[]).forEach(pa=>scan(pa.events));
+  scan(S.pa);return out;
+}
 function teamErrs(t){const def=p=>(p.team==='away'?'home':'away')===t;
-  return S.pas.filter(p=>def(p)).reduce((n,p)=>{const fs=new Set();let m=/^E(\d+)/.exec(p.result||'');if(m)fs.add(m[1]);
-    (p.err||'').split(',').forEach(e=>{m=/^E(\d+)/.exec(e.trim());if(m)fs.add(m[1]);});return n+fs.size;},0);}
-/* Per-player error counts, grouped by fielding team. Uses the point-in-time
-   names stored at commit; falls back to the current lineup for old saves. */
+  const completed=S.pas.filter(p=>def(p)).reduce((n,p)=>{const fs=new Set();let m=/^E(\d+)/.exec(p.result||'');if(m)fs.add(m[1]);
+    (p.err||'').split(',').forEach(e=>{m=/^E(\d+)/.exec(e.trim());if(m)fs.add(m[1]);});return n+fs.size;},0);
+  return completed+liveBallErrors().filter(e=>e.team===t).length;
+}
+/* Player errors from completed PA outcomes plus point-in-time runner
+   advances, so a mid-PA throwing error is credited before the next pitch. */
 function playerErrs(){const out={away:{},home:{}};
   S.pas.forEach(pa=>{const ft=pa.team==='away'?'home':'away';
     const posns=errPositions(pa);
     const names=pa.errBy&&pa.errBy.length===posns.length?pa.errBy:posns.map(f=>fielderName(ft,f));
     posns.forEach((f,i)=>{const nm=names[i];if(nm)out[ft][nm]=(out[ft][nm]||0)+1;});});
-  return out;}
+  liveBallErrors().forEach(e=>{
+    const nm=e.player||fielderName(e.team,e.position);
+    if(nm&&out[e.team])out[e.team][nm]=(out[e.team][nm]||0)+1;
+  });
+  return out;
+}
 function renderFielding(){const el=$('#fielding');if(!el)return;
   const pe=playerErrs();
   const sec=t=>{const ns=Object.keys(pe[t]);if(!ns.length)return '';
