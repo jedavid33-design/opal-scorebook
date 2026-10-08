@@ -1,0 +1,14 @@
+name: Scorebook regression
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  scoring-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out scorebook
+        uses: actions/checkout@v4
+      - name: Run scoring regression harness
+        run: node harness/scorebook-harness.js
