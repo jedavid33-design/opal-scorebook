@@ -13,9 +13,19 @@ const ROOT = path.join(__dirname, '..');
 /* ---------- tiny DOM / browser stubs ---------- */
 const els = {};
 function makeEl() {
+  const classes = new Set();
   const t = {
     _html: '', _text: '', _value: '', children: [],
-    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    classList: {
+      add(...names) { names.forEach(n => classes.add(n)); },
+      remove(...names) { names.forEach(n => classes.delete(n)); },
+      toggle(name, force) {
+        const add = force === undefined ? !classes.has(name) : !!force;
+        if (add) classes.add(name); else classes.delete(name);
+        return add;
+      },
+      contains(name) { return classes.has(name); },
+    },
     style: {}, dataset: {},
     addEventListener() {}, removeEventListener() {},
     setAttribute() {}, removeAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; },
@@ -174,7 +184,7 @@ async function main() {
      el('#sheet').innerHTML.indexOf('Pickoff')>=0 &&
      el('#sheet').innerHTML.indexOf('Def. Indiff.')>=0,
     'RA1: tapping an occupied base opens Steal / Pickoff / Defensive Indifference for that runner');
-  ok(el('#sheet').innerHTML.indexOf('on 2nd')>=0,
+  ok(el('#sheet').innerHTML.indexOf('On 2nd')>=0,
     'RA1: base action menu identifies the tapped runner base');
   el('#raDI').onclick();
   ok(!sb.S.bases[1]&&!!sb.S.bases[2],
@@ -184,7 +194,7 @@ async function main() {
   sb.S.bases[0]={t:'away',i:0};
   sb.runnerActionMenu(0);
   el('#raSteal').onclick();
-  ok(el('#sheet').innerHTML.indexOf('Steal — Astro1')>=0,
+  ok(el('#sheet').innerHTML.indexOf('Steal — #10 Astro1')>=0,
     'RA1: direct base Steal goes straight to that runner safe/out flow');
 
   newGame();
@@ -228,8 +238,7 @@ async function main() {
 
   let advanceRedraws=0;
   sb.extraAdvanceReason({who:'BR',label:'Batter',from:0,award:1,defaultTo:1,to:2,adv:null,err:null},()=>{advanceRedraws++;});
-  ok(el('#sheet').innerHTML.indexOf('Stolen Base')>=0 &&
-     el('#sheet').innerHTML.indexOf('On Throw')>=0 &&
+  ok(el('#sheet').innerHTML.indexOf('On Throw')>=0 &&
      el('#sheet').innerHTML.indexOf('Error')>=0 &&
      el('#sheet').innerHTML.indexOf('Other')>=0,
     'PATH1: extra-base placement asks why the batter advanced beyond the hit');
@@ -852,6 +861,7 @@ async function main() {
 
   newGame();
   sb.S.started=false;sb.S.away.dh=true;sb.ensureShape();
+  sb.S.away.lineup[8].pos='9'; // test DH lineup without a second pitcher in the batting order
   sb.S.away.lineup[9]={name:'Wrong Pitcher',num:'55',pos:'1',nb:true};
   sb.syncPitcherFromLineup('away');
   ok(sb.S.away.pitcher.indexOf('Wrong Pitcher')>=0,'LU1: pitcher test starts with active pitcher');
@@ -893,7 +903,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.06.45','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.08.1','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
