@@ -560,6 +560,54 @@ async function main() {
     'runner-out third out preserves real pitches for future totals');
   ok(sb.S.interruptedPAs[0].events.some(e=>/Picked off/.test(e.text)),
     'runner-out third out preserves pickoff event');
+  sb.renderPbp();
+  ok(el('#pbp').innerHTML.includes('PA unfinished · third out') &&
+     el('#pbp').innerHTML.includes('Picked off 1-3') &&
+     el('#pbp').innerHTML.includes('data-interrupted-audit="0"'),
+     'IP1: book PA list includes inning-ending pickoff and pitch audit link');
+  ok(el('#pbp').innerHTML.includes('2 pitches') &&
+     el('#pbp').innerHTML.includes('Not a completed PA'),
+     'IP1: unfinished PA is clearly marked and shows two thrown pitches');
+  ok(sb.bookTable('away').includes('data-interrupted-audit="0"') &&
+     sb.bookTable('away').includes('3rd out'),
+     'IP1: lineup scorecard displays unfinished PA marker without a fake diamond');
+  ok(sb.S.pas.length===0 && sb.teamHits('away')===0,
+     'IP1: interrupted PA is not treated as an official completed PA or hit');
+  const openPA=sb.S.interruptedPAs[0];
+  const countBeforeOpen=sb.pitcherPitchSummary('home').reduce((n,p)=>n+p.pitches,0);
+  eq(countBeforeOpen,2,'IP1: preserved pickoff pitches are included in pitcher totals');
+  sb.pitchAuditModal(0,true);
+  ok(el('#sheet').innerHTML.includes('PA unfinished (third out)') &&
+     el('#sheet').innerHTML.includes('2 pitches credited') &&
+     el('#sheet').innerHTML.includes('Picked off') &&
+     el('#sheet').innerHTML.includes('Add missed pitch'),
+     'IP1: interrupted PA opens a full pitch audit with add/edit controls');
+  ok(sb.deleteStoredPitch(0,0,true),
+     'IP2: deleting an extra pitch from interrupted PA succeeds');
+  eq(sb.paPitchAudit(openPA).credited,1,
+     'IP2: deleting a pitch updates the interrupted PA pitch audit');
+  eq(sb.pitcherPitchSummary('home').reduce((n,p)=>n+p.pitches,0),1,
+     'IP2: deleting a pitch updates pitcher totals without changing inning result');
+  eq(sb.S.order.away,3,'IP2: pitch correction leaves unfinished batter due up');
+  eq(sb.tryAddPitch(openPA,'Intentional ball',true),'',
+     'IP2: a missed intentional ball can be restored to unfinished PA');
+  eq(openPA.events[openPA.events.length-2].text,'Intentional ball',
+     'IP2: missed pitch inserted just before third-out runner event');
+  eq(sb.paPitchAudit(openPA).credited,2,
+     'IP2: restored pitch restores the audit count');
+  eq(sb.pitcherPitchSummary('home').reduce((n,p)=>n+p.pitches,0),2,
+     'IP2: restored pitch restores pitcher totals');
+  eq(sb.S.pas.length,0,'IP2: editing interrupted pitches never completes a PA');
+  sb.addPitchPA(0,true);
+  ok(el('#sheet').innerHTML.includes('PA unfinished') &&
+     el('#sheet').innerHTML.includes('data-ap="Intentional ball"'),
+     'IP2: edit-pitches screen for interrupted PA includes missing intentional ball option');
+  const blockedOpen={events:[{t:'p',text:'Ball'},{t:'p',text:'Ball'},{t:'p',text:'Ball'},{t:'o',text:'Runner out'}]};
+  ok(sb.tryAddPitch(blockedOpen,'Ball',true).includes('unfinished PA'),
+     'IP3: correction cannot silently add ball four to an unfinished PA');
+  const blockedStrike={events:[{t:'p',text:'Called strike'},{t:'p',text:'Foul ball'},{t:'o',text:'Runner out'}]};
+  ok(sb.tryAddPitch(blockedStrike,'Swinging strike',true).includes('unfinished PA'),
+     'IP3: correction cannot silently add strike three to an unfinished PA');
 
   newGame();
   sb.S.inning=5;sb.S.half=1;sb.S.bat='home';sb.S.outs=2;
@@ -572,6 +620,21 @@ async function main() {
   eq(sb.S.interruptedPAs.length,1,'caught-stealing third out preserves interrupted PA');
   ok(sb.S.interruptedPAs[0].events.some(e=>/Caught stealing/.test(e.text)),
     'caught-stealing third out preserves runner-out event');
+  sb.renderPbp();
+  ok(el('#pbp').innerHTML.includes('PA unfinished · third out') &&
+     el('#pbp').innerHTML.includes('Caught stealing 2-6') &&
+     el('#pbp').innerHTML.includes('1 pitch'),
+     'IP4: inning-ending caught stealing appears in Book with its pitch count');
+  ok(sb.bookTable('home').includes('data-interrupted-audit="0"'),
+     'IP4: caught-stealing interrupted PA appears on home scorecard lineup');
+  sb.S.pas=[{team:'away',b:0,inning:6,half:0,batter:'Later batter',result:'1B',events:[{t:'o',text:'Single'}]}];
+  sb.renderPbp();
+  const listed=el('#pbp').innerHTML;
+  ok(listed.indexOf('PA unfinished · third out')<listed.indexOf('Later batter'),
+     'IP4: interrupted PA sorts before completed PAs in subsequent innings');
+  sb.ensureShape();
+  eq(sb.S.interruptedPAs.length,1,
+     'IP4: old saved interrupted PA shape is preserved when reloaded');
 
   newGame();
   sb.S.away.pool = [{ name: 'Sub Guy', num: '99', pos: '7' }];
@@ -903,7 +966,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.08.2','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.08.3','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
