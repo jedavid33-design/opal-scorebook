@@ -548,7 +548,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
     <button class="med pitch ps-inplay" data-p="inplay">In Play</button>
     <button class="big pitch ps-called" data-p="cstr" data-hold-wppb="1" aria-label="Called strike" title="Called strike · hold for wild/passed ball">Called</button>
     <button class="big pitch ps-swing" data-p="sstr" data-hold-wppb="1" data-hold-down="missbunt" aria-label="Swinging strike" title="Tap Swinging · hold and slide left/right for wild/passed ball or down for missed bunt">Swinging</button>
-    <button class="med pitch ps-ball" data-p="ball" data-hold-wppb="1" title="Ball · hold for wild/passed ball">Ball</button>
+    <button class="med pitch ps-ball" data-p="ball" data-hold-wppb="1" data-hold-down="intentball" title="Tap Ball · hold and slide left/right for wild/passed ball or down for intentional ball">Ball</button>
     <button class="med pitch ps-foul" data-p="foul" data-hold-down="foulbunt" title="Tap Foul · hold and slide down for foul bunt">Foul</button>
     <button class="med pitch ps-foultip" data-p="foultip">Foul Tip</button>
     <button class="med pitch ps-ibb" data-p="ibb">Intentional Walk</button>
@@ -614,7 +614,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.08.1';
+const APP_VERSION='2026.10.08.2';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1372,7 +1372,7 @@ function renderScore(){
   const liveLast=hlp&&hlp.live?hlp:null;
   const liveChTeam=liveLast?challengeTeamFor(liveLast):null;
   const pitchLabel=t=>({
-    'Ball':'Ball','Called strike':'Called','Swinging strike':'Swing',
+    'Ball':'Ball','Intentional ball':'Int. Ball','Called strike':'Called','Swinging strike':'Swing',
     'Foul ball':'Foul','Foul tip':'Tip','Foul bunt':'Foul Bunt','Missed bunt':'Missed Bunt','Pitchout (ball)':'Pitchout',
     'Automatic ball — pitch timer violation':'Auto Ball',
     'Automatic strike — batter timer violation':'Auto Strike',
@@ -1561,6 +1561,7 @@ function doPitch(kind){
   if(kind==='inplay'){outcomeModal();return;}
   snap();
   if(kind==='ball')addCountBall();
+  else if(kind==='intentball')addCountBall('Intentional ball');
   else if(kind==='cstr')addCountStrike('Called strike',true);
   else if(kind==='sstr')addCountStrike('Swinging strike',false,true);
   else if(kind==='foultip')addCountStrike('Foul tip',false);
@@ -1626,7 +1627,7 @@ function countAfterPitch(text,b,s){
   if(t==='Foul bunt')ns++;
   else if(t==='Foul ball'){if(ns<2)ns++;}
   else if(t==='Missed bunt'||t==='Called strike'||t==='Swinging strike'||t==='Foul tip'||t.indexOf('Automatic strike')===0)ns++;
-  else if(t==='Ball'||t==='Pitchout (ball)'||t.indexOf('Automatic ball')===0||t.indexOf('Illegal pitch')===0)nb++;
+  else if(t==='Ball'||t==='Intentional ball'||t==='Pitchout (ball)'||t.indexOf('Automatic ball')===0||t.indexOf('Illegal pitch')===0)nb++;
   return{b:nb,s:ns};
 }
 function recountCount(evts){let b=0,s=0;
@@ -3061,9 +3062,9 @@ function pitchCounts(pa){
 // Returns '' on success, or a plain-English reason the pitch can't be added.
 function tryAddPitch(pa,label){
   const pc=pitchCounts(pa),isK=/^(K|ꓘ)(?:-(?:PB|WP))?$/.test(pa.result),isBB=pa.result==='BB';
-  if(label==='Ball'){
-    if(isBB)return 'this PA ended in a walk — 4 balls are already logged.';
-    if(pc.b>=3)return pc.b+' balls already logged — a '+(pc.b+1)+'th would be ball four, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
+  if(label==='Ball'||label==='Intentional ball'){
+    if(isBB&&pc.b>=4)return 'this PA ended in a walk — 4 balls are already logged.';
+    if(!isBB&&pc.b>=3)return pc.b+' balls already logged — a '+(pc.b+1)+'th would be ball four, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
   }else if(label!=='Foul ball'){
     if(isK)return 'this PA ended in a strikeout — 3 strikes are already logged.';
     if(pc.s>=2)return pc.s+' strikes already logged — another would be strike three, but this PA ended as '+pa.result+'. If the outcome was wrong, use Re-score.';
@@ -3076,7 +3077,7 @@ function tryAddPitch(pa,label){
 }
 function addPitchPA(idx){
   const pa=S.pas[idx];
-  const P=['Ball','Called strike','Swinging strike','Foul tip','Foul ball'];
+  const P=['Ball','Intentional ball','Called strike','Swinging strike','Foul tip','Foul ball'];
   const draw=(err)=>{
     const plist=pa.events.filter(e=>e.t==='p').map(e=>e.text);
     $('#sheet').innerHTML=`<h2>Add missed pitch</h2>
@@ -3466,7 +3467,7 @@ function bindPitchGestures(){
       if(right){right.hidden=!hasLR;right.classList.toggle('sel',choice==='PB');}
       if(down){
         down.hidden=!downKind;
-        down.textContent=downKind==='missbunt'?'↓ Missed Bunt':downKind==='foulbunt'?'↓ Foul Bunt':'↓ Bunt';
+        down.textContent=downKind==='missbunt'?'↓ Missed Bunt':downKind==='foulbunt'?'↓ Foul Bunt':downKind==='intentball'?'↓ Intentional Ball':'↓ Bunt';
         down.classList.toggle('sel',choice==='DOWN');
       }
       if(menu)menu.classList.toggle('onlyDown',!hasLR&&!!downKind);
@@ -3501,7 +3502,7 @@ function bindPitchGestures(){
         const c=choice;hide();
         if(c==='WP'||c==='PB')doPitchWPPB(btn.dataset.p,c);
         else if(c==='DOWN')doPitch(downKind);
-        else if(hasLR&&downKind)toast('Slide left for Wild Pitch, right for Passed Ball, or down for Missed Bunt.');
+        else if(hasLR&&downKind)toast('Slide left for Wild Pitch, right for Passed Ball, or down for '+(downKind==='intentball'?'Intentional Ball':'Missed Bunt')+'.');
         else if(hasLR)toast('Slide left for Wild Pitch or right for Passed Ball.');
         else if(downKind==='foulbunt')toast('Slide down for Foul Bunt.');
       }else doPitch(btn.dataset.p);
