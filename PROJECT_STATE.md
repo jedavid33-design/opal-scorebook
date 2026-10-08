@@ -968,3 +968,14 @@ replacing the "visco" app she currently uses.
   App v2026.10.08.2. Worker unchanged. 583 regression checks passed (0 failed)
   at commit 1dc7681, including thrown-pitch totals, fourth-ball walk,
   count reconstruction, and editor validation.
+
+- 2026-10-08: Added standalone runner Advance on Error to each occupied-base
+  menu. Flow: select runner -> Advance on Error -> fielder position (e.g.,
+  catcher E2) -> destination (including Home · scores). A mid-PA throwing/
+  fielding error adds an event to the unfinished batter's PA, moves/scores
+  only the chosen runner, records an E for the fielding team and point-in-time
+  fielder, and preserves count, outs, pitches, batting order, and active PA.
+  The error and runner's scorecard path survive PA completion, third-out
+  interruption, and past-game display. Collision protection rejects moves
+  onto occupied bases. App v2026.10.08.4, Worker unchanged. CI verified
+  646 scoring regression checks passed (0 failed) at commit b46bc7d.
