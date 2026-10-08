@@ -97,7 +97,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookAdvanceBatterSlot,bookAdvanceLabel,bookAdvanceLabelPos,bookDiamondHTML,teamHits,paErrDisp,teamErrs,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
-  `pitchCounts,tryAddPitch,teamRunTotal,cleanPitcherName,pitcherCandidates,decisionList,decisionInputRow,decisionPitcherPicker,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
+  `pitchCounts,tryAddPitch,addPitchPA,teamRunTotal,cleanPitcherName,pitcherCandidates,decisionList,decisionInputRow,decisionPitcherPicker,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
   `syncCfg,setSyncCfg,gameName,gameScore,gameStarted,queuePush,pushGame,fetchGameList,pullOnStart,loadRemoteGame,` +
   `getArchive,updateArchive,addToArchive,archiveCurrentGame,endGame,` +
   `renderGames,renderPendingCard,renderSyncCard,renderPastList,bindPitchGestures,applyScoreProportionalScale,renderAll,showView,initPullToRefresh,toast,esc,genId` +
