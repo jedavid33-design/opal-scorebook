@@ -1905,13 +1905,13 @@ async function main() {
     'H2: selecting line drive automatically advances to location screen');
   hitFielderBtn.onclick();
   ok(!hitRoot.innerHTML.includes('id="hitDone" disabled') &&
-     hitRoot.innerHTML.includes('center field'),
+     hitRoot.innerHTML.includes('to CF'),
     'H2: fielder selection enables Done and shows the play description');
   el('#hitBack').onclick();
   ok(hitRoot.innerHTML.includes('data-ht="line drive"') && !selectedHit,
     'H2: Back to hit type does not complete a play');
   hitTypeBtn.onclick();
-  ok(hitRoot.innerHTML.includes('center field'),
+  ok(hitRoot.innerHTML.includes('to CF'),
     'H2: returning to location preserves selected fielder');
   el('#hitDone').onclick();
   eq(JSON.stringify(selectedHit),JSON.stringify({type:'line drive',fielder:'8'}),
