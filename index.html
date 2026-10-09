@@ -618,6 +618,43 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
   table.book.scorecard th:first-child,table.book.scorecard td:first-child{background:#eae0f5;}
 }
 
+
+/* Prominent game score; compact vertical ABS challenge markers beside team codes. */
+#v-score .scorehead{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;}
+#v-score .score-matchup{display:flex;align-items:center;gap:7px;white-space:nowrap;min-width:0;}
+#v-score .score-team{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;}
+#v-score .score-at{font-size:12px;font-weight:650;color:var(--dim);}
+#v-score .challenge-meter{display:inline-flex;align-items:center;justify-content:center;
+  width:23px;min-width:23px;height:42px;padding:0;border:none;border-radius:9px;
+  background:transparent;color:var(--plum-deep);cursor:pointer;}
+#v-score .challenge-meter:active{background:rgba(158,118,194,.18);}
+#v-score .challenge-dots{display:flex;flex-direction:column;align-items:center;gap:4px;}
+#v-score .challenge-dot{display:block;width:9px;height:9px;border-radius:50%;
+  border:1.8px solid var(--plum-deep);background:transparent;}
+#v-score .challenge-dot.available{background:var(--plum-deep);}
+#v-score .challenge-dot.spent{background:transparent;opacity:.58;}
+#v-score .score-result{display:flex;align-items:center;gap:9px;white-space:nowrap;flex:0 0 auto;}
+#v-score .score-total{display:inline-flex;align-items:baseline;gap:4px;
+  font-size:31px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink);}
+#v-score .score-value{min-width:1ch;text-align:center;color:var(--ink);}
+#v-score .score-dash{font-size:.7em;font-weight:550;color:var(--dim);}
+#v-score .score-inning{font-size:14px;font-weight:800;color:var(--plum-deep);
+  line-height:1.15;white-space:nowrap;}
+@media(max-width:410px){
+  #v-score .score-matchup{gap:4px;}
+  #v-score .scorehead .t{font-size:18px;}
+  #v-score .score-result{gap:6px;}
+  #v-score .score-total{font-size:27px;gap:2px;}
+  #v-score .score-inning{font-size:13px;}
+}
+@media(max-width:355px){
+  #v-score .scorehead{gap:4px;}
+  #v-score .score-matchup{gap:2px;}
+  #v-score .scorehead .t{font-size:16px;}
+  #v-score .challenge-meter{width:20px;min-width:20px;}
+  #v-score .score-total{font-size:25px;}
+  #v-score .score-inning{font-size:12px;}
+}
 </style>
 </head>
 <body>
@@ -702,9 +739,25 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
   <div id="scoreBanner" class="viewbanner" hidden></div>
   <div class="card">
     <div class="scorehead" id="scorehead" role="button" tabindex="0" title="Set lineups" aria-label="Set lineups">
-      <div><span class="t" id="hAway">AWY</span> <span class="s" id="sAway">0</span>
-        &nbsp;@&nbsp; <span class="t" id="hHome">HME</span> <span class="s" id="sHome">0</span></div>
-      <div class="s"><span id="hChal" class="chal" role="button" tabindex="0" title="Challenges remaining">CH 2&middot;2</span><span id="hInn">▲ 1</span></div>
+      <div class="score-matchup">
+        <span class="score-team"><span class="t" id="hAway">AWY</span>
+          <button class="challenge-meter" id="hChalAway" type="button" aria-label="Away challenges remaining: 2 of 2" title="Away challenges remaining. Tap to adjust">
+            <span class="challenge-dots" aria-hidden="true"><span class="challenge-dot available"></span><span class="challenge-dot available"></span></span>
+          </button>
+        </span>
+        <span class="score-at">@</span>
+        <span class="score-team"><span class="t" id="hHome">HME</span>
+          <button class="challenge-meter" id="hChalHome" type="button" aria-label="Home challenges remaining: 2 of 2" title="Home challenges remaining. Tap to adjust">
+            <span class="challenge-dots" aria-hidden="true"><span class="challenge-dot available"></span><span class="challenge-dot available"></span></span>
+          </button>
+        </span>
+      </div>
+      <div class="score-result">
+        <span class="score-total" aria-label="Game score">
+          <span id="sAway" class="score-value">0</span><span class="score-dash">–</span><span id="sHome" class="score-value">0</span>
+        </span>
+        <span id="hInn" class="score-inning">▲ 1</span>
+      </div>
     </div>
     <div class="countline">
       <div class="count" id="hCount">0-0</div>
@@ -801,7 +854,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.6';
+const APP_VERSION='2026.10.09.7';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1543,7 +1596,16 @@ function renderScore(){
   $('#sAway').textContent=innRuns('away').reduce((x,y)=>x+y,0);
   $('#sHome').textContent=innRuns('home').reduce((x,y)=>x+y,0);
   $('#hInn').innerHTML=(S.half===0?'▲ ':'▼ ')+S.inning+' <span class="luhint">✎</span>';
-  $('#hChal').textContent='CH '+(S.chal?S.chal.away:2)+'·'+(S.chal?S.chal.home:2);
+  ['away','home'].forEach(team=>{
+    const el=$('#hChal'+(team==='away'?'Away':'Home'));
+    const remaining=Math.max(0,Math.min(2,Number((S.chal||{})[team]??2)));
+    el.innerHTML='<span class="challenge-dots" aria-hidden="true">'+
+      Array.from({length:2},(_,i)=>'<span class="challenge-dot '+(i<remaining?'available':'spent')+'"></span>').join('')+
+      '</span>';
+    const label=scoreTeamAbbr(S[team],team==='away'?'AWY':'HME')+': '+remaining+' of 2 challenges remaining. Tap to adjust';
+    el.setAttribute('aria-label',label);
+    el.title=label;
+  });
   const hlp=!viewing&&S.started?lastPitch():null;
   $('#hCount').textContent=S.balls+'-'+S.strikes;
   $('#hOuts').textContent='● '.repeat(S.outs)+'○ '.repeat(Math.max(0,3-S.outs));
@@ -3894,8 +3956,11 @@ function init(){
   const goSetup=()=>{if(viewing){toast('Viewing a past game — read only');return;}setupTeam=S.bat;renderSetup();showView('setup');};
   $('#scorehead').onclick=goSetup;
   $('#scorehead').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();goSetup();}});
-  $('#hChal').addEventListener('click',e=>{e.stopPropagation();chalStepper();});
-  $('#hChal').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();chalStepper();}});
+  ['#hChalAway','#hChalHome'].forEach(id=>{
+    const marker=$(id);
+    marker.addEventListener('click',e=>{e.stopPropagation();chalStepper();});
+    marker.addEventListener('keydown',e=>e.stopPropagation());
+  });
   renderSetup();renderAll();renderGames();showView(S.started?'score':'setup');
   if(corruptStashed)toast('Saved game looked damaged — started fresh (old data kept for recovery)');
   if(syncCfg())pullOnStart(false);

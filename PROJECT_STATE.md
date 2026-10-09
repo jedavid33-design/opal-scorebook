@@ -1023,3 +1023,13 @@ replacing the "visco" app she currently uses.
   Book play-notation white background layers, leaving the diamond's basepath
   unobstructed, while retaining a subtle letter-only white text halo for
   legibility. No scoring changes. App v2026.10.09.6. Worker unchanged.
+
+- 2026-10-09: Score header rebalanced for visibility: a large bold Away-Home
+  score now occupies the former combined CH counter area; inning remains
+  immediately beside the score on the SAME horizontal line. The left side
+  keeps both three-letter team codes (away @ home), each with a vertically
+  stacked two-dot challenge indicator (filled=remaining, hollow=used).
+  Tapping either marker opens the existing challenge stepper without opening
+  lineup setup. Two dots are updated on each scoring redraw and count changes.
+  Responsive size adjustments for narrow iPhone/split-pane layouts. Scoring
+  and challenge rules unchanged. App v2026.10.09.7; Worker unchanged.

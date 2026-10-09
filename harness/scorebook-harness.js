@@ -943,6 +943,31 @@ async function main() {
   sb.editRescoreReachable(2); // triggers rebuildUndoMeta
   eq(sb.undoMeta.length, sb.undoStack.length, 'A4: meta rebuilt for legacy undo stores');
 
+  /* ===== prominent score + per-team vertical challenge indicators ===== */
+  newGame();
+  sb.S.chal={away:1,home:0};
+  sb.S.runs.away=[3];sb.S.runs.home=[2];
+  sb.S.half=1;sb.S.inning=5;
+  sb.renderScore();
+  eq(el('#sAway').textContent,3,'HDR: away score appears in large score display');
+  eq(el('#sHome').textContent,2,'HDR: home score appears in large score display');
+  ok(el('#hInn').innerHTML.includes('▼ 5'),'HDR: inning remains next to score');
+  eq((el('#hChalAway').innerHTML.match(/challenge-dot available/g)||[]).length,1,
+    'HDR: one away challenge is a single filled dot');
+  eq((el('#hChalHome').innerHTML.match(/challenge-dot spent/g)||[]).length,2,
+    'HDR: no home challenges appear as two hollow dots');
+  sb.S.chal={away:2,home:1};sb.renderScore();
+  eq((el('#hChalAway').innerHTML.match(/challenge-dot available/g)||[]).length,2,
+    'HDR: full challenge allotment shows two filled vertical dots');
+  eq((el('#hChalHome').innerHTML.match(/challenge-dot available/g)||[]).length,1,
+    'HDR: one home challenge shows one filled dot');
+  ok(html.includes('class="score-result"') && html.includes('id="hInn" class="score-inning"'),
+    'HDR: inning sits beside the enlarged score in a single flex row');
+  ok(html.includes('flex-direction:column;align-items:center;gap:4px'),
+    'HDR: challenge dots stack vertically, not side by side');
+  ok(!html.includes('id="hChal" class="chal"'),
+    'HDR: old combined CH indicator is removed from score header');
+
   /* ===== A6: no free challenges at 0 ===== */
   newGame();
   sb.S.chal = { away: 0, home: 2 }; sb.S.bat = 'home';
@@ -1174,7 +1199,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.6','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.7','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
