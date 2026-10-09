@@ -1014,3 +1014,6 @@ replacing the "visco" app she currently uses.
   markings. Nav, sheets, roster, lineup, field picker, linescore and pitch
   gesture menus now match. Styling-only; no scoring or game data changes.
   App v2026.10.09.4. Worker unchanged; no Worker deployment required.
+- 2026-10-09: Opal Light contrast polish: Book archive/action banner ghost
+  buttons use a darker plum overlay so white labels remain legible. App
+  v2026.10.09.5; styling-only, Worker unchanged.

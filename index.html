@@ -570,7 +570,8 @@ input::placeholder,textarea::placeholder{color:#867a93;}
 .mover .dest button.ebtn.sel{background:linear-gradient(135deg,#b35e7d,#854362);color:#fff;}
 .pbpRow{background:rgba(255,255,255,.65);}
 .viewbanner{background:linear-gradient(135deg,#8c64af,#68458d);color:#fff;}
-.viewbanner button{color:#fff;}
+.viewbanner button{color:#fff;background:rgba(72,44,101,.55);border-color:rgba(255,255,255,.48);}
+.viewbanner button.ghost{color:#fff;background:rgba(72,44,101,.55);}
 .codebox{background:#eadcf3;color:var(--ink);}
 #toast{background:#63437e;color:#fff;}
 #pullRefresh{background:rgba(255,251,255,.96);box-shadow:0 4px 15px rgba(77,56,105,.1);}
@@ -800,7 +801,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.4';
+const APP_VERSION='2026.10.09.5';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
