@@ -963,8 +963,14 @@ async function main() {
     'HDR: one home challenge shows one filled dot');
   ok(html.includes('class="score-result"') && html.includes('id="hInn" class="score-inning"'),
     'HDR: inning sits beside the enlarged score in a single flex row');
-  ok(html.includes('flex-direction:column;align-items:center;gap:4px'),
+  ok(html.includes('flex-direction:column;align-items:center;gap:3px'),
     'HDR: challenge dots stack vertically, not side by side');
+  ok(html.includes('justify-content:flex-end;gap:10px') &&
+     html.includes('score-matchup{display:flex;align-items:center;gap:5px'),
+    'HDR: team abbreviations cluster on the same right side as the score');
+  ok(html.includes('width:5.5px;height:5.5px;border-radius:50%') &&
+     html.includes('width:18px;min-width:18px;height:40px'),
+    'HDR: challenge dots are smaller while retaining separate tap areas');
   ok(!html.includes('id="hChal" class="chal"'),
     'HDR: old combined CH indicator is removed from score header');
 
@@ -1199,7 +1205,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.7','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.8','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');

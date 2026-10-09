@@ -1033,3 +1033,11 @@ replacing the "visco" app she currently uses.
   lineup setup. Two dots are updated on each scoring redraw and count changes.
   Responsive size adjustments for narrow iPhone/split-pane layouts. Scoring
   and challenge rules unchanged. App v2026.10.09.7; Worker unchanged.
+
+- 2026-10-09: Tightened Score header after live iPhone screenshot feedback:
+  team codes, their challenge markers, prominent game score, and the inning
+  now form one compact right-aligned row rather than occupying opposite sides
+  of the card. Reduced the vertical challenge dot diameter from 9px to 5.5px
+  and narrowed their button footprints while retaining independently tappable
+  challenge adjusters. Inning remains on the same line, to the right of score.
+  Pure UI change, no scoring/worker changes. App v2026.10.09.8.
