@@ -423,7 +423,7 @@ async function main() {
      dpSheet.innerHTML.includes('id="dpRunCounts"') &&
      dpSheet.innerHTML.includes('id="dpRunNo"'),
     'DPT1: run on inning-ending DP requires explicit timing ruling');
-  eq(sb.S.runs.away[8],0,'DPT1: run not counted until timing confirmed');
+  eq(sb.teamRunTotal('away'),0,'DPT1: run not counted until timing confirmed');
   el('#dpRunNo').onclick();
   eq(sb.S.pas.length,0,'DPT1: no-run option returns to placement without recording run');
   ok(dpSheet.innerHTML.includes('Confirm where everyone ends up.'),
