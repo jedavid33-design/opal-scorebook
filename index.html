@@ -506,6 +506,117 @@ table.book.scorecard .interruptedCell{background:#f6eadc;color:#725389;border-co
   table.book.scorecard .bookDia{left:5px;top:2px;width:56px;height:56px;}
   table.book.scorecard .resultCode{top:27px;font-size:9.5px;}
 }
+
+/* Opal Light: cohesive light-mode palette shared by scoring, lineups and Book. */
+:root{
+  color-scheme:light;
+  --plum:#8056a6;--plum-deep:#664080;--ink:#332743;--dim:#695979;
+  --card:rgba(255,255,255,.88);--line:rgba(104,77,126,.21);
+  --good:#236c55;--warn:#955f21;--out:#a33f56;
+}
+body{background:#f7f3fc;color:var(--ink);}
+body::before{background:
+  radial-gradient(55% 45% at 18% 8%,rgba(189,162,225,.28),transparent 70%),
+  radial-gradient(45% 38% at 86% 22%,rgba(130,208,188,.20),transparent 70%),
+  radial-gradient(60% 50% at 78% 88%,rgba(236,175,213,.24),transparent 70%),
+  radial-gradient(50% 42% at 12% 82%,rgba(153,178,238,.17),transparent 70%);
+}
+.card{box-shadow:0 5px 18px rgba(87,64,111,.065);}
+button{background:#f0e9f7;color:var(--ink);}
+button:focus-visible,input:focus-visible,select:focus-visible,[role="button"]:focus-visible{
+  outline:3px solid #a97ec9;outline-offset:2px;
+}
+button.accent,.tabs button.on{background:linear-gradient(135deg,#8e66b1,#67448d);
+  color:#fff;border:0;}
+button.ghost{background:rgba(255,255,255,.55);}
+button.danger{background:#fff0f3;border-color:#d5a0ae;color:var(--out);}
+button.pitch{background:#eadef4;border-color:#c3a8dc;color:#463052;}
+button.pitch.auto{background:#fff0d8;border-color:#deb87d;color:#65471d;}
+input,select,textarea{background:rgba(255,255,255,.96);color:var(--ink);border-color:var(--line);}
+input::placeholder,textarea::placeholder{color:#867a93;}
+.returnPool,.subPlayer.empty{background:#f4eefb;color:var(--dim);}
+.returnPool:active{background:#e8d8f4;color:var(--plum-deep);}
+.lu-row.sel,.offSubTarget.sel{background:#eee0f8;border-color:#b897d1;}
+.lu-row.posdup{background:#fff2dd;border-color:#c99758;}
+.lu-row.posdup select{border-color:#c99758;}
+.chip{background:#f7f2fb;color:var(--ink);}
+.chip.sel{background:#e7d7f3;border-color:var(--plum);}
+.chip:active{background:#ebdff7;}
+.offSubTarget{background:#faf5fd;}
+.subModeBanner,.slotbar{background:#f0e7f8;border-color:#c5a9da;color:var(--dim);}
+.poswarn{background:#fff1dc;border-color:#d2a66a;color:#81511a;}
+.setupnav{background:rgba(252,248,255,.97);
+  box-shadow:0 8px 24px rgba(92,68,120,.12);}
+.tabs{background:rgba(251,247,255,.95);}
+#scorehead:active,.pitcherline.balkTap:active{background:#efe5f8;}
+.base{background:#fffafd;border-color:#a996b8;}
+.base.on{background:#a47bc6;border-color:#664080;box-shadow:0 0 0 3px rgba(128,86,166,.13);}
+.pitchchip{background:#fffafd;color:var(--ink);}
+.pitchchip .pn{background:#eee5f7;color:var(--dim);}
+.pitchchip.challengeable{background:#f3e8fb;border-color:var(--plum);}
+.chBtn{color:var(--plum-deep);}
+.sheet{background:#faf7fd;}
+.sheetActions{background:linear-gradient(to bottom,rgba(250,247,253,.92),#faf7fd 24%);}
+.fieldSvg .grass{fill:#e7f1e9;}
+.fieldSvg .dirt{fill:#eee3f3;stroke:#baa5ca;}
+.fieldSvg .mound,.fieldSvg .plate{fill:#9f83b5;}
+.fieldSvg .fnode .dot{fill:#fffafd;stroke:var(--plum);}
+.fieldSvg .fnode text{fill:#382847;}
+.fieldSvg .fnode.on .dot{fill:#e7d1f6;}
+.fieldSvg .fnode .fp{fill:#695979;}
+.fieldSvg .fbadge{fill:#fff;}
+.fieldSvg .fbt{fill:#4d345e;}
+.mover .dest button.sel{background:linear-gradient(135deg,#8e66b1,#67448d);color:#fff;}
+.mover .dest button.ebtn.sel{background:linear-gradient(135deg,#b35e7d,#854362);color:#fff;}
+.pbpRow{background:rgba(255,255,255,.65);}
+.viewbanner{background:linear-gradient(135deg,#8c64af,#68458d);color:#fff;}
+.viewbanner button{color:#fff;}
+.codebox{background:#eadcf3;color:var(--ink);}
+#toast{background:#63437e;color:#fff;}
+#pullRefresh{background:rgba(255,251,255,.96);box-shadow:0 4px 15px rgba(77,56,105,.1);}
+#pitchHoldMenu,#buntHoldMenu,#foulOutHoldMenu,#doubleHoldMenu{
+  background:rgba(255,251,255,.98);box-shadow:0 10px 30px rgba(92,69,116,.18);
+}
+#pitchHoldMenu span.sel,#buntHoldMenu span.sel,#foulOutHoldMenu span.sel,#doubleHoldMenu span.sel{
+  background:#e9dbf4;color:var(--plum-deep);border-color:var(--plum);
+}
+table.book:not(.scorecard) th{background:#eee4f6;color:#4b365c;}
+table.book:not(.scorecard) td{background:rgba(255,255,255,.7);color:var(--ink);}
+table.book:not(.scorecard) td,table.book:not(.scorecard) th{border-color:var(--line);}
+#v-book .bookLegend .legendPath{color:var(--plum);}
+table.book.scorecard{background:#f0e7f8;color:#382a4c;border-color:#b5a1c9;}
+table.book.scorecard td,table.book.scorecard th{border-right-color:#c5b0d7;border-bottom-color:#c5b0d7;}
+table.book.scorecard th{background:#e6d8f2;color:#4c335e;}
+table.book.scorecard th:first-child,table.book.scorecard td:first-child{background:#eae0f5;}
+table.book.scorecard td.plname{color:#42314f;}
+table.book.scorecard .dcell{background:linear-gradient(145deg,#fff,#f5edfb);
+  color:#392b4e;border:1px solid #c9b7db;border-radius:5px;box-shadow:inset 0 0 0 1px #fff;}
+table.book.scorecard .dcell.hit{background:linear-gradient(145deg,#fff,#e6f6ed);}
+table.book.scorecard .dcell.out{background:linear-gradient(145deg,#fff,#fbe9ef);}
+table.book.scorecard .bdOutline{stroke:#b7a5c4;}
+table.book.scorecard .dcell.hit .bdOutline{stroke:#70a48b;}
+table.book.scorecard .dcell.out .bdOutline{stroke:#cc97aa;}
+table.book.scorecard .bdScoreFill{fill:rgba(77,171,130,.22);}
+table.book.scorecard .bdRoute{stroke:var(--plum);}
+table.book.scorecard .bdBaseEmpty{fill:#fff;stroke:#bba6cb;}
+table.book.scorecard .bdBaseVisit{fill:var(--plum);stroke:#fff;}
+table.book.scorecard .bdHomePlate{fill:#fffafd;stroke:#86729b;}
+table.book.scorecard .bdReason{fill:#48325c;stroke:#fff;}
+table.book.scorecard .bdEnd{fill:#287c60;stroke:#fff;}
+table.book.scorecard .bdStrand{fill:#fff;stroke:var(--plum);}
+table.book.scorecard .bdOut{stroke:#ac4964;}
+table.book.scorecard .resultCode{background:rgba(255,255,255,.91);color:#392a4b;}
+table.book.scorecard .journeyStatus{border-color:#c8b7d7;background:#fcfaff;color:#59466d;}
+table.book.scorecard .journeyStatus.run{color:#236c55;border-color:#86bea6;}
+table.book.scorecard .journeyStatus.out{color:#a33f56;border-color:#d5a2b2;}
+table.book.scorecard .journeyStatus.lob{color:#694982;border-color:#bba1d4;}
+table.book.scorecard .journeyStatus.base{color:#493755;}
+table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-color:#b89dcd;}
+@media(max-width:700px){
+  table.book th:first-child,table.book td:first-child{background:#eee4f6;}
+  table.book.scorecard th:first-child,table.book.scorecard td:first-child{background:#eae0f5;}
+}
+
 </style>
 </head>
 <body>
@@ -689,7 +800,7 @@ table.book.scorecard .interruptedCell{background:#f6eadc;color:#725389;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.3';
+const APP_VERSION='2026.10.09.4';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -3281,7 +3392,7 @@ function addPitchPA(idx,interrupted=false){
     $('#sheet').innerHTML=`<h2>Add missed pitch</h2>
       <p class="sub">${esc(interrupted?interruptedPADescription(pa):describePA(pa))}${interrupted?' — tap missing pitches before the runner out; the batter remains due up.':' — tap each pitch that happened but was not entered, right before the outcome.'}</p>
       <p class="sub"><b>Pitches logged (${plist.length}):</b> ${plist.length?plist.join(' · '):'none'}</p>
-      ${err?`<p class="sub" style="color:#ff9d9d"><b>Can't add that:</b> ${err}</p>`:''}
+      ${err?`<p class="sub" style="color:var(--out)"><b>Can't add that:</b> ${err}</p>`:''}
       <div class="grid2">${P.map(p=>`<button class="med" data-ap="${p}">${p}</button>`).join('')}</div>
       <div style="margin-top:10px"><button class="med accent" id="apDone" style="width:100%">Done</button></div>`;
     $('#sheet').querySelectorAll('[data-ap]').forEach(b=>b.onclick=()=>{

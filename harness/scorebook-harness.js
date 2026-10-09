@@ -605,6 +605,24 @@ async function main() {
   ok(sb.bookDiamondHTML(directOut).indexOf('>OUT<')>=0,
     'BOOK2-1: direct batter out gets OUT marker');
 
+  /* ===== Opal Light palette + unified Book theme ===== */
+  ok(html.includes('--ink:#332743') && html.includes('--card:rgba(255,255,255,.88)'),
+    'THEME: Opal light colors define dark plum text and translucent white cards');
+  ok(html.includes('body{background:#f7f3fc') && html.includes('color-scheme:light'),
+    'THEME: main background and native form controls are light');
+  ok(html.includes('table.book.scorecard{background:#f0e7f8') &&
+     html.includes('table.book.scorecard th{background:#e6d8f2'),
+    'THEME: Book has lilac paper and readable plum headings');
+  ok(html.includes('linear-gradient(145deg,#fff,#e6f6ed)') &&
+     html.includes('linear-gradient(145deg,#fff,#fbe9ef)'),
+    'THEME: Book hits are mint and outs are rose');
+  ok(html.includes('table.book:not(.scorecard) th{background:#eee4f6') &&
+     html.includes('.sheet{background:#faf7fd'),
+    'THEME: linescore and modal surfaces match Opal Light');
+  ok(html.includes('button.accent,.tabs button.on{background:linear-gradient') &&
+     html.includes('color:#fff;border:0;'),
+    'THEME: dark primary buttons retain white legible text');
+
   /* ===== Book 2.0 Phase 3: traditional paper scorecard styling ===== */
   newGame();
   const paperHtml=sb.bookTable('away');
@@ -1144,7 +1162,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.3','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.4','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');

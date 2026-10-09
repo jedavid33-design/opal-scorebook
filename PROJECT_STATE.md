@@ -1005,3 +1005,12 @@ replacing the "visco" app she currently uses.
   error labels are rendered without altering scoring or stored game data;
   existing pitch-audit taps, completed games, and linescore remain intact.
   App v2026.10.09.3; Worker unchanged; no Worker deployment required.
+
+- 2026-10-09: Opal Light theme across Scorebook and Book. Pearl-lavender page,
+  translucent white cards, dark plum text, lilac controls, mint successful
+  plays and rose outs, with higher-contrast plum action buttons. The Book
+  scorecard keeps its traditional grid and runner-path symbols but replaces
+  tan parchment with pale lilac cells, violet grid lines, and mint/rose
+  markings. Nav, sheets, roster, lineup, field picker, linescore and pitch
+  gesture menus now match. Styling-only; no scoring or game data changes.
+  App v2026.10.09.4. Worker unchanged; no Worker deployment required.
