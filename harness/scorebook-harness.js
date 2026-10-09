@@ -429,8 +429,8 @@ async function main() {
   el('#advErr').onclick();
   ok(el('#sheet').innerHTML.includes('Same error or another?'),
     'FCERR: second advance prompts same or separate error');
-  el('#anotherError').onclick();
   activeFielder=errorTwo;
+  el('#anotherError').onclick();
   errorTwo.onclick();el('#fs1ok').onclick();
   eq(multiFc[0].err,'2','FCERR: Michael Perez E2 separately stored on advance');
   eq(sb.paErrTag(multiFc),'E3,E2',
