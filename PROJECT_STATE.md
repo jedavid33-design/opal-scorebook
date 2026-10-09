@@ -1085,3 +1085,13 @@ replacing the "visco" app she currently uses.
   padding. No more Bunt button obscured by the Cancel bar. Applies to the
   hit-type and location pages and both FC stages. Version v2026.10.09.13;
   scoring/data/Worker unchanged.
+
+- 2026-10-09: Inning-ending double plays with at least one other runner no
+  longer auto-commit before runner placement; users can send a surviving
+  runner home even when the DP records the third out. With a potential run,
+  the sheet confirms timing: the run must cross before a non-force final tag
+  out. Wrong timing returns to placement for correction, while valid timing
+  records dpTiming on PA and maintains runner history, score, and half-inning
+  transition. Routine DPs without another live runner keep previous fast path.
+  Ordinary movement on a DP no longer prompts an unrelated extra-advance
+  reason. App v2026.10.09.14; no Worker changes.

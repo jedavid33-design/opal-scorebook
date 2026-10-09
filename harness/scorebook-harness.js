@@ -396,6 +396,81 @@ async function main() {
   ok(fcout.some(m=>m.who==='R'&&m.from===1&&m.out&&m.out.f==='6-4'),
     'FCNO1: existing FC-with-out path still marks selected runner out');
 
+  /* ===== Inning-ending DP timing: Sogard scores before final 6-3-5 tag ===== */
+  newGame();
+  sb.S.bat='away';sb.S.half=0;sb.S.inning=9;sb.S.outs=1;
+  sb.S.bases[1]={t:'away',i:3,rid:'dp-contreras'};
+  sb.S.bases[2]={t:'away',i:4,rid:'dp-sogard'};
+  const dpMoves=[
+    {who:'BR',label:'Kris Bryant (batter)',from:0,to:0,out:{f:'6-3'}},
+    {who:'R',r:sb.S.bases[1],label:'Willson Contreras',from:2,to:0,out:{f:'3-5'}},
+    {who:'R',r:sb.S.bases[2],label:'Eric Sogard',from:3,to:3,out:null}
+  ];
+  const dpSheet=el('#sheet'),savedDPQuery=dpSheet.querySelectorAll;
+  const scoreDPButton={dataset:{m:'2',b:'4'},onclick:null};
+  dpSheet.querySelectorAll=sel=>sel==='[data-m]'?[scoreDPButton]:[];
+  sb.placementReview(dpMoves,'DP','Grounded into DP 6-3-5');
+  ok(dpSheet.innerHTML.includes('Confirm where everyone ends up.')&&
+     dpSheet.innerHTML.includes('Eric Sogard'),
+    'DPT1: third-out DP with surviving runner opens placement instead of auto-committing');
+  eq(sb.S.pas.length,0,'DPT1: scoring delayed until runner destinations are confirmed');
+  scoreDPButton.onclick();
+  eq(dpMoves[2].to,4,'DPT1: scorer may move lead runner from third to home');
+  ok(!dpSheet.innerHTML.includes('How did the runner advance?'),
+    'DPT1: ordinary DP advancement needs no unrelated extra-advance dialog');
+  el('#plDone').onclick();
+  ok(dpSheet.innerHTML.includes('Run on an inning-ending DP?') &&
+     dpSheet.innerHTML.includes('id="dpRunCounts"') &&
+     dpSheet.innerHTML.includes('id="dpRunNo"'),
+    'DPT1: run on inning-ending DP requires explicit timing ruling');
+  eq(sb.S.runs.away[8],0,'DPT1: run not counted until timing confirmed');
+  el('#dpRunNo').onclick();
+  eq(sb.S.pas.length,0,'DPT1: no-run option returns to placement without recording run');
+  ok(dpSheet.innerHTML.includes('Confirm where everyone ends up.'),
+    'DPT1: invalid timing can be corrected on runner placement screen');
+  el('#plDone').onclick();
+  el('#dpRunCounts').onclick();
+  eq(sb.S.runs.away[8],1,'DPT1: Sogard run counts before final non-force tag out');
+  eq(sb.S.pas.length,1,'DPT1: DP commits as one PA');
+  eq(sb.S.pas[0].result,'DP','DPT1: traditional double-play outcome preserved');
+  eq(sb.S.pas[0].dpTiming.finalOut,'non-force-tag',
+    'DPT1: documented final tag out type saved with play');
+  ok(sb.S.pas[0].dpTiming.runBeforeFinalOut,
+    'DPT1: run-before-last-out flag saved to PA');
+  eq(sb.S.pas[0].dpTiming.scoringRunnerIds[0],'dp-sogard',
+    'DPT1: specific scoring runner recorded in timing metadata');
+  eq(sb.S.outs,0,'DPT1: third out transitions to next half inning');
+  eq(sb.S.half,1,'DPT1: bottom ninth follows inning-ending top ninth');
+  const dpPath=sb.runnerPathById('dp-sogard');
+  ok(dpPath.steps.some(x=>x.to===4&&x.reason==='DP'),
+    'DPT1: Book retains Sogard third-to-home advance on DP');
+  dpSheet.querySelectorAll=savedDPQuery;
+
+  /* No runner scoring? End-of-inning DP can still complete normally. */
+  newGame();
+  sb.S.outs=1;
+  sb.S.bases[1]={t:'away',i:2,rid:'dp-stranded'};
+  const ordinaryDP=[
+    {who:'BR',label:'Batter',from:0,to:0,out:{f:'6-3'}},
+    {who:'R',r:sb.S.bases[1],label:'Runner',from:2,to:0,out:{f:'3-5'}}
+  ];
+  sb.placementReview(ordinaryDP,'DP','Grounded into DP');
+  eq(sb.S.pas.length,1,'DPT2: inning-ending DP without another runner completes normally');
+  eq(sb.teamRunTotal('away'),0,'DPT2: no phantom run on normal DP');
+  newGame();
+  sb.S.outs=0;sb.S.bases[1]={t:'away',i:2,rid:'dp-tag'};
+  sb.S.bases[2]={t:'away',i:4,rid:'dp-score'};
+  const twoOutDP=[
+    {who:'BR',label:'Batter',from:0,to:0,out:{f:'6-3'}},
+    {who:'R',r:sb.S.bases[1],label:'Runner',from:2,to:0,out:{f:'3-5'}},
+    {who:'R',r:sb.S.bases[2],label:'Lead runner',from:3,to:4,out:null}
+  ];
+  sb.placementReview(twoOutDP,'DP','Grounded into DP');
+  ok(!el('#sheet').innerHTML.includes('Run on an inning-ending DP?'),
+    'DPT3: non-inning-ending DP does not ask timing question');
+  el('#plDone').onclick();
+  eq(sb.teamRunTotal('away'),1,'DPT3: ordinary two-out DP run is credited');
+
   /* ===== FC5 / reach E3 / advance E2: independent errors, no double E2 ===== */
   newGame();
   sb.S.outs=2;sb.S.bat='away';sb.S.inning=3;
@@ -1328,7 +1403,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.13','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.14','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');

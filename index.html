@@ -855,7 +855,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.13';
+const APP_VERSION='2026.10.09.14';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2566,7 +2566,7 @@ function needsAdvanceReason(m,playCode){
   // the scorer explicitly marks an error.
   const c=String(playCode||'');
   if(m.who==='R'&&(
-    /^(1B|2B|3B|HR|FC|SAC|SF)$/.test(c) ||
+    /^(1B|2B|3B|HR|FC|SAC|SF|DP)$/.test(c) ||
     /^[0-9]/.test(c) ||
     /^BGO/.test(c)
   ))return false;
@@ -2684,6 +2684,29 @@ function placementReview(movers,code,text,alreadySnapped,details){
   const applyPlacement=(movers,code)=>{
     const cb=placementCollision(movers); // A3: two runners can't end on the same base
     if(cb){toast("Two runners can't end on "+baseName(cb)+' — fix one.');return;}
+    // A DP producing the inning's third out is a timing play if another
+    // runner crosses home. Only a run preceding a non-force final out counts.
+    // Never auto-credit it merely because the runner was moved to Home.
+    const inningEndingDP=code==='DP'&&S.outs+movers.filter(m=>m.out).length>=3;
+    const scoringOnDP=inningEndingDP&&movers.some(m=>m.who==='R'&&!m.out&&m.to===4);
+    if(scoringOnDP&&!details?.timingConfirmed){
+      openModal('<h2>Run on an inning-ending DP?</h2>'+
+        '<p class="sub">A run counts only when it crossed home BEFORE the final out, and that last out was a non-force tag out. A force out or a batter retired before first cancels the run.</p>'+
+        '<button class="med accent" id="dpRunCounts" style="width:100%;margin-bottom:8px">Tag out · run scored first (counts)</button>'+
+        '<button class="med" id="dpRunNo" style="width:100%;margin-bottom:8px">Force out / run scored later (no run)</button>'+
+        '<button class="med ghost" id="dpRunBack" style="width:100%">Back to runners</button>');
+      $('#dpRunCounts').onclick=()=>{
+        details={...(details||{}),timingConfirmed:true,finalOut:'non-force-tag',runBeforeFinalOut:true};
+        applyPlacement(movers,code);
+      };
+      $('#dpRunNo').onclick=()=>{
+        details={...(details||{}),timingConfirmed:false};
+        toast('The run cannot count. Change the runner destination, then confirm.');
+        draw();
+      };
+      $('#dpRunBack').onclick=draw;
+      return;
+    }
     if(!alreadySnapped)snap();
     const nb=[null,null,null],originIdx=S.pas.length;
     movers.forEach(m=>{
@@ -2707,6 +2730,11 @@ function placementReview(movers,code,text,alreadySnapped,details){
     commitPA(code,paErrTag(movers),placementErrorInstances(movers,code));
     const committed=S.pas[S.pas.length-1];
     if(committed&&code==='SF'&&movers.filter(m=>m.out).length>1)committed.sacDP=true;
+    if(committed&&inningEndingDP&&scoringOnDP&&details?.timingConfirmed){
+      committed.dpTiming={finalOut:details.finalOut,runBeforeFinalOut:true,
+        scoringRunnerIds:movers.filter(m=>m.who==='R'&&!m.out&&m.to===4)
+          .map(m=>m.r&&m.r.rid).filter(Boolean)};
+    }
     if(committed&&code==='FC'){
       const batter=movers.find(m=>m.who==='BR'&&!m.out);
       if(batter&&batter.reachErr)committed.reachError=String(batter.reachErr);
@@ -2718,8 +2746,12 @@ function placementReview(movers,code,text,alreadySnapped,details){
     S.order[S.bat]++;S.balls=0;S.strikes=0;
     save();renderAll();endHalfCheck();save();renderAll();
   };
-  // Third out ends the half-inning — no need to ask where everyone ended up.
-  if(S.outs+movers.filter(m=>m.out).length>=3){applyPlacement(movers,code);return;}
+  // For an inning-ending DP with other live runners, show placement first:
+  // a runner may score BEFORE the final tag out even though the inning ends.
+  // Other third-out plays retain their established fast-commit behavior.
+  const endsHalf=S.outs+movers.filter(m=>m.out).length>=3;
+  const dpWithLiveRunners=code==='DP'&&movers.some(m=>m.who==='R'&&!m.out);
+  if(endsHalf&&!dpWithLiveRunners){applyPlacement(movers,code);return;}
   draw();$('#modal').classList.add('on');
 }
 function advanceAll(n,reason){
