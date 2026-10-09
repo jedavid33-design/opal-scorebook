@@ -965,9 +965,18 @@ async function main() {
     'HDR: inning sits beside the enlarged score in a single flex row');
   ok(html.includes('flex-direction:column;align-items:center;gap:3px'),
     'HDR: challenge dots stack vertically, not side by side');
-  ok(html.includes('justify-content:flex-end;gap:10px') &&
+  ok(html.includes('justify-content:space-between;gap:8px') &&
      html.includes('score-matchup{display:flex;align-items:center;gap:5px'),
-    'HDR: team abbreviations cluster on the same right side as the score');
+    'HDR: teams stay left, with game score and inning on right');
+  ok(html.includes('#v-score .scorehead .t{font-size:31px') &&
+     html.includes('#v-score .score-total{display:inline-flex;align-items:baseline;gap:4px;') &&
+     html.includes('font-size:31px;font-weight:900'),
+    'HDR: team abbreviations and game score are equally prominent on wide displays');
+  ok(html.includes('#v-score .scorehead .t{font-size:27px;}') &&
+     html.includes('#v-score .score-total{font-size:27px;gap:2px;}') &&
+     html.includes('#v-score .scorehead .t{font-size:25px;}') &&
+     html.includes('#v-score .score-total{font-size:25px;}'),
+    'HDR: team codes and score remain the same size at narrower breakpoints');
   ok(html.includes('width:5.5px;height:5.5px;border-radius:50%') &&
      html.includes('width:18px;min-width:18px;height:40px'),
     'HDR: challenge dots are smaller while retaining separate tap areas');
@@ -1205,7 +1214,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.8','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.9','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');

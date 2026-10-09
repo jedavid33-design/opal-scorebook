@@ -620,7 +620,8 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 
 
 /* Prominent game score; compact vertical ABS challenge markers beside team codes. */
-#v-score .scorehead{display:flex;align-items:center;justify-content:flex-end;gap:10px;min-width:0;}
+#v-score .scorehead{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;}
+#v-score .scorehead .t{font-size:31px;font-weight:900;line-height:1;}
 #v-score .score-matchup{display:flex;align-items:center;gap:5px;white-space:nowrap;min-width:0;flex:0 0 auto;}
 #v-score .score-team{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;}
 #v-score .score-at{font-size:12px;font-weight:650;color:var(--dim);}
@@ -642,7 +643,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
   line-height:1.15;white-space:nowrap;}
 @media(max-width:410px){
   #v-score .score-matchup{gap:4px;}
-  #v-score .scorehead .t{font-size:18px;}
+  #v-score .scorehead .t{font-size:27px;}
   #v-score .score-result{gap:6px;}
   #v-score .score-total{font-size:27px;gap:2px;}
   #v-score .score-inning{font-size:13px;}
@@ -650,7 +651,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 @media(max-width:355px){
   #v-score .scorehead{gap:4px;}
   #v-score .score-matchup{gap:2px;}
-  #v-score .scorehead .t{font-size:16px;}
+  #v-score .scorehead .t{font-size:25px;}
   #v-score .challenge-meter{width:17px;min-width:17px;}
   #v-score .score-total{font-size:25px;}
   #v-score .score-inning{font-size:12px;}
@@ -854,7 +855,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.8';
+const APP_VERSION='2026.10.09.9';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};

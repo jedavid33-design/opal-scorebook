@@ -1041,3 +1041,10 @@ replacing the "visco" app she currently uses.
   and narrowed their button footprints while retaining independently tappable
   challenge adjusters. Inning remains on the same line, to the right of score.
   Pure UI change, no scoring/worker changes. App v2026.10.09.8.
+
+- 2026-10-09: Score header correction after screenshot review: teams and their
+  original miniature, vertically stacked challenge dots are on the LEFT;
+  prominent game score and inline inning are on the RIGHT. Team abbreviations
+  now match the score number font size at all widths (31px / 27px / 25px
+  responsive), with no change to dots or their tap behavior. App
+  v2026.10.09.9, CSS-only layout update; Worker unchanged.
