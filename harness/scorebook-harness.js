@@ -407,8 +407,9 @@ async function main() {
   const multiFcRoot=el('#sheet'),oldMultiFcQuery=multiFcRoot.querySelectorAll;
   const reachErrControl={dataset:{reachError:'0'},onclick:null};
   const batterToSecond={dataset:{m:'0',b:'2'},onclick:null};
+  const batterAdvanceError={dataset:{m:'0',b:'err'},onclick:null};
   multiFcRoot.querySelectorAll=sel=>sel==='[data-reach-error]'?[reachErrControl]:
-    sel==='[data-m]'?[batterToSecond]:[];
+    sel==='[data-m]'?[batterToSecond,batterAdvanceError]:[];
   const pickRoot=el('#fs1'),oldPickQuery=pickRoot.querySelectorAll;
   const errorThree={dataset:{n:'3'},onclick:null};
   const errorTwo={dataset:{n:'2'},onclick:null};
@@ -429,6 +430,13 @@ async function main() {
   el('#advErr').onclick();
   ok(el('#sheet').innerHTML.includes('Same error or another?'),
     'FCERR: second advance prompts same or separate error');
+  el('#sameError').onclick();
+  eq(multiFc[0].err,'3','FCERR: same error reuses Craig E3 for the later advance');
+  eq(sb.paErrTag(multiFc),'E3','FCERR: same error does not charge Craig twice');
+  batterAdvanceError.onclick();
+  batterAdvanceError.onclick();
+  ok(el('#sheet').innerHTML.includes('Same error or another?'),
+    'FCERR: reselecting a second error reopens the choice');
   activeFielder=errorTwo;
   el('#anotherError').onclick();
   errorTwo.onclick();el('#fs1ok').onclick();
@@ -453,7 +461,7 @@ async function main() {
   eq(sb.S.outs,2,'FCERR: no out recorded; two outs remain');
   eq(sb.S.runs.away[2],1,'FCERR: Contreras scores exactly once');
   eq(sb.S.bases[0],null,'FCERR: first base empty after advance');
-  eq(sb.S.bases[1].i,1,'FCERR: batter settles at second');
+  eq(sb.S.bases[1].i,0,'FCERR: batter settles at second');
   eq(sb.paResultDisplay(weirdFc),'FC5','FCERR: diamond keeps original fielder FC5 notation');
   eq(sb.paErrDisp(weirdFc),'E3,E2','FCERR: Book lists both errors once');
   const fcPath=sb.runnerPathById(weirdFc.runnerId).steps;
