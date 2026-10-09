@@ -605,6 +605,16 @@ async function main() {
   ok(sb.bookDiamondHTML(directOut).indexOf('>OUT<')>=0,
     'BOOK2-1: direct batter out gets OUT marker');
 
+  /* ===== Opal Light polish: uniform pitch buttons and unobstructed diamonds ===== */
+  ok(!html.includes('.pitch.auto{') && !html.includes('button.pitch.auto{'),
+    'THEME: automatic calls inherit regular pitch button colors');
+  ok(html.includes('table.book.scorecard .resultCode{background:transparent') &&
+     !html.includes('table.book.scorecard .resultCode{background:rgba('),
+    'THEME: Book play notation has no rectangular white backing');
+  ok(html.includes('padding:1px 2px;background:transparent;border-radius:2px') &&
+     html.includes('text-shadow:0 1px 0 rgba(255,255,255,.95)'),
+    'THEME: Book play text remains readable without concealing the diamond');
+
   /* ===== Opal Light palette + unified Book theme ===== */
   ok(html.includes('--ink:#332743') && html.includes('--card:rgba(255,255,255,.88)'),
     'THEME: Opal light colors define dark plum text and translucent white cards');
@@ -1164,7 +1174,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.5','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.6','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');

@@ -50,7 +50,6 @@ button:active{transform:scale(.97);}
 .dhrow{display:flex !important; align-items:center; gap:8px; font-size:14px !important; color:var(--dim); margin-top:8px; min-height:44px;}
 .dhrow input{width:auto !important; min-height:20px; accent-color:var(--plum);}
 .pitch{background:rgba(155,111,211,.16); border-color:rgba(155,111,211,.45);}
-.pitch.auto{background:rgba(255,212,121,.13); border-color:rgba(255,212,121,.5);}
 .accent{background:linear-gradient(135deg,var(--plum-deep),#7a4fb5); border:none; font-weight:700;}
 .ghost{background:transparent;}
 .danger{border-color:rgba(255,120,120,.5); color:var(--out);}
@@ -490,7 +489,7 @@ table.book.scorecard .bdEnd{fill:#338356;stroke:#fff9e9;stroke-width:1.2;}
 table.book.scorecard .bdStrand{fill:#fff9e9;stroke:#806095;stroke-width:2;}
 table.book.scorecard .bdOut{stroke:#ac4548;stroke-width:2.8;stroke-linecap:round;}
 table.book.scorecard .resultCode{top:30px;left:5px;right:5px;min-height:13px;
-  padding:1px 2px;background:rgba(255,250,237,.9);border-radius:2px;
+  padding:1px 2px;background:transparent;border-radius:2px;
   color:#2e2835;text-shadow:none;font-size:10px;line-height:1.12;overflow-wrap:anywhere;}
 table.book.scorecard .journeyStatus{bottom:1px;right:2px;min-width:20px;text-align:center;
   font-size:8px;padding:2px 3px;border:1px solid #c5b79e;border-radius:2px;
@@ -531,7 +530,6 @@ button.accent,.tabs button.on{background:linear-gradient(135deg,#8e66b1,#67448d)
 button.ghost{background:rgba(255,255,255,.55);}
 button.danger{background:#fff0f3;border-color:#d5a0ae;color:var(--out);}
 button.pitch{background:#eadef4;border-color:#c3a8dc;color:#463052;}
-button.pitch.auto{background:#fff0d8;border-color:#deb87d;color:#65471d;}
 input,select,textarea{background:rgba(255,255,255,.96);color:var(--ink);border-color:var(--line);}
 input::placeholder,textarea::placeholder{color:#867a93;}
 .returnPool,.subPlayer.empty{background:#f4eefb;color:var(--dim);}
@@ -606,7 +604,9 @@ table.book.scorecard .bdReason{fill:#48325c;stroke:#fff;}
 table.book.scorecard .bdEnd{fill:#287c60;stroke:#fff;}
 table.book.scorecard .bdStrand{fill:#fff;stroke:var(--plum);}
 table.book.scorecard .bdOut{stroke:#ac4964;}
-table.book.scorecard .resultCode{background:rgba(255,255,255,.91);color:#392a4b;}
+table.book.scorecard .resultCode{background:transparent;color:#392a4b;
+  text-shadow:0 1px 0 rgba(255,255,255,.95),0 -1px 0 rgba(255,255,255,.95),
+    1px 0 0 rgba(255,255,255,.95),-1px 0 0 rgba(255,255,255,.95);}
 table.book.scorecard .journeyStatus{border-color:#c8b7d7;background:#fcfaff;color:#59466d;}
 table.book.scorecard .journeyStatus.run{color:#236c55;border-color:#86bea6;}
 table.book.scorecard .journeyStatus.out{color:#a33f56;border-color:#d5a2b2;}
@@ -801,7 +801,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.5';
+const APP_VERSION='2026.10.09.6';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};

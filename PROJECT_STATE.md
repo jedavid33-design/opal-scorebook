@@ -1017,3 +1017,9 @@ replacing the "visco" app she currently uses.
 - 2026-10-09: Opal Light contrast polish: Book archive/action banner ghost
   buttons use a darker plum overlay so white labels remain legible. App
   v2026.10.09.5; styling-only, Worker unchanged.
+
+- 2026-10-09: Two Opal Light refinements: automatic pitch-call buttons inherit
+  the same lilac fill/border/text as all other pitch buttons; removed both
+  Book play-notation white background layers, leaving the diamond's basepath
+  unobstructed, while retaining a subtle letter-only white text halo for
+  legibility. No scoring changes. App v2026.10.09.6. Worker unchanged.
