@@ -605,6 +605,44 @@ async function main() {
   ok(sb.bookDiamondHTML(directOut).indexOf('>OUT<')>=0,
     'BOOK2-1: direct batter out gets OUT marker');
 
+  /* ===== Book 2.0 Phase 3: traditional paper scorecard styling ===== */
+  newGame();
+  const paperHtml=sb.bookTable('away');
+  ok(paperHtml.includes('class="book scorecard"') && !paperHtml.includes('bookLegend'),
+    'BOOK2-3: traditional scorecard table uses isolated paper styling');
+  const emptyPaper=sb.bookDiamondHTML({team:'away',b:0,inning:1,half:0,
+    result:'F8',batter:'Astro1',events:[]});
+  eq((emptyPaper.match(/bdBaseVisit/g)||[]).length,0,
+    'BOOK2-3: recorded batter out does not falsely mark any reached bases');
+  ok(emptyPaper.includes('bdHomePlate') && emptyPaper.includes('bdOut') &&
+     emptyPaper.includes('>OUT<'),
+    'BOOK2-3: paper scorecard renders home plate and explicit out mark');
+  sb.placementReview(sb.hitMovers(2),'2B','Doubled');
+  el('#plDone').onclick();
+  const paperPa=sb.S.pas[0],paperDia=sb.bookDiamondHTML(paperPa);
+  eq((paperDia.match(/bdBaseVisit/g)||[]).length,2,
+    'BOOK2-3: double fills first and second bags but not third');
+  eq((paperDia.match(/bdRoute/g)||[]).length,2,
+    'BOOK2-3: double traces two proper basepath diagonals');
+  ok(paperDia.includes('>2B<') && paperDia.includes('resultCode'),
+    'BOOK2-3: existing outcome and terminal base labels remain legible');
+  const paperRunner=sb.S.bases[1];
+  sb.setRunnerEnd(paperRunner,'scored',4);
+  sb.ev('r',sb.runnerAdvanceEvent(paperRunner,'Scores',2,4,'play'));
+  sb.S.bases[1]=null;
+  const runPaper=sb.bookDiamondHTML(paperPa);
+  eq((runPaper.match(/bdBaseVisit/g)||[]).length,3,
+    'BOOK2-3: scored runner shows all three reached bases');
+  eq((runPaper.match(/bdRoute/g)||[]).length,4,
+    'BOOK2-3: run finishes a full four-segment basepath');
+  ok(runPaper.includes('bdScoreFill') && runPaper.includes('>R<'),
+    'BOOK2-3: a scored run has a filled diamond plus an R stamp');
+  ok(html.includes('class="bookLegend"') &&
+     html.includes('table.book.scorecard .journeyStatus'),
+    'BOOK2-3: paper score symbols are explained and legible');
+  ok(!sb.bookTable('home').includes('style="background:'),
+    'BOOK2-3: scorecard appearance does not inject styles into scoring state');
+
   /* ===== Book 2.0 Phase 2: advancement reasons + batter slot ===== */
   newGame();
   sb.S.pas=[
@@ -1106,7 +1144,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.2','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.3','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');

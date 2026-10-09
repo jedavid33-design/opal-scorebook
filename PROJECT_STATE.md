@@ -995,3 +995,13 @@ replacing the "visco" app she currently uses.
   lineup row when roster length changes. Switching team tabs also does not
   scroll. Explicit Roster/Lineup navigation buttons still work when tapped.
   App v2026.10.09.2. Worker unchanged; no Worker deployment required.
+
+- 2026-10-09: Book 2.0 Phase 3 delivered: paper-style traditional scorecard
+  appearance in Book grid only, including parchment square cells, readable
+  inning grid/player name gutter, traced diagonal baserunning lines, filled
+  reached-base markers, home-plate glyph, scored-run shaded diamond, distinct
+  out/LOB markers, legible scoring and advancement-reason labels, and a compact
+  on-screen symbol legend. Phase 1 runner lifecycle and Phase 2 SB/WP/PB/TH/
+  error labels are rendered without altering scoring or stored game data;
+  existing pitch-audit taps, completed games, and linescore remain intact.
+  App v2026.10.09.3; Worker unchanged; no Worker deployment required.

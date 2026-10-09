@@ -443,6 +443,69 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 }
 .appver{position:fixed;right:10px;bottom:calc(82px + env(safe-area-inset-bottom));z-index:4;
   font-size:9px;letter-spacing:.3px;color:var(--dim);opacity:.38;pointer-events:none;}
+
+/* Book Phase 3: a paper score sheet confined to the Book grid.
+   Linescore, scoring controls, score data and past-game edit behavior stay unchanged. */
+#v-book .bookLegend{display:flex;flex-wrap:wrap;gap:6px 12px;margin:0 0 11px;
+  color:var(--dim);font-size:11px;line-height:1.35;}
+#v-book .bookLegend span{display:inline-flex;gap:5px;align-items:center;}
+#v-book .bookLegend b{font-size:13px;font-weight:900;color:var(--ink);}
+#v-book .bookLegend .legendPath{color:#d7b8f0;}
+#v-book .bookLegend .legendRun{color:var(--good);}
+#v-book .bookLegend .legendOut{color:var(--out);}
+#v-book .bookLegend .legendLOB{color:var(--plum);}
+table.book.scorecard{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;
+  color:#392d3b;background:#e9ddc5;border:1px solid #ac9a89;font-variant-numeric:tabular-nums;}
+table.book.scorecard th,table.book.scorecard td{border:0;border-right:1px solid #b8a993;
+  border-bottom:1px solid #b8a993;padding:3px 4px;text-align:center;vertical-align:middle;}
+table.book.scorecard th:last-child,table.book.scorecard td:last-child{border-right:0;}
+table.book.scorecard tr:last-child td{border-bottom:0;}
+table.book.scorecard th{background:#e0cfb0;color:#45364a;font-size:12px;font-weight:850;
+  min-width:80px;letter-spacing:.5px;}
+table.book.scorecard th:first-child{min-width:114px;}
+table.book.scorecard th:first-child,table.book.scorecard td:first-child{
+  position:sticky;left:0;z-index:3;background:#e6d7b9;box-shadow:2px 0 2px #796a5850;}
+table.book.scorecard td.plname{text-align:left !important;max-width:none;min-width:114px;
+  font-size:11px;font-weight:700;padding:6px 7px;color:#3e3544;white-space:normal;
+  overflow-wrap:anywhere;line-height:1.25;}
+table.book.scorecard .paStack{gap:3px;}
+table.book.scorecard .dcell{width:72px;height:78px;margin:2px auto;
+  border:1px solid #c4b49b;border-radius:3px;color:#342b38;
+  background:linear-gradient(145deg,#fffaf0,#f7efd9);box-shadow:inset 0 0 0 1px #fff8e7;}
+table.book.scorecard .dcell.hit{background:linear-gradient(145deg,#fffaf0,#edf6e8);}
+table.book.scorecard .dcell.out{background:linear-gradient(145deg,#fffaf0,#faece5);}
+table.book.scorecard .bookDia{left:6px;top:3px;width:60px;height:60px;}
+table.book.scorecard .bdOutline{fill:none;stroke:#a49a8a;stroke-width:1.2;}
+table.book.scorecard .dcell.hit .bdOutline{stroke:#6b9b79;}
+table.book.scorecard .dcell.out .bdOutline{stroke:#b8938f;}
+table.book.scorecard .bdScoreFill{fill:rgba(80,154,98,.29);stroke:none;}
+table.book.scorecard .bdRoute{stroke:#6c477b;stroke-width:2.5;stroke-linecap:square;fill:none;}
+table.book.scorecard .bdBaseEmpty{fill:#fff9ed;stroke:#a69c91;stroke-width:.9;}
+table.book.scorecard .bdBaseVisit{fill:#6c477b;stroke:#fef6e8;stroke-width:.85;}
+table.book.scorecard .bdHomePlate{fill:#f9f3e5;stroke:#867b74;stroke-width:1.1;}
+table.book.scorecard .bdReason{font-size:7px;font-weight:900;fill:#392a4d;
+  text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:#fff9e9;
+  stroke-width:3px;stroke-linejoin:round;}
+table.book.scorecard .bdEnd{fill:#338356;stroke:#fff9e9;stroke-width:1.2;}
+table.book.scorecard .bdStrand{fill:#fff9e9;stroke:#806095;stroke-width:2;}
+table.book.scorecard .bdOut{stroke:#ac4548;stroke-width:2.8;stroke-linecap:round;}
+table.book.scorecard .resultCode{top:30px;left:5px;right:5px;min-height:13px;
+  padding:1px 2px;background:rgba(255,250,237,.9);border-radius:2px;
+  color:#2e2835;text-shadow:none;font-size:10px;line-height:1.12;overflow-wrap:anywhere;}
+table.book.scorecard .journeyStatus{bottom:1px;right:2px;min-width:20px;text-align:center;
+  font-size:8px;padding:2px 3px;border:1px solid #c5b79e;border-radius:2px;
+  background:#fff9eb;color:#55465c;}
+table.book.scorecard .journeyStatus.run{color:#206f43;border-color:#81ad8d;}
+table.book.scorecard .journeyStatus.out{color:#a1323c;border-color:#d29b96;}
+table.book.scorecard .journeyStatus.lob{color:#694982;border-color:#af94c2;}
+table.book.scorecard .journeyStatus.base{color:#41344c;}
+table.book.scorecard .interruptedCell{background:#f6eadc;color:#725389;border-color:#90759d;}
+@media (max-width:400px){
+  table.book.scorecard{min-width:790px;}
+  table.book.scorecard .dcell{width:66px;height:72px;}
+  table.book.scorecard .bookDia{left:5px;top:2px;width:56px;height:56px;}
+  table.book.scorecard .resultCode{top:27px;font-size:9.5px;}
+}
 </style>
 </head>
 <body>
@@ -572,6 +635,13 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   <div id="bookBanner" class="viewbanner" hidden></div>
   <h1>Scorebook</h1>
   <p class="sub" id="bookSub"></p>
+  <div class="bookLegend" aria-label="Scorecard symbols">
+    <span><b class="legendPath">╱</b> runner path</span>
+    <span><b>◆</b> base reached</span>
+    <span><b class="legendRun">▰</b> run scored</span>
+    <span><b class="legendOut">×</b> out</span>
+    <span><b class="legendLOB">○</b> left on base</span>
+  </div>
   <div class="card" style="overflow-x:auto">
     <div class="sect" style="margin-top:0" id="bookAwayT"></div>
     <div id="bookAway"></div>
@@ -619,7 +689,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.2';
+const APP_VERSION='2026.10.09.3';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2761,10 +2831,23 @@ function bookAdvanceLabelPos(step){
 }
 function bookDiamondHTML(pa){
   const j=paBookJourney(pa),pts={0:[30,52],1:[52,30],2:[30,8],3:[8,30],4:[30,52]};
+  const reached=Math.max(0,Math.min(4,j.routeTo||0));
+  const fill=j.status==='scored'
+    ?'<path class="bdScoreFill" d="M30 52 L52 30 L30 8 L8 30 Z"/>':'';
+  // A traditional scorebook diamond: trace each basepath and mark reached bags.
   let route='';
-  for(let b=0;b<Math.min(4,j.routeTo);b++){
-    const a=pts[b],z=pts[b+1];route+='<path class="bdRoute" d="M '+a[0]+' '+a[1]+' L '+z[0]+' '+z[1]+'"/>';
+  for(let b=0;b<reached;b++){
+    const a=pts[b],z=pts[b+1];
+    route+='<path class="bdRoute" d="M '+a[0]+' '+a[1]+' L '+z[0]+' '+z[1]+'"/>';
   }
+  const emptyBases=[1,2,3].map(b=>{
+    const p=pts[b];return '<rect class="bdBaseEmpty" x="'+(p[0]-2.6)+'" y="'+(p[1]-2.6)+
+      '" width="5.2" height="5.2" transform="rotate(45 '+p[0]+' '+p[1]+')"/>';
+  }).join('');
+  const touchedBases=[1,2,3].filter(b=>reached>=b).map(b=>{
+    const p=pts[b];return '<rect class="bdBaseVisit" x="'+(p[0]-2.8)+'" y="'+(p[1]-2.8)+
+      '" width="5.6" height="5.6" transform="rotate(45 '+p[0]+' '+p[1]+')"/>';
+  }).join('');
   const reasons=j.steps.map(st=>{
     const label=bookAdvanceLabel(st);if(!label)return'';
     const p=bookAdvanceLabelPos(st);
@@ -2780,15 +2863,19 @@ function bookDiamondHTML(pa){
   }else if(j.status==='stranded'){
     marker='<circle class="bdStrand" cx="'+ep[0]+'" cy="'+ep[1]+'" r="3.5"/>';status='LOB';sc=' lob';
   }else if(j.status==='onbase'&&j.base){
-    marker='<circle class="bdEnd" cx="'+ep[0]+'" cy="'+ep[1]+'" r="3.2"/>';status=baseName(j.base).replace('First','1B').replace('Second','2B').replace('Third','3B');sc=' base';
+    marker='<circle class="bdEnd" cx="'+ep[0]+'" cy="'+ep[1]+'" r="3.2"/>';
+    status=baseName(j.base).replace('First','1B').replace('Second','2B').replace('Third','3B');sc=' base';
   }else if(j.status==='ended'&&j.base){
     marker='<circle class="bdStrand" cx="'+ep[0]+'" cy="'+ep[1]+'" r="3.5"/>';status='END';
   }
-  const fill=j.status==='scored'?'<path class="bdScoreFill" d="M30 52 L52 30 L30 8 L8 30 Z"/>':'';
   const code=paResultDisplay(pa)+(paErrDisp(pa)?', '+paErrDisp(pa):'');
   return '<svg class="bookDia" viewBox="0 0 60 60" aria-hidden="true">'+fill+
-    '<path class="bdOutline" d="M30 52 L52 30 L30 8 L8 30 Z"/>'+route+reasons+marker+'</svg>'+
-    '<span class="resultCode">'+esc(code)+'</span>'+(status?'<span class="journeyStatus'+sc+'">'+status+'</span>':'');
+    '<path class="bdOutline" d="M30 52 L52 30 L30 8 L8 30 Z"/>'+
+    emptyBases+route+touchedBases+
+    '<path class="bdHomePlate" d="M27 49 L33 49 L33 53 L30 56 L27 53 Z"/>'+
+    reasons+marker+'</svg>'+
+    '<span class="resultCode">'+esc(code)+'</span>'+
+    (status?'<span class="journeyStatus'+sc+'">'+status+'</span>':'');
 }
 function teamHits(t){return S.pas.filter(p=>p.team===t&&/^(1B|2B|3B|GRD|HR)$/.test(p.result)).length;}
 /* Errors belong to the fielding team — the opponent of the batting team in p.team.
@@ -2849,7 +2936,7 @@ function bookPAEntries(){
 }
 function bookTable(t){
   const team=S[t],nInn=Math.max(9,S.inning);
-  let h=`<table class="book"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}</tr>`;
+  let h=`<table class="book scorecard"><tr><th></th>${Array.from({length:nInn},(_,i)=>`<th>${i+1}</th>`).join('')}</tr>`;
   team.lineup.forEach((p,i)=>{
     h+=`<tr><td class="plname">${p.num?'#'+p.num+' ':''}${p.name||'—'}${p.hist&&p.hist.length>1?' ⇄':''}</td>`;
     for(let n=1;n<=nInn;n++){const ps=pasAt(t,i,n);
