@@ -93,7 +93,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,fielderChoiceMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,fcPlayText,fielderChoicePicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,fcPlayText,fielderChoicePicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,placementErrorInstances,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actError,scoreRunnerErrorAdvance,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookAdvanceBatterSlot,bookAdvanceLabel,bookAdvanceLabelPos,bookDiamondHTML,teamHits,paErrDisp,teamErrs,liveBallErrors,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderBook,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
@@ -404,10 +404,10 @@ async function main() {
   eq(multiFc.find(m=>m.who==='BR').to,1,
     'FCERR: batter starts with first base awarded before extra advance');
   multiFc.find(m=>m.who==='R').to=4;
-  const fcRoot=el('#sheet'),oldFcQuery=fcRoot.querySelectorAll;
+  const multiFcRoot=el('#sheet'),oldMultiFcQuery=multiFcRoot.querySelectorAll;
   const reachErrControl={dataset:{reachError:'0'},onclick:null};
   const batterToSecond={dataset:{m:'0',b:'2'},onclick:null};
-  fcRoot.querySelectorAll=sel=>sel==='[data-reach-error]'?[reachErrControl]:
+  multiFcRoot.querySelectorAll=sel=>sel==='[data-reach-error]'?[reachErrControl]:
     sel==='[data-m]'?[batterToSecond]:[];
   const pickRoot=el('#fs1'),oldPickQuery=pickRoot.querySelectorAll;
   const errorThree={dataset:{n:'3'},onclick:null};
@@ -416,7 +416,7 @@ async function main() {
   pickRoot.querySelectorAll=sel=>sel==='.fnode'?[activeFielder]:[];
   sb.placementReview(multiFc,'FC',"Fielder's choice on a ground ball 5 — no out",
     false,{fcFielders:'5',fcContact:'ground ball'});
-  ok(fcRoot.innerHTML.includes('data-reach-error="0"'),
+  ok(multiFcRoot.innerHTML.includes('data-reach-error="0"'),
     'FCERR: FC batter has separate first-base error button');
   reachErrControl.onclick();
   ok(el('#sheet').innerHTML.includes('Batter reached 1st on error by whom?'),
@@ -427,6 +427,9 @@ async function main() {
   ok(el('#sheet').innerHTML.includes('How did the runner advance?'),
     'FCERR: extra advance gets its own independent reason picker');
   el('#advErr').onclick();
+  ok(el('#sheet').innerHTML.includes('Same error or another?'),
+    'FCERR: second advance prompts same or separate error');
+  el('#anotherError').onclick();
   activeFielder=errorTwo;
   errorTwo.onclick();el('#fs1ok').onclick();
   eq(multiFc[0].err,'2','FCERR: Michael Perez E2 separately stored on advance');
@@ -468,7 +471,7 @@ async function main() {
   sb.undo();
   eq(sb.teamErrs('home'),0,'FCERR: undo restores error-free state');
   eq(sb.S.runs.away[2],0,'FCERR: undo restores pre-play score');
-  pickRoot.querySelectorAll=oldPickQuery;fcRoot.querySelectorAll=oldFcQuery;
+  pickRoot.querySelectorAll=oldPickQuery;multiFcRoot.querySelectorAll=oldMultiFcQuery;
 
   newGame();
   const oldFc=sb.fielderChoiceMovers(null,'6-4');
@@ -476,6 +479,17 @@ async function main() {
   const sameFielder=[{who:'BR',reachErr:'2',err:'2',out:null}];
   eq(sb.paErrTag(sameFielder),'E2',
     'FCERR: repeated annotation of same E2 does not charge catcher twice');
+
+  /* Same versus another: one fielder may commit two distinct errors. */
+  newGame();
+  const same=[{who:'BR',reachErr:'2',reachErrId:'event-A',err:'2',errId:'event-A',out:null}];
+  eq(sb.paErrTag(same),'E2','FCERR2: one error applied to two advances counts once');
+  same[0].errId='event-B';
+  eq(sb.paErrTag(same),'E2,E2','FCERR2: two separate catcher errors both count');
+  eq(sb.placementErrorInstances(same,'FC').length,2,
+    'FCERR2: repeated fielder position keeps two distinct error IDs');
+  const legacy=[{who:'BR',reachErr:'2',err:'2',out:null}];
+  eq(sb.paErrTag(legacy),'E2','FCERR2: legacy untagged identical errors count once');
 
   /* ===== FC contact + fielding sequence: ground bunt force-out ===== */
   newGame();
@@ -1295,7 +1309,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.10','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.11','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');

@@ -855,7 +855,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.10';
+const APP_VERSION='2026.10.09.11';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -1760,7 +1760,9 @@ function endHalfCheck(){
   return true;
 }
 /* Distinct error positions on a PA: outcome error first, then extra tags. */
-function errPositions(pa){const fs=[];let m=/^E(\d+)/.exec(pa.result||'');if(m)fs.push(m[1]);
+function errPositions(pa){
+  if(Array.isArray(pa.errorInstances))return pa.errorInstances.map(x=>String(x.position));
+  const fs=[];let m=/^E(\d+)/.exec(pa.result||'');if(m)fs.push(m[1]);
   (pa.err||'').split(',').forEach(e=>{m=/^E(\d+)/.exec(e.trim());if(m&&!fs.includes(m[1]))fs.push(m[1]);});
   return fs;}
 /* Player currently at a defensive position for a team. */
@@ -1768,11 +1770,12 @@ function fielderName(ft,pos){const s=(S[ft].lineup||[]).find(x=>String(x.pos)===
 /* Drop an err tag already captured by an E-type outcome, e.g. result E5 + tag E5 -> null. */
 function stripDupErr(code,tag){if(!tag)return tag;const m=/^E(\d+)/.exec(code||'');if(!m)return tag;
   const rest=tag.split(',').filter(e=>e.trim()!=='E'+m[1]);return rest.length?rest.join(','):null;}
-function commitPA(result,err){
+function commitPA(result,err,errorInstances){
   err=stripDupErr(result,err);
   const pa={team:S.bat,b:curIdx(),inning:S.inning,half:S.half,result,
     batter:pname({t:S.bat,i:curIdx()}),pitcher:activePitcherLabel(fieldingTeam())||null,
-    events:S.pa.slice(),...(err?{err}:null)};
+    events:S.pa.slice(),...(err?{err}:null),
+    ...(errorInstances&&errorInstances.length?{errorInstances:errorInstances.map(x=>({...x}))}:null)};
   const ft=S.bat==='away'?'home':'away';
   const by=errPositions(pa).map(f=>fielderName(ft,f));
   if(by.some(Boolean))pa.errBy=by;
@@ -2518,12 +2521,24 @@ function moveRunnerEvents(m,playCode){
   }else if(m.from!==m.to)reasoned(m.from,m.to);
   return out;
 }
-/* Error tag for the PA record, e.g. 'E8' or 'E5,E8'. Null when no error was marked. */
+/* Separate physical errors use distinct IDs even if committed by same fielder.
+   Multiple advances on one error reuse the same ID. */
+function placementErrorInstances(movers,code){
+  const errors=[],seen=new Set(),result=/^E([1-9])$/.exec(String(code||''));
+  if(result){const id='outcome:'+result[1];errors.push({id,position:result[1],source:'result'});seen.add(id);}
+  (movers||[]).forEach(m=>{
+    if(m.out)return;
+    [['reachErr','reachErrId'],['err','errId']].forEach(([f,idField])=>{
+      if(!m[f])return;
+      const position=String(m[f]),id=String(m[idField]||('legacy:'+position));
+      if(!seen.has(id)){seen.add(id);errors.push({id,position,source:f==='reachErr'?'reach':'advance'});}
+    });
+  });
+  return errors;
+}
 function paErrTag(movers){
-  // Separate batter's reach error from an error on their subsequent advance.
-  // Deduplicate identical fielders across one play, as elsewhere in the PA model.
-  const u=[...new Set(movers.filter(m=>!m.out).flatMap(m=>[m.reachErr,m.err].filter(Boolean)).map(String))];
-  return u.length?u.map(f=>'E'+f).join(','):null;
+  const errors=placementErrorInstances(movers);
+  return errors.length?errors.map(e=>'E'+e.position).join(','):null;
 }
 function needsAdvanceReason(m,playCode){
   if(!m||m.out||m.err||m.adv||m.to<=m.from)return false;
@@ -2553,7 +2568,7 @@ function advanceReasonChoices(playCode){
     sb:/^(BB|IBB)$/.test(c)||/^(K|ꓘ)(?:-|$)/.test(c)
   };
 }
-function extraAdvanceReason(m,draw,playCode){
+function extraAdvanceReason(m,draw,playCode,chooseError){
   const from=m.who==='BR'?(m.award||m.from||0):m.from,to=m.to,choices=advanceReasonChoices(playCode);
   openModal(`<h2>How did the runner advance?</h2>
     <p class="sub">${esc(m.label)} moved ${baseName(from)} → ${baseName(to)}. Choose the reason so the scorecard path stays accurate.</p>
@@ -2565,15 +2580,43 @@ function extraAdvanceReason(m,draw,playCode){
       <button class="med" id="advOther">Other</button>
     </div>
     <div style="margin-top:8px"><button class="med ghost" id="advBack" style="width:100%">Back</button></div>`);
-  const at=$('#advTag');if(at)at.onclick=()=>{m.adv='tag';m.err=null;draw();};
-  const as=$('#advSB');if(as)as.onclick=()=>{m.adv='SB';m.err=null;draw();};
-  $('#advThrow').onclick=()=>{m.adv='throw';m.err=null;draw();};
-  $('#advErr').onclick=()=>fielderSingle(f=>{m.err=f;m.adv=null;draw();},'Error by whom?',()=>draw());
-  $('#advOther').onclick=()=>{m.adv='other';m.err=null;draw();};
-  $('#advBack').onclick=()=>{m.to=m.defaultTo==null?from:m.defaultTo;m.adv=null;m.err=null;draw();};
+  const at=$('#advTag');if(at)at.onclick=()=>{m.adv='tag';m.err=null;m.errId=null;draw();};
+  const as=$('#advSB');if(as)as.onclick=()=>{m.adv='SB';m.err=null;m.errId=null;draw();};
+  $('#advThrow').onclick=()=>{m.adv='throw';m.err=null;m.errId=null;draw();};
+  $('#advErr').onclick=()=>chooseError(m,'err',draw);
+  $('#advOther').onclick=()=>{m.adv='other';m.err=null;m.errId=null;draw();};
+  $('#advBack').onclick=()=>{m.to=m.defaultTo==null?from:m.defaultTo;m.adv=null;m.err=null;m.errId=null;draw();};
 }
 function placementReview(movers,code,text,alreadySnapped,details){
   movers.forEach(m=>{if(m.defaultTo==null)m.defaultTo=m.to;});
+  const chooseError=(m,field,back)=>{
+    const idField=field==='reachErr'?'reachErrId':'errId';
+    const existing=placementErrorInstances(movers,code).filter(x=>x.id!==m[idField]);
+    const set=(position,id)=>{m[field]=position;m[idField]=id;if(field==='err')m.adv=null;back();};
+    const add=()=>fielderSingle(f=>set(String(f),genId()),
+      field==='reachErr'?'Batter reached 1st on error by whom?':'Error by whom?',back);
+    if(!existing.length){add();return;}
+    const prompt=()=>{
+      openModal('<h2>Same error or another?</h2>'+
+        '<p class="sub">An error was already recorded during this play. Did this advancement happen on that same error, or a separate mistake?</p>'+
+        '<button class="med" id="sameError" style="width:100%;margin-bottom:8px">Same error · no extra error charged</button>'+
+        '<button class="med" id="anotherError" style="width:100%;margin-bottom:8px">Another error · count a new error</button>'+
+        '<button class="sml ghost" id="errorChoiceBack" style="width:100%">Back</button>');
+      $('#sameError').onclick=()=>{
+        if(existing.length===1){set(existing[0].position,existing[0].id);return;}
+        openModal('<h2>Which error?</h2><p class="sub">Choose the existing error to reuse.</p>'+
+          existing.map((x,i)=>'<button class="med" data-error-source="'+i+'" style="width:100%;margin-bottom:8px">E'+esc(x.position)+'</button>').join('')+
+          '<button class="sml ghost" id="errorSourcesBack">Back</button>');
+        $('#sheet').querySelectorAll('[data-error-source]').forEach(b=>b.onclick=()=>{
+          const x=existing[+b.dataset.errorSource];set(x.position,x.id);
+        });
+        $('#errorSourcesBack').onclick=prompt;
+      };
+      $('#anotherError').onclick=add;
+      $('#errorChoiceBack').onclick=back;
+    };
+    prompt();
+  };
   const draw=()=>{
     const lp=code==='BB'?lastPitch():null;
     const canChallenge=!!(lp&&lp.live&&lp.evts[lp.idx]&&lp.evts[lp.idx].text==='Ball'&&!lp.evts[lp.idx].ch);
@@ -2593,25 +2636,25 @@ function placementReview(movers,code,text,alreadySnapped,details){
     $('#sheet').querySelectorAll('[data-reach-error]').forEach(b=>b.onclick=()=>{
       const m=movers[+b.dataset.reachError];
       if(!m||m.out||m.who!=='BR')return;
-      if(m.reachErr){m.reachErr=null;draw();return;}
-      fielderSingle(f=>{m.reachErr=f;draw();},'Batter reached 1st on error by whom?',()=>draw());
+      if(m.reachErr){m.reachErr=null;m.reachErrId=null;draw();return;}
+      chooseError(m,'reachErr',draw);
     });
     $('#sheet').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{
       const m=movers[+b.dataset.m],v=b.dataset.b;
-      if(v==='out'){fielderPad(f=>{m.out={f};m.to=0;m.err=null;m.adv=null;draw();},'Out — fielders');}
+      if(v==='out'){fielderPad(f=>{m.out={f};m.to=0;m.err=null;m.errId=null;m.reachErr=null;m.reachErrId=null;m.adv=null;draw();},'Out — fielders');}
       else if(v==='err'){
-        if(m.err){m.err=null;draw();}
-        else fielderSingle(f=>{m.err=f;m.adv=null;draw();},'Error by whom?',()=>draw());
+        if(m.err){m.err=null;m.errId=null;draw();}
+        else chooseError(m,'err',draw);
       }
       else{
         m.to=+v;m.out=null;
         const baseline=m.who==='BR'?(m.award||m.defaultTo||m.from):(m.defaultTo==null?m.from:m.defaultTo);
-        if(m.to<=baseline){m.adv=null;m.err=null;draw();}
+        if(m.to<=baseline){m.adv=null;m.err=null;m.errId=null;draw();}
         else if(m.who==='R'&&code==='SF'){
           // Advancing after a sacrifice fly is inherently a tag-up.
-          m.adv='tag';m.err=null;draw();
+          m.adv='tag';m.err=null;m.errId=null;draw();
         }
-        else if(needsAdvanceReason(m,code))extraAdvanceReason(m,draw,code);
+        else if(needsAdvanceReason(m,code))extraAdvanceReason(m,draw,code,chooseError);
         else draw();
       }
     });
@@ -2642,7 +2685,7 @@ function placementReview(movers,code,text,alreadySnapped,details){
       }else{if(m.to>=4){setRunnerEnd(m.r,'scored',4);scoreRun(S.bat);}else nb[m.to-1]=m.r;}
     });
     S.bases=nb;closeModal();
-    commitPA(code,paErrTag(movers));
+    commitPA(code,paErrTag(movers),placementErrorInstances(movers,code));
     const committed=S.pas[S.pas.length-1];
     if(committed&&code==='SF'&&movers.filter(m=>m.out).length>1)committed.sacDP=true;
     if(committed&&code==='FC'){
@@ -3090,8 +3133,7 @@ function liveBallErrors(){
   scan(S.pa);return out;
 }
 function teamErrs(t){const def=p=>(p.team==='away'?'home':'away')===t;
-  const completed=S.pas.filter(p=>def(p)).reduce((n,p)=>{const fs=new Set();let m=/^E(\d+)/.exec(p.result||'');if(m)fs.add(m[1]);
-    (p.err||'').split(',').forEach(e=>{m=/^E(\d+)/.exec(e.trim());if(m)fs.add(m[1]);});return n+fs.size;},0);
+  const completed=S.pas.filter(p=>def(p)).reduce((n,p)=>n+errPositions(p).length,0);
   return completed+liveBallErrors().filter(e=>e.team===t).length;
 }
 /* Player errors from completed PA outcomes plus point-in-time runner
@@ -3375,7 +3417,14 @@ function applyFixNotation(pa,nr,nt){
   const oldM=/^E(\d+)/.exec(pa.result||''),newM=/^E(\d+)/.exec(nr||'');
   const oldPos=errPositions(pa); // capture BEFORE result changes — positions key the stored names
   const oldNames=(pa.errBy&&pa.errBy.length===oldPos.length)?pa.errBy.slice():null;
-  pa.result=nr;const j=outcomeIdx(pa);
+  pa.result=nr;
+  if(Array.isArray(pa.errorInstances)){
+    pa.errorInstances=pa.errorInstances.filter(e=>e.source!=='result');
+    const resultError=/^E([1-9])$/.exec(nr||'');
+    if(resultError)pa.errorInstances.unshift({id:'outcome:'+resultError[1],position:resultError[1],source:'result'});
+    if(!pa.errorInstances.length)delete pa.errorInstances;
+  }
+  const j=outcomeIdx(pa);
   if(j>=0)pa.events[j]={t:'o',text:nt};else pa.events.push({t:'o',text:nt});
   if((oldM&&oldM[1])!==(newM&&newM[1])){
     const ft=pa.team==='away'?'home':'away';

@@ -1058,3 +1058,11 @@ replacing the "visco" app she currently uses.
   FC fielding sequence/contact metadata and initial-reach error are saved on
   the PA; Book now renders FC5 (or recorded FC sequence) with error labels
   at each distinct movement. No worker changes; version v2026.10.09.10.
+
+- 2026-10-09: Placement E picker now distinguishes Same error from Another
+  error if a previous error exists on the play. Same reuses that occurrence
+  without incrementing fielding errors; Another picks a new fielder and counts
+  an independent error even if the same fielder has already erred. Stored
+  occurrence IDs preserve that distinction and remain backward-compatible
+  with legacy distinct-position error records. App v2026.10.09.11; no Worker
+  deployment needed.
