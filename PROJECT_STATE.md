@@ -1095,3 +1095,14 @@ replacing the "visco" app she currently uses.
   transition. Routine DPs without another live runner keep previous fast path.
   Ordinary movement on a DP no longer prompts an unrelated extra-advance
   reason. App v2026.10.09.14; no Worker changes.
+
+- 2026-10-09: WPBL-friendly pitcher/field-position audit cleanup. The game
+  completion pitch check now hides 0-pitch names pulled only from historical
+  defensive lineup slots, leaving actual attributed pitching appearances.
+  Pitching decision suggestions come from positive recorded pitch counts,
+  explicit pitching-change records, and the active pitcher; previous 1B/LF/C
+  occupants of a now-P slot are not automatically mistaken for pitchers.
+  All pitch event ownership remains stored with its throwing pitcher and
+  counts continue across moving off the mound and returning later in the
+  same game. No recorded pitch counts, saved games, or assignments rewritten.
+  v2026.10.09.15, Worker unchanged.

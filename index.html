@@ -855,7 +855,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.14';
+const APP_VERSION='2026.10.09.15';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -3596,13 +3596,16 @@ function cleanPitcherName(v){
   return String(v||'').replace(/^#\S+\s+/,'').replace(/\s+#\S+$/,'').replace(/^—$/,'').trim();
 }
 function pitcherCandidates(team){
-  const T=S[team],seen=new Set(),out=[];
+  const seen=new Set(),out=[];
   const add=v=>{const n=cleanPitcherName(v);if(n&&!seen.has(n)){seen.add(n);out.push(n);}};
-  add(T&&T.pitcher);
+  // Use confirmed pitching activity, not everyone who ever occupied a lineup
+  // slot now marked P. Defensive shifts in WPBL must not turn a prior LF/1B
+  // into a suggested pitcher.
+  pitcherPitchSummary(team).filter(p=>p.pitches>0).forEach(p=>add(p.name));
+  // Preserve an explicit pitching change even if the new pitcher has not
+  // thrown their first pitch yet (and legacy completed-game picker behavior).
   (S.subLog||[]).filter(x=>x.team===team&&x.type==='P').forEach(x=>{add(x.old);add(x.new);});
-  ((T&&T.lineup)||[]).forEach((p,i)=>{
-    if(String(p.pos)==='1'||(T.dh&&i===9)){add(p.name);(p.hist||[]).forEach(h=>add(h.name));}
-  });
+  add(activePitcherLabel(team));
   return out;
 }
 function decisionList(id,names){
@@ -3629,7 +3632,10 @@ function decisionPitcherPicker(title,names,current,onPick,onBack,allowClear){
 }
 function gamePitchingCheckHTML(){
   const block=t=>{
-    const rows=pitcherPitchSummary(t);
+    // Show only pitchers with actually recorded/attributed pitches. Moving a
+    // position player through a pitcher lineup slot should not create a fake
+    // "0 pitches" pitching appearance in the final Game Complete check.
+    const rows=pitcherPitchSummary(t).filter(r=>r.pitches>0);
     return '<div style="margin-top:7px"><b>'+esc(scoreTeamAbbr(S[t],t==='away'?'AWY':'HME'))+'</b>'+
       (rows.length?rows.map(r=>'<div class="subRow">'+esc(r.name)+' — <b>'+r.pitches+' '+(r.pitches===1?'pitch':'pitches')+'</b></div>').join('')
         :'<div class="subRow">No pitches recorded.</div>')+'</div>';

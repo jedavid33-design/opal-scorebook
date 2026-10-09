@@ -1403,7 +1403,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.14','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.15','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -2119,6 +2119,52 @@ async function main() {
   sb.doPitch('sstr');sb.doPitch('sstr');sb.doPitch('foultip');
   ok(el('#sheet').innerHTML.indexOf('Swinging strike three')<0,
     'KCONF1: foul-tip strikeout keeps its existing immediate behavior');
+
+  /* ===== WPBL fielding switches: pitch attribution follows actual pitcher ===== */
+  newGame();
+  const mound=sb.S.home.lineup[8],outfielder=sb.S.home.lineup[6];
+  sb.syncPitcherFromLineup('home');
+  sb.doPitch('ball'); // Rival9 at P
+  mound.pos='7';outfielder.pos='1'; // P shifts to LF, LF takes mound
+  sb.syncPitcherFromLineup('home');
+  eq(sb.cleanPitcherName(sb.activePitcherLabel('home')),'Rival7',
+    'WPBL1: pitcher changing field positions updates active pitcher to new P');
+  sb.doPitch('cstr'); // Rival7 at P
+  outfielder.pos='7';mound.pos='1'; // starting pitcher returns
+  sb.syncPitcherFromLineup('home');
+  sb.doPitch('foul'); // Rival9 back on mound
+  const shiftSummary=sb.pitcherPitchSummary('home');
+  eq(shiftSummary.find(x=>x.name==='Rival9').pitches,2,
+    'WPBL1: returning pitcher keeps pitches thrown before and after LF stint');
+  eq(shiftSummary.find(x=>x.name==='Rival7').pitches,1,
+    'WPBL1: temporary pitcher gets only pitches thrown while at P');
+  eq(sb.pitcherPitchCount('home'),2,
+    'WPBL1: score strip shows count for current pitcher, not combined team total');
+  mound.hist=[{name:'Former LF',num:'33',pos:'7'},{name:'Rival9',num:'18',pos:'1'}];
+  const shiftedCheck=sb.gamePitchingCheckHTML();
+  ok(shiftedCheck.includes('Rival9 — <b>2 pitches') &&
+     shiftedCheck.includes('Rival7 — <b>1 pitch') &&
+     !shiftedCheck.includes('Former LF'),
+    'WPBL1: final pitch audit excludes ghost non-pitchers from lineup history');
+  const candidates=sb.pitcherCandidates('home');
+  ok(candidates.includes('Rival9')&&candidates.includes('Rival7')&&
+     !candidates.includes('Former LF'),
+    'WPBL1: decision candidates include field-switch pitchers, not phantom history');
+
+  newGame();
+  sb.S.home.lineup[8].hist=[
+    {name:'Former catcher',num:'44',pos:'2'},
+    {name:'Rival9',num:'18',pos:'1'}
+  ];
+  sb.doPitch('ball');
+  const legacySummary=sb.pitcherPitchSummary('home');
+  ok(legacySummary.some(x=>x.name==='Former catcher'&&x.pitches===0),
+    'WPBL2: legacy inferred candidate remains available internally for reconstruction');
+  const cleanCheck=sb.gamePitchingCheckHTML();
+  ok(!cleanCheck.includes('Former catcher')&&cleanCheck.includes('Rival9 — <b>1 pitch'),
+    'WPBL2: pitch audit hides zero-pitch nonpitching name without deleting records');
+  ok(!sb.pitcherCandidates('home').includes('Former catcher'),
+    'WPBL2: pitching decisions do not suggest displaced fielders without pitches');
 
   /* ===== completed game decisions + past-game official scoring ===== */
   newGame();
