@@ -979,3 +979,11 @@ replacing the "visco" app she currently uses.
   interruption, and past-game display. Collision protection rejects moves
   onto occupied bases. App v2026.10.08.4, Worker unchanged. CI verified
   646 scoring regression checks passed (0 failed) at commit b46bc7d.
+
+- 2026-10-09: Substitution UX: after selecting the incoming roster player and
+  tapping the outgoing lineup spot (or offensive target), return to the lineup
+  instead of jumping back to the roster. The replacement inherits the position
+  already assigned to that lineup spot, regardless of the incoming player's
+  MLB roster position. The position dropdown remains editable for manual fielding
+  changes. Applied consistently to defensive, PH, PR, and legacy substitution
+  paths. App v2026.10.09.1. Worker unchanged; no Worker deployment required.

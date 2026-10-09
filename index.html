@@ -619,7 +619,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.08.5';
+const APP_VERSION='2026.10.09.1';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -984,7 +984,7 @@ function applyIncomingLineupSub(team,slot){
   snap();
   const hist=old.hist?old.hist.slice():(old.name?[{name:old.name,num:old.num||''}]:[]);
   if(hist.length)hist.push({name:p.name,num:p.num||''});
-  T.lineup[slot]={name:p.name,num:p.num||'',pos:p.pos||old.pos||'',...(hist.length?{hist}:{}),...(slot===9&&T.dh?{nb:true}:{})};
+  T.lineup[slot]={name:p.name,num:p.num||'',pos:old.pos||p.pos||'',...(hist.length?{hist}:{}),...(slot===9&&T.dh?{nb:true}:{})};
   poolRemove(T,p.name);
   if(old.name){
     const oldName=old.name||('Slot '+(slot+1));
@@ -994,7 +994,7 @@ function applyIncomingLineupSub(team,slot){
     S.subLog.push({inn:S.inning,half:S.half,team,slot,type,old:oldName,new:p.name});
   }
   subIncoming=null;pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
-  save();renderSetup();showSetupTeam(team,'roster');return true;
+  save();renderSetup();showSetupTeam(team,'lineup');return true;
 }
 function applyIncomingOffensiveSub(team,kind,slot,base){
   const inc=subIncoming;if(!substitutionMode||!inc||inc.team!==team||team!==S.bat){
@@ -1013,7 +1013,7 @@ function applyIncomingOffensiveSub(team,kind,slot,base){
   snap();
   const hist=old.hist?old.hist.slice():[{name:old.name,num:old.num||''}];
   hist.push({name:p.name,num:p.num||''});
-  T.lineup[targetSlot]={name:p.name,num:p.num||'',pos:p.pos||old.pos||'',hist};
+  T.lineup[targetSlot]={name:p.name,num:p.num||'',pos:old.pos||p.pos||'',hist};
   poolRemove(T,p.name);
   if(kind==='PR'){
     ensureRunnerIdentity(runner);
@@ -1024,7 +1024,7 @@ function applyIncomingOffensiveSub(team,kind,slot,base){
   if(S.pa.length)ev('r',msg);
   S.subLog.push({inn:S.inning,half:S.half,team,slot:targetSlot,type:kind,old:old.name,new:p.name,...(kind==='PR'?{base:base+1}:{})});
   subIncoming=null;pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
-  save();renderSetup();showSetupTeam(team,'roster');return true;
+  save();renderSetup();showSetupTeam(team,'lineup');return true;
 }
 function beginLineupSub(team,slot){
   if(!substitutionMode)return;
@@ -1069,7 +1069,7 @@ function completeOffensiveSub(team,p){
   const T=S[team],slot=ctx.slot,old=ctx.old;
   const hist=old&&old.hist?old.hist.slice():(old&&old.name?[{name:old.name,num:old.num||''}]:[]);
   if(hist.length)hist.push({name:p.name,num:p.num||''});
-  T.lineup[slot]={name:p.name,num:p.num||'',pos:p.pos||old.pos||'',...(hist.length?{hist}:{})};
+  T.lineup[slot]={name:p.name,num:p.num||'',pos:old.pos||p.pos||'',...(hist.length?{hist}:{})};
   poolRemove(T,p.name);
   if(ctx.kind==='PR'){
     const rr=ctx.oldRunner||{};
@@ -1096,7 +1096,7 @@ function completeLineupSub(team,slot,p){
   const old=ctx?ctx.old:T.lineup[slot];
   const hist=old&&old.hist?old.hist.slice():(old&&old.name?[{name:old.name,num:old.num||''}]:[]);
   if(hist.length)hist.push({name:p.name,num:p.num||''});
-  T.lineup[slot]={name:p.name,num:p.num||'',pos:p.pos||((old&&old.pos)||''),...(hist.length?{hist}:{}),...(slot===9&&T.dh?{nb:true}: {})};
+  T.lineup[slot]={name:p.name,num:p.num||'',pos:((old&&old.pos)||p.pos||''),...(hist.length?{hist}:{}),...(slot===9&&T.dh?{nb:true}: {})};
   poolRemove(T,p.name);
   if(ctx){
     const oldName=old.name||('Slot '+(slot+1));

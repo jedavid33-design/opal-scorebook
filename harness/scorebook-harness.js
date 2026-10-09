@@ -32,7 +32,7 @@ function makeEl() {
     querySelector() { return makeEl(); },
     querySelectorAll() { return []; },
     appendChild() {}, closest() { return null; },
-    click() {}, focus() {},
+    click() {}, focus() {}, scrollIntoView() { this.scrollCount = (this.scrollCount || 0) + 1; },
   };
   return new Proxy(t, {
     get(o, p) {
@@ -1106,7 +1106,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.08.5','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.1','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1873,13 +1873,13 @@ async function main() {
   sb.syncPitcherFromLineup('home');
   ok(sb.S.home.pitcher.indexOf('Rival9')>=0,
     'S1: current pitcher is derived from the lineup position marked P');
-  sb.S.home.pool=[{name:'New Arm',num:'55',pos:'1'}];
+  sb.S.home.pool=[{name:'New Arm',num:'55',pos:'7'}];
   sb.openSubstitutionLineup();
   sb.beginLineupSub('home',8);
   ok(sb.pendingSub && sb.pendingSub.team==='home' && sb.pendingSub.slot===8 &&
      sb.S.home.lineup[8].name==='',
     'S1: tapping outgoing lineup player opens that exact batting slot');
-  sb.completeLineupSub('home',8,{name:'New Arm',num:'55',pos:'1'});
+  sb.completeLineupSub('home',8,{name:'New Arm',num:'55',pos:'7'});
   eq(sb.S.home.lineup[8].name,'New Arm',
     'S1: replacement inherits the outgoing pitcher batting slot');
   eq(sb.S.home.lineup[8].pos,'1',
@@ -1928,14 +1928,22 @@ async function main() {
     'S3: Score Subs button routes to full lineup instead of the old modal');
 
   newGame();
-  sb.S.home.pool=[{name:'Player First Arm',num:'77',pos:'1'}];
+  sb.S.home.pool=[{name:'Player First Arm',num:'77',pos:'7'}];
   sb.openSubstitutionLineup();
   sb.selectIncomingSub('home',sb.S.home.pool[0]);
   ok(sb.subIncoming&&sb.subIncoming.player.name==='Player First Arm',
     'S3a: live substitution selects the incoming roster player first');
   eq(sb.S.home.lineup[8].name,'Rival9',
     'S3a: selecting incoming player does not remove the outgoing lineup player yet');
+  const defenderRosterScrollBefore=el('#homeRosterArea').scrollCount||0;
+  const defenderLineupScrollBefore=el('#homeLineupArea').scrollCount||0;
   sb.applyIncomingLineupSub('home',8);
+  eq(sb.S.home.lineup[8].pos,'1',
+    'S3a: replacement retains the outgoing pitcher position, not incoming roster position');
+  eq(el('#homeRosterArea').scrollCount||0,defenderRosterScrollBefore,
+    'S3a: completing defense substitution does not jump back to roster');
+  ok((el('#homeLineupArea').scrollCount||0)>defenderLineupScrollBefore,
+    'S3a: completing defense substitution leaves lineup in view');
   eq(sb.S.home.lineup[8].name,'Player First Arm',
     'S3a: tapping the lineup spot second completes the defensive substitution');
   ok(sb.S.subLog.some(x=>x.old==='Rival9'&&x.new==='Player First Arm'),
@@ -1948,7 +1956,15 @@ async function main() {
   sb.selectIncomingSub('away',sb.S.away.pool[0]);
   eq(sb.S.away.lineup[2].name,'Astro3',
     'S3b: selecting a pinch hitter first leaves the current batter untouched until target tap');
+  const hitterRosterScrollBefore=el('#awayRosterArea').scrollCount||0;
+  const hitterLineupScrollBefore=el('#awayLineupArea').scrollCount||0;
   sb.applyIncomingOffensiveSub('away','PH',2,null);
+  eq(sb.S.away.lineup[2].pos,'3',
+    'S3b: pinch hitter retains lineup position instead of roster position');
+  eq(el('#awayRosterArea').scrollCount||0,hitterRosterScrollBefore,
+    'S3b: pinch hitter substitution does not jump back to roster');
+  ok((el('#awayLineupArea').scrollCount||0)>hitterLineupScrollBefore,
+    'S3b: pinch hitter substitution leaves lineup in view');
   eq(sb.S.away.lineup[2].name,'Player First PH',
     'S3b: tapping Batter second completes player-first pinch-hit substitution');
   eq(sb.S.balls,2,'S3b: player-first pinch hitter inherits ball count');
@@ -1964,6 +1980,8 @@ async function main() {
   sb.ensureRunnerIdentity(sb.S.bases[1]);
   const prePrRid=sb.S.bases[1].rid;
   sb.applyIncomingOffensiveSub('away','PR',4,1);
+  eq(sb.S.away.lineup[4].pos,'5',
+    'S3c: pinch runner inherits replaced lineup position, not roster position');
   eq(sb.S.away.lineup[4].name,'Player First PR',
     'S3c: tapping runner second completes player-first pinch-runner substitution');
   ok(sb.S.bases[1]&&sb.pname(sb.S.bases[1]).indexOf('Player First PR')>=0,
@@ -1999,6 +2017,8 @@ async function main() {
   sb.completeOffensiveSub('away',{name:'Pinch Bat',num:'90',pos:'7'});
   eq(sb.S.away.lineup[2].name,'Pinch Bat',
     'S5: pinch hitter replaces the current batter in the same batting slot');
+  eq(sb.S.away.lineup[2].pos,'3',
+    'S5: legacy pinch hitter retains slot fielding position');
   eq(sb.S.balls,2,'S5: pinch hitter inherits the existing ball count');
   eq(sb.S.strikes,1,'S5: pinch hitter inherits the existing strike count');
   eq(sb.curBatter().name,'Pinch Bat',
@@ -2016,6 +2036,8 @@ async function main() {
   sb.completeOffensiveSub('away',{name:'Fast Runner',num:'91',pos:'8'});
   eq(sb.S.away.lineup[4].name,'Fast Runner',
     'S6: pinch runner replaces the original player in the batting order');
+  eq(sb.S.away.lineup[4].pos,'5',
+    'S6: legacy pinch runner retains slot fielding position');
   ok(sb.S.bases[1] && sb.S.bases[1].i===4 && sb.pname(sb.S.bases[1]).indexOf('Fast Runner')>=0,
     'S6: pinch runner occupies the same base with the replacement identity');
   sb.S.order.away=4;
