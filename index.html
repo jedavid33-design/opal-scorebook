@@ -855,7 +855,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.11';
+const APP_VERSION='2026.10.09.12';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2002,33 +2002,40 @@ function sacrificeMovers(outF){
   return [{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f:outF}},...holdMovers()];
 }
 function hitPicker(verb,cb){
-  let ht=null,f=null;
-  const cap=h=>h[0].toUpperCase()+h.slice(1);
+  let ht=null,f=null,stage='type';
+  const types=[
+    ['ground ball','Ground'],['line drive','Line'],['fly ball','Fly'],
+    ['pop up','Pop Up'],['bunt','Bunt']
+  ];
   const draw=()=>{
-    const ready=ht&&f;
-    $('#sheet').innerHTML=`<h2>${verb} — how, and who played it?</h2>
-      <div class="sect" style="margin-top:0">Hit type</div>
-      <div class="grid2">${[
-        ['ground ball','Ground'],
-        ['line drive','Line'],
-        ['fly ball','Fly'],
-        ['pop up','Pop Up'],
-        ['bunt','Bunt']
-      ].map(([h,label])=>
-        `<button class="med${ht===h?' accent':''}" data-ht="${h}">${label}</button>`).join('')}</div>
-      <div class="sect">Played by</div>
-      ${fieldSVG(f?[+f]:[])}
-      <div class="fread" style="font-size:16px;min-height:30px">${ready?`${verb} on a ${ht} to ${POS[f]}`:'Pick a hit type and a fielder'}</div>
-      <div class="sheetActions">
-        <button class="med${ready?' accent':''}" id="hitDone"${ready?'':' disabled'}>Done</button>
-        <button class="med ghost" id="hitCancel">Cancel</button>
-      </div>`;
-    $('#sheet').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{ht=b.dataset.ht;draw();});
-    bindField($('#sheet'),n=>{f=String(n);draw();});
+    if(stage==='type'){
+      $('#sheet').innerHTML=`<h2>${verb} — type of hit</h2>
+        <p class="sub">First choose how the ball was hit.</p>
+        <div class="grid2">${types.map(([h,label])=>
+          `<button class="med${ht===h?' accent':''}" data-ht="${h}">${label}</button>`).join('')}</div>
+        <div class="sheetActions"><button class="med ghost" id="hitCancel">Cancel</button></div>`;
+      $('#sheet').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{
+        ht=b.dataset.ht;stage='location';draw();
+      });
+    }else{
+      const ready=!!f;
+      $('#sheet').innerHTML=`<h2>${verb} — location</h2>
+        <p class="sub">${ht} · Tap the fielder who played the ball.</p>
+        ${fieldSVG(f?[+f]:[])}
+        <div class="fread" style="font-size:16px;min-height:30px">${ready?`${verb} on a ${ht} to ${POS[f]}`:'Tap a fielder to choose the location'}</div>
+        <div class="sheetActions">
+          <button class="med ghost" id="hitBack">← Hit type</button>
+          <button class="med${ready?' accent':''}" id="hitDone"${ready?'':' disabled'}>Done</button>
+          <button class="med ghost" id="hitCancel">Cancel</button>
+        </div>`;
+      bindField($('#sheet'),n=>{f=String(n);draw();});
+      $('#hitBack').onclick=()=>{stage='type';draw();};
+      if(ready)$('#hitDone').onclick=()=>cb(ht,f);
+    }
     $('#hitCancel').onclick=closeModal;
-    if(ready)$('#hitDone').onclick=()=>cb(ht,f);
+    $('#modal').classList.add('on');
   };
-  draw();$('#modal').classList.add('on');
+  draw();
 }
 /* Keep FC contact type and fielding sequence together, including bunts. */
 function fcPlayText(ht,f,noOut){
@@ -2036,33 +2043,45 @@ function fcPlayText(ht,f,noOut){
   return "Fielder's choice"+(ht==='unspecified'?' '+f+contact:contact+' '+f)+(noOut?' — no out':'');
 }
 function fielderChoicePicker(cb){
-  let ht=null,taps=[];
+  let ht=null,taps=[],stage='type';
+  const types=[
+    ['ground ball','Ground'],['line drive','Line'],['fly ball','Fly'],
+    ['pop up','Pop Up'],['ground bunt','Bunt'],['unspecified','Not specified']
+  ];
   const draw=()=>{
-    const ready=!!(ht&&taps.length);
-    $('#sheet').innerHTML=`<h2>Fielder's choice — how, and who played it?</h2>
-      <div class="sect" style="margin-top:0">Contact type</div>
-      <div class="grid2">${[
-        ['ground ball','Ground'],['line drive','Line'],['fly ball','Fly'],
-        ['pop up','Pop Up'],['ground bunt','Bunt'],['unspecified','Not specified']
-      ].map(([h,label])=>`<button class="med${ht===h?' accent':''}" data-fcht="${h}">${label}</button>`).join('')}</div>
-      <p class="sub" style="margin:5px 0 8px">Choose Not specified when the tracker feed doesn't identify the ball's contact type.</p>
-      <div class="sect">Fielders — tap in order</div>
-      ${fieldSVG(taps)}
-      <div class="fread" style="font-size:16px;min-height:30px">${taps.length?taps.join('-'):'Tap fielders in order'}</div>
-      <div class="fread" style="font-size:14px;color:var(--dim);min-height:22px">${taps.map(n=>POS[n]).join(' → ')}</div>
-      <div class="grid2"><button class="med" id="fcBack">⌫ Back</button><button class="med" id="fcClear">Clear</button></div>
-      <div class="sheetActions">
-        <button class="med${ready?' accent':''}" id="fcDone"${ready?'':' disabled'}>Done</button>
-        <button class="med ghost" id="fcCancel">Cancel</button>
-      </div>`;
-    $('#sheet').querySelectorAll('[data-fcht]').forEach(b=>b.onclick=()=>{ht=b.dataset.fcht;draw();});
-    bindField($('#sheet'),n=>{taps.push(n);draw();});
-    $('#fcBack').onclick=()=>{taps.pop();draw();};
-    $('#fcClear').onclick=()=>{taps=[];draw();};
+    if(stage==='type'){
+      $('#sheet').innerHTML=`<h2>Fielder's choice — contact type</h2>
+        <p class="sub">First choose how the ball was hit.</p>
+        <div class="grid2">${types.map(([h,label])=>
+          `<button class="med${ht===h?' accent':''}" data-fcht="${h}">${label}</button>`).join('')}</div>
+        <p class="sub" style="margin:5px 0 8px">Choose Not specified when the tracker feed doesn't identify the ball's contact type.</p>
+        <div class="sheetActions"><button class="med ghost" id="fcCancel">Cancel</button></div>`;
+      $('#sheet').querySelectorAll('[data-fcht]').forEach(b=>b.onclick=()=>{
+        ht=b.dataset.fcht;stage='fielders';draw();
+      });
+    }else{
+      const ready=taps.length>0;
+      $('#sheet').innerHTML=`<h2>Fielder's choice — fielders</h2>
+        <p class="sub">${ht==='unspecified'?'Contact type not specified':ht} · Tap fielders in order.</p>
+        ${fieldSVG(taps)}
+        <div class="fread" style="font-size:16px;min-height:30px">${taps.length?taps.join('-'):'Tap fielders in order'}</div>
+        <div class="fread" style="font-size:14px;color:var(--dim);min-height:22px">${taps.map(n=>POS[n]).join(' → ')}</div>
+        <div class="grid2"><button class="med" id="fcBack">⌫ Last fielder</button><button class="med" id="fcClear">Clear</button></div>
+        <div class="sheetActions">
+          <button class="med ghost" id="fcTypeBack">← Contact type</button>
+          <button class="med${ready?' accent':''}" id="fcDone"${ready?'':' disabled'}>Done</button>
+          <button class="med ghost" id="fcCancel">Cancel</button>
+        </div>`;
+      bindField($('#sheet'),n=>{taps.push(n);draw();});
+      $('#fcBack').onclick=()=>{taps.pop();draw();};
+      $('#fcClear').onclick=()=>{taps=[];draw();};
+      $('#fcTypeBack').onclick=()=>{stage='type';draw();};
+      if(ready)$('#fcDone').onclick=()=>{closeModal();cb(ht,taps.join('-'));};
+    }
     $('#fcCancel').onclick=closeModal;
-    if(ready)$('#fcDone').onclick=()=>{closeModal();cb(ht,taps.join('-'));};
+    $('#modal').classList.add('on');
   };
-  draw();$('#modal').classList.add('on');
+  draw();
 }
 function hitDetail(n,kind,verb){
   hitPicker(verb,(ht,f)=>{const txt=`${verb} on a ${ht} to ${POS[f]}`;

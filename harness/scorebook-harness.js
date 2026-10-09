@@ -511,9 +511,10 @@ async function main() {
   const fcTypeOrder=fcTypes.map(x=>fcSheet.indexOf(x));
   ok(fcTypeOrder.every(x=>x>=0) && fcTypeOrder.every((x,i)=>i===0||x>fcTypeOrder[i-1]),
     'FC2: fielder choice picker has Ground / Line / Fly / Pop Up / Bunt / Not specified in order');
-  ok(fcSheet.includes('Fielders — tap in order') && fcSheet.includes('id="fcDone" disabled')
-    && fcSheet.includes('id="fcCancel"') && fcSheet.includes('id="fcBack"'),
-    'FC2: contact and fielding sequence share a screen with gated Done/Back/Cancel');
+  ok(fcSheet.includes('Fielder\'s choice — contact type') &&
+     fcSheet.includes('id="fcCancel"') && !fcSheet.includes('id="fcDone"') &&
+     !fcSheet.includes('class="fieldSvg"'),
+    'FC2: contact selection is a separate first screen without fielder picker or Done');
   eq(sb.fcPlayText('ground bunt','1-6',false),"Fielder's choice on a ground bunt 1-6",
     'FC2: ground bunt force-out stores contact and 1-6 fielders');
   eq(sb.fcPlayText('ground bunt','1-6',true),"Fielder's choice on a ground bunt 1-6 — no out",
@@ -544,14 +545,24 @@ async function main() {
     sel==='.fnode'?[shortstop,secondBase]:[];
   let selectedFC=null;
   sb.fielderChoicePicker((contact,fielders)=>{selectedFC={contact,fielders};});
-  ok(el('#sheet').innerHTML.includes('id="fcDone" disabled'),
-    'FC3: choosing fielders and a contact value is still required');
+  ok(el('#sheet').innerHTML.includes('data-fcht="unspecified"') &&
+     !el('#sheet').innerHTML.includes('id="fcDone"'),
+    'FC3: FC initially presents contact types only');
   unknownBtn.onclick();
-  ok(el('#sheet').innerHTML.includes('id="fcDone" disabled'),
-    'FC3: selecting Not specified alone does not finalize a play');
+  ok(el('#sheet').innerHTML.includes('id="fcDone" disabled') &&
+     el('#sheet').innerHTML.includes('id="fcTypeBack"') &&
+     !el('#sheet').innerHTML.includes('data-fcht='),
+    'FC3: selecting type advances to separate fielder screen and gates Done');
   shortstop.onclick();secondBase.onclick();
   ok(!el('#sheet').innerHTML.includes('id="fcDone" disabled'),
     'FC3: Not specified with 6-4 fielders enables Done');
+  el('#fcTypeBack').onclick();
+  ok(el('#sheet').innerHTML.includes('data-fcht="unspecified"') &&
+     !el('#sheet').innerHTML.includes('id="fcDone"'),
+    'FC3: Back returns to contact type without completing the play');
+  unknownBtn.onclick();
+  ok(el('#sheet').innerHTML.includes('6-4'),
+    'FC3: returning to fielders retains the existing fielding sequence');
   el('#fcDone').onclick();
   eq(JSON.stringify(selectedFC),JSON.stringify({contact:'unspecified',fielders:'6-4'}),
     'FC3: Done returns unknown contact plus full fielding sequence');
@@ -1317,7 +1328,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.11','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.12','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1872,11 +1883,44 @@ async function main() {
      hitMenu.indexOf('>Bunt</button>')>=0,
     'H1: hit type labels use the requested compact wording');
   ok(hitMenu.indexOf('class="sheetActions"')>=0 &&
-     hitMenu.indexOf('id="hitDone"')>=0 &&
-     hitMenu.indexOf('id="hitCancel"')>=0,
-    'H1: hit-detail picker keeps Done and Cancel together in a sticky action footer');
+     hitMenu.indexOf('id="hitCancel"')>=0 &&
+     hitMenu.indexOf('id="hitDone"')<0 &&
+     hitMenu.indexOf('class="fieldSvg"')<0,
+    'H1: first hit screen contains only contact type choices and Cancel');
   ok(html.indexOf('.sheetActions{position:sticky;bottom:0')>=0,
     'H1: hit-detail action footer stays visible while the sheet scrolls');
+  const hitRoot=el('#sheet'),savedHitQuery=hitRoot.querySelectorAll;
+  const hitTypeBtn={dataset:{ht:'line drive'},onclick:null};
+  const hitFielderBtn={dataset:{n:'8'},onclick:null};
+  hitRoot.querySelectorAll=sel=>sel==='[data-ht]'?[hitTypeBtn]:
+    sel==='.fnode'?[hitFielderBtn]:[];
+  let selectedHit=null;
+  sb.hitPicker('Doubled',(type,fielder)=>{selectedHit={type,fielder};});
+  ok(hitRoot.innerHTML.includes('type of hit') && !hitRoot.innerHTML.includes('class="fieldSvg"'),
+    'H2: double starts with type, without a field-map on that screen');
+  hitTypeBtn.onclick();
+  ok(hitRoot.innerHTML.includes('class="fieldSvg"') && hitRoot.innerHTML.includes('id="hitDone" disabled') &&
+     hitRoot.innerHTML.includes('id="hitBack"') &&
+     !hitRoot.innerHTML.includes('data-ht='),
+    'H2: selecting line drive automatically advances to location screen');
+  hitFielderBtn.onclick();
+  ok(!hitRoot.innerHTML.includes('id="hitDone" disabled') &&
+     hitRoot.innerHTML.includes('center field'),
+    'H2: fielder selection enables Done and shows the play description');
+  el('#hitBack').onclick();
+  ok(hitRoot.innerHTML.includes('data-ht="line drive"') && !selectedHit,
+    'H2: Back to hit type does not complete a play');
+  hitTypeBtn.onclick();
+  ok(hitRoot.innerHTML.includes('center field'),
+    'H2: returning to location preserves selected fielder');
+  el('#hitDone').onclick();
+  eq(JSON.stringify(selectedHit),JSON.stringify({type:'line drive',fielder:'8'}),
+    'H2: Done returns hit type and location unchanged to existing scoring flow');
+  hitRoot.querySelectorAll=savedHitQuery;
+  ok(html.includes("hitPicker('Ground-rule double'") &&
+     html.includes("hitPicker(HITVERB[k]"),
+    'H2: ground-rule doubles and official hit edits share the two-step picker');
+
 
   /* ===== bunt pitch slide gestures ===== */
   ok(html.indexOf('data-p="bunt"')<0 && html.indexOf('ps-buntpitch')<0,

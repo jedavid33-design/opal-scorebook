@@ -1066,3 +1066,14 @@ replacing the "visco" app she currently uses.
   occurrence IDs preserve that distinction and remain backward-compatible
   with legacy distinct-position error records. App v2026.10.09.11; no Worker
   deployment needed.
+
+- 2026-10-09: The hit/contact + fielding-location picker is now a deliberate
+  two-step wizard. Base hits (single/double/triple and ground-rule double)
+  show Ground / Line / Fly / Pop Up / Bunt alone first; tapping a type
+  immediately advances to the fielding-location diagram and Done. Fielder's
+  Choice follows the same two-page sequence (contact type first, then ordered
+  fielders). Back returns to the type screen; Done cannot fire before
+  location/fielders are selected; selections survive Back; Cancel is available
+  on both pages. Re-score and official ruling/notation edits reuse the picker.
+  Scoring, baserunning, pitch records, and Worker remain unchanged. App
+  v2026.10.09.12.
