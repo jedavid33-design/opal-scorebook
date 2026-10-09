@@ -855,7 +855,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.9';
+const APP_VERSION='2026.10.09.10';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2409,12 +2409,12 @@ function handleOutcome(kind){
       $('#fcOut').onclick=()=>pickRunner((bi,r)=>{
         const txt=fcPlayText(ht,f,false);
         ev('o',txt);
-        placementReview(fielderChoiceMovers(bi,f),'FC',txt);
+        placementReview(fielderChoiceMovers(bi,f),'FC',txt,false,{fcFielders:f,fcContact:ht});
       },"Fielder's choice — runner out");
       $('#fcNoOut').onclick=()=>{
         const txt=fcPlayText(ht,f,true);
         ev('o',txt);
-        placementReview(fielderChoiceMovers(null,f),'FC',txt);
+        placementReview(fielderChoiceMovers(null,f),'FC',txt,false,{fcFielders:f,fcContact:ht});
       };
       $('#fcCancel').onclick=closeModal;
     });
@@ -2477,7 +2477,8 @@ function runnerPathById(rid){
   const steps=[];
   if(origin){
     const to=resultAwardBase(origin.pa.result);
-    if(to)steps.push({from:0,to,reason:origin.pa.result,pa:origin.idx});
+    if(to)steps.push({from:0,to,reason:origin.pa.reachError?'error':origin.pa.result,
+      ...(origin.pa.reachError?{fielder:String(origin.pa.reachError)}:{}),pa:origin.idx});
   }
   const scan=(events,paIndex,batterSlot)=>{for(const e of events||[])if(e.advance&&e.advance.rid===rid)
     steps.push({...e.advance,text:e.text||'',pa:paIndex,...(Number.isInteger(batterSlot)?{batterSlot}:null)});};
@@ -2519,7 +2520,9 @@ function moveRunnerEvents(m,playCode){
 }
 /* Error tag for the PA record, e.g. 'E8' or 'E5,E8'. Null when no error was marked. */
 function paErrTag(movers){
-  const u=[...new Set(movers.filter(m=>m.err&&!m.out).map(m=>m.err))];
+  // Separate batter's reach error from an error on their subsequent advance.
+  // Deduplicate identical fielders across one play, as elsewhere in the PA model.
+  const u=[...new Set(movers.filter(m=>!m.out).flatMap(m=>[m.reachErr,m.err].filter(Boolean)).map(String))];
   return u.length?u.map(f=>'E'+f).join(','):null;
 }
 function needsAdvanceReason(m,playCode){
@@ -2569,7 +2572,7 @@ function extraAdvanceReason(m,draw,playCode){
   $('#advOther').onclick=()=>{m.adv='other';m.err=null;draw();};
   $('#advBack').onclick=()=>{m.to=m.defaultTo==null?from:m.defaultTo;m.adv=null;m.err=null;draw();};
 }
-function placementReview(movers,code,text,alreadySnapped){
+function placementReview(movers,code,text,alreadySnapped,details){
   movers.forEach(m=>{if(m.defaultTo==null)m.defaultTo=m.to;});
   const draw=()=>{
     const lp=code==='BB'?lastPitch():null;
@@ -2577,10 +2580,22 @@ function placementReview(movers,code,text,alreadySnapped){
     $('#sheet').innerHTML=`<h2>${text}</h2><p class="sub">Confirm where everyone ends up.</p>`+
       (canChallenge?`<button class="med" id="plChallenge" style="width:100%;margin-bottom:8px">Challenge last pitch</button>`:'')+
       movers.map((m,i)=>`<div class="mover"><div class="nm">${m.label}${m.adv==='SB'?' · <span class="sub">SB</span>':m.adv==='tag'?' · <span class="sub">tagged up</span>':m.adv==='throw'?' · <span class="sub">on throw</span>':m.adv==='other'?' · <span class="sub">extra advance</span>':''}${m.out?' — <span style="color:var(--out)">OUT ('+m.out.f+')</span>':''}</div>
+        ${code==='FC'&&m.who==='BR'&&!m.out
+          ?`<button type="button" class="sml ghost" data-reach-error="${i}" style="margin:3px 0 9px;width:100%;text-align:left;padding:7px 10px">
+            ${m.reachErr?'Reached 1st on E'+m.reachErr+' · change/remove':'Reached 1st on error? · optional'}
+            </button>`:''}
         ${m.out?'':`<div class="dest">${[1,2,3,4].map(b=>`<button data-m="${i}" data-b="${b}" class="${m.to===b?'sel':''}">${baseName(b)}</button>`).join('')}
         <button data-m="${i}" data-b="out">Out</button>
-        <button data-m="${i}" data-b="err" class="ebtn${m.err?' sel':''}">${m.err?'E'+m.err:'E'}</button></div>`}</div>`).join('')+
+        ${code==='FC'&&m.who==='BR'&&m.to<=(m.award||m.defaultTo||1)?'':
+          `<button data-m="${i}" data-b="err" class="ebtn${m.err?' sel':''}">${m.err?'Advance E'+m.err:'Advance E'}</button>`}
+          </div>`}</div>`).join('')+
       `<button class="med accent" id="plDone" style="width:100%;margin-top:6px">Done</button>`;
+    $('#sheet').querySelectorAll('[data-reach-error]').forEach(b=>b.onclick=()=>{
+      const m=movers[+b.dataset.reachError];
+      if(!m||m.out||m.who!=='BR')return;
+      if(m.reachErr){m.reachErr=null;draw();return;}
+      fielderSingle(f=>{m.reachErr=f;draw();},'Batter reached 1st on error by whom?',()=>draw());
+    });
     $('#sheet').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{
       const m=movers[+b.dataset.m],v=b.dataset.b;
       if(v==='out'){fielderPad(f=>{m.out={f};m.to=0;m.err=null;m.adv=null;draw();},'Out — fielders');}
@@ -2630,6 +2645,12 @@ function placementReview(movers,code,text,alreadySnapped){
     commitPA(code,paErrTag(movers));
     const committed=S.pas[S.pas.length-1];
     if(committed&&code==='SF'&&movers.filter(m=>m.out).length>1)committed.sacDP=true;
+    if(committed&&code==='FC'){
+      const batter=movers.find(m=>m.who==='BR'&&!m.out);
+      if(batter&&batter.reachErr)committed.reachError=String(batter.reachErr);
+      if(details&&details.fcFielders)committed.fcFielders=String(details.fcFielders);
+      if(details&&details.fcContact)committed.fcContact=String(details.fcContact);
+    }
     const br=movers.find(m=>m.who==='BR'&&m.r);
     if(br&&S.pas[S.pas.length-1])S.pas[S.pas.length-1].runnerId=br.r.rid;
     S.order[S.bat]++;S.balls=0;S.strikes=0;
@@ -2920,6 +2941,7 @@ function paResultDisplay(pa,longForm){
     return (f.catcher?'SF'+f.catcher:'SF')+'-DP'+(f.runnerOut?' '+f.runnerOut:'');
   }
   if(pa&&pa.result==='TP')return triplePlayDisplay(pa,!!longForm);
+  if(pa&&pa.result==='FC'&&pa.fcFielders)return 'FC'+pa.fcFielders;
   if(pa&&pa.result==='GRD')return longForm?'Ground-rule double':'GRD';
   return pa&&pa.result||'';
 }

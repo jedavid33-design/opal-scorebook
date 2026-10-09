@@ -1048,3 +1048,13 @@ replacing the "visco" app she currently uses.
   now match the score number font size at all widths (31px / 27px / 25px
   responsive), with no change to dots or their tap behavior. App
   v2026.10.09.9, CSS-only layout update; Worker unchanged.
+
+- 2026-10-09: Multi-error fielder's-choice scoring: FC placement review now
+  offers an independent optional "Reached 1st on error?" fielder picker for
+  the batter, separate from the preexisting "Advance E" error on a further
+  advance. A 5-3 rundown with batter reaching on first baseman E3 and later
+  advancing to second on catcher E2 stores FC5 + E3 + E2, one team/player error
+  for each fielder, correct runner path, run, outs, and base destination.
+  FC fielding sequence/contact metadata and initial-reach error are saved on
+  the PA; Book now renders FC5 (or recorded FC sequence) with error labels
+  at each distinct movement. No worker changes; version v2026.10.09.10.

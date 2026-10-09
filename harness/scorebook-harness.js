@@ -396,6 +396,87 @@ async function main() {
   ok(fcout.some(m=>m.who==='R'&&m.from===1&&m.out&&m.out.f==='6-4'),
     'FCNO1: existing FC-with-out path still marks selected runner out');
 
+  /* ===== FC5 / reach E3 / advance E2: independent errors, no double E2 ===== */
+  newGame();
+  sb.S.outs=2;sb.S.bat='away';sb.S.inning=3;
+  sb.S.bases[1]={t:'away',i:0,rid:'fc-con',originPa:null};
+  const multiFc=sb.fielderChoiceMovers(null,'5');
+  eq(multiFc.find(m=>m.who==='BR').to,1,
+    'FCERR: batter starts with first base awarded before extra advance');
+  multiFc.find(m=>m.who==='R').to=4;
+  const fcRoot=el('#sheet'),oldFcQuery=fcRoot.querySelectorAll;
+  const reachErrControl={dataset:{reachError:'0'},onclick:null};
+  const batterToSecond={dataset:{m:'0',b:'2'},onclick:null};
+  fcRoot.querySelectorAll=sel=>sel==='[data-reach-error]'?[reachErrControl]:
+    sel==='[data-m]'?[batterToSecond]:[];
+  const pickRoot=el('#fs1'),oldPickQuery=pickRoot.querySelectorAll;
+  const errorThree={dataset:{n:'3'},onclick:null};
+  const errorTwo={dataset:{n:'2'},onclick:null};
+  let activeFielder=errorThree;
+  pickRoot.querySelectorAll=sel=>sel==='.fnode'?[activeFielder]:[];
+  sb.placementReview(multiFc,'FC',"Fielder's choice on a ground ball 5 — no out",
+    false,{fcFielders:'5',fcContact:'ground ball'});
+  ok(fcRoot.innerHTML.includes('data-reach-error="0"'),
+    'FCERR: FC batter has separate first-base error button');
+  reachErrControl.onclick();
+  ok(el('#sheet').innerHTML.includes('Batter reached 1st on error by whom?'),
+    'FCERR: first-base error picker asks for the responsible fielder');
+  errorThree.onclick();el('#fs1ok').onclick();
+  eq(multiFc[0].reachErr,'3','FCERR: Will Craig E3 stored on initial reach');
+  batterToSecond.onclick();
+  ok(el('#sheet').innerHTML.includes('How did the runner advance?'),
+    'FCERR: extra advance gets its own independent reason picker');
+  el('#advErr').onclick();
+  activeFielder=errorTwo;
+  errorTwo.onclick();el('#fs1ok').onclick();
+  eq(multiFc[0].err,'2','FCERR: Michael Perez E2 separately stored on advance');
+  eq(sb.paErrTag(multiFc),'E3,E2',
+    'FCERR: error tags show E3 then E2 with no duplicate catcher');
+  eq(sb.moveRunnerEvents(multiFc[0],'FC')[0][1].advance.fielder,'2',
+    'FCERR: advance metadata attributes first-to-second to catcher E2');
+  el('#plDone').onclick();
+  const weirdFc=sb.S.pas[sb.S.pas.length-1];
+  eq(weirdFc.result,'FC','FCERR: official batter outcome stays fielder choice');
+  eq(weirdFc.fcFielders,'5','FCERR: third baseman contact stored in the FC');
+  eq(weirdFc.reachError,'3','FCERR: initial reach separately linked to Craig E3');
+  eq(weirdFc.err,'E3,E2','FCERR: PA stores exactly two distinct fielder errors');
+  eq(weirdFc.errBy.join(','),'Rival3,Rival8',
+    'FCERR: first baseman and catcher retain point-in-time identities');
+  eq(sb.teamErrs('home'),2,'FCERR: team charged precisely E3 plus E2');
+  eq(sb.teamErrs('away'),0,'FCERR: batting team is not charged errors');
+  eq(sb.playerErrs().home.Rival3,1,'FCERR: Craig charged once');
+  eq(sb.playerErrs().home.Rival8,1,'FCERR: catcher Perez charged once only');
+  eq(sb.teamHits('away'),0,'FCERR: fielder choice is not a hit');
+  eq(sb.S.outs,2,'FCERR: no out recorded; two outs remain');
+  eq(sb.S.runs.away[2],1,'FCERR: Contreras scores exactly once');
+  eq(sb.S.bases[0],null,'FCERR: first base empty after advance');
+  eq(sb.S.bases[1].i,1,'FCERR: batter settles at second');
+  eq(sb.paResultDisplay(weirdFc),'FC5','FCERR: diamond keeps original fielder FC5 notation');
+  eq(sb.paErrDisp(weirdFc),'E3,E2','FCERR: Book lists both errors once');
+  const fcPath=sb.runnerPathById(weirdFc.runnerId).steps;
+  ok(fcPath.some(st=>st.from===0&&st.to===1&&st.reason==='error'&&st.fielder==='3'),
+    'FCERR: Book runner path marks reach-first on E3');
+  ok(fcPath.some(st=>st.from===1&&st.to===2&&st.reason==='error'&&st.fielder==='2'),
+    'FCERR: Book runner path independently marks advance to second on E2');
+  const fcDia=sb.bookDiamondHTML(weirdFc);
+  ok(fcDia.includes('FC5')&&fcDia.includes('E3')&&fcDia.includes('E2'),
+    'FCERR: Book diamond shows FC5 with E3 and E2, without losing runner path');
+  sb.renderBook();
+  ok(el('#fielding').innerHTML.includes('Rival3: 1 E')&&
+    el('#fielding').innerHTML.includes('Rival8: 1 E'),
+    'FCERR: Book fielding summary shows one error per fielder');
+  sb.undo();
+  eq(sb.teamErrs('home'),0,'FCERR: undo restores error-free state');
+  eq(sb.S.runs.away[2],0,'FCERR: undo restores pre-play score');
+  pickRoot.querySelectorAll=oldPickQuery;fcRoot.querySelectorAll=oldFcQuery;
+
+  newGame();
+  const oldFc=sb.fielderChoiceMovers(null,'6-4');
+  eq(sb.paErrTag(oldFc),null,'FCERR: ordinary FC does not invent an error');
+  const sameFielder=[{who:'BR',reachErr:'2',err:'2',out:null}];
+  eq(sb.paErrTag(sameFielder),'E2',
+    'FCERR: repeated annotation of same E2 does not charge catcher twice');
+
   /* ===== FC contact + fielding sequence: ground bunt force-out ===== */
   newGame();
   sb.S.bases[0]={t:'away',i:1};
@@ -1214,7 +1295,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.9','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.10','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
