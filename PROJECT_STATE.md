@@ -1077,3 +1077,11 @@ replacing the "visco" app she currently uses.
   on both pages. Re-score and official ruling/notation edits reuse the picker.
   Scoring, baserunning, pitch records, and Worker remain unchanged. App
   v2026.10.09.12.
+
+- 2026-10-09: Fix hidden bottom option in the new two-screen hit/FC pickers
+  on iPad and constrained viewports. Removed the sticky action-footer overlap
+  and negative bottom margin: Done/Cancel/Back now follow the content naturally
+  inside a touch-scrollable height-limited sheet, retaining bottom safe-area
+  padding. No more Bunt button obscured by the Cancel bar. Applies to the
+  hit-type and location pages and both FC stages. Version v2026.10.09.13;
+  scoring/data/Worker unchanged.

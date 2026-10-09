@@ -1328,7 +1328,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.12','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.13','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1887,8 +1887,17 @@ async function main() {
      hitMenu.indexOf('id="hitDone"')<0 &&
      hitMenu.indexOf('class="fieldSvg"')<0,
     'H1: first hit screen contains only contact type choices and Cancel');
-  ok(html.indexOf('.sheetActions{position:sticky;bottom:0')>=0,
-    'H1: hit-detail action footer stays visible while the sheet scrolls');
+  ok(html.includes('.sheetActions{position:static;display:grid') &&
+     html.includes('margin:14px 0 0;padding:0 0 4px') &&
+     html.includes('overflow-y:auto; overflow-x:hidden;') &&
+     !html.includes('.sheetActions{position:sticky;bottom:0'),
+    'H1: hit/FC footer follows scrolling content and never covers last option');
+  ok(html.includes('.sheetActions{margin:12px 0 0;padding:0 0 4px;}') &&
+     html.includes('.sheetActions{background:transparent;}'),
+    'H1: responsive and Opal Light overrides do not reintroduce sticky/footer overlap');
+  ok(hitMenu.includes('data-ht="bunt"') &&
+     hitMenu.indexOf('data-ht="bunt"')<hitMenu.indexOf('id="hitCancel"'),
+    'H1: Bunt remains before unobstructed Cancel action on type selection');
   const hitRoot=el('#sheet'),savedHitQuery=hitRoot.querySelectorAll;
   const hitTypeBtn={dataset:{ht:'line drive'},onclick:null};
   const hitFielderBtn={dataset:{n:'8'},onclick:null};

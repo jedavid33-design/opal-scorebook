@@ -165,13 +165,13 @@ button.pitchchip{font-family:inherit;cursor:pointer;}
   background:rgba(0,0,0,.55);}
 .modal.on{display:flex;}
 .sheet{background:#171021; border:1px solid var(--line); border-radius:22px 22px 0 0;
-  width:100%; max-width:640px; max-height:88dvh; overflow:auto; padding:18px 16px calc(20px + env(safe-area-inset-bottom));}
+  width:100%; max-width:640px; max-height:88dvh; overflow-y:auto; overflow-x:hidden;
+  -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  padding:18px 16px calc(20px + env(safe-area-inset-bottom));}
 .sheet h2{margin:0 0 10px; font-size:20px;}
-.sheetActions{position:sticky;bottom:0;z-index:3;display:grid;grid-template-columns:1fr 1fr;gap:8px;
-  margin:8px -16px calc(-20px - env(safe-area-inset-bottom));
-  padding:9px 16px calc(12px + env(safe-area-inset-bottom));
-  background:linear-gradient(to bottom,rgba(23,16,33,.90),#171021 24%);
-  border-top:1px solid var(--line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+.sheetActions{position:static;display:grid;grid-template-columns:1fr 1fr;gap:8px;
+  margin:14px 0 0;padding:0 0 4px;
+  background:transparent;border:0;backdrop-filter:none;-webkit-backdrop-filter:none;}
 .sheetActions button{width:100%;}
 .fpad{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0;}
 .fpad button{min-height:58px; font-size:20px; font-weight:700;}
@@ -277,7 +277,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   #v-score .pitchstack .ps-hbp{font-size:14px;}
   .sheet{padding:14px 12px calc(16px + env(safe-area-inset-bottom));}
   .sheet h2{font-size:18px;margin-bottom:7px;}
-  .sheetActions{margin:8px -12px calc(-16px - env(safe-area-inset-bottom));padding:8px 12px calc(10px + env(safe-area-inset-bottom));}
+  .sheetActions{margin:12px 0 0;padding:0 0 4px;}
   .sheet .med{min-height:44px;font-size:14px;}
   .sheet .sml{min-height:42px;font-size:13px;}
   .outcomeCols{gap:7px;}
@@ -554,7 +554,7 @@ input::placeholder,textarea::placeholder{color:#867a93;}
 .pitchchip.challengeable{background:#f3e8fb;border-color:var(--plum);}
 .chBtn{color:var(--plum-deep);}
 .sheet{background:#faf7fd;}
-.sheetActions{background:linear-gradient(to bottom,rgba(250,247,253,.92),#faf7fd 24%);}
+.sheetActions{background:transparent;}
 .fieldSvg .grass{fill:#e7f1e9;}
 .fieldSvg .dirt{fill:#eee3f3;stroke:#baa5ca;}
 .fieldSvg .mound,.fieldSvg .plate{fill:#9f83b5;}
@@ -855,7 +855,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.12';
+const APP_VERSION='2026.10.09.13';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
