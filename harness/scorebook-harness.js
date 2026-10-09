@@ -64,13 +64,13 @@ global.document = {
   createElement: () => makeEl(),
 };
 Object.defineProperty(global, 'navigator', { value: { userAgent: 'node-harness' }, configurable: true });
-global.window = { scrollTo() {} };
+global.window = { scrollY: 0, scrollCalls: [], scrollTo(x,y) { this.scrollCalls.push([x,y]); this.scrollY = y; } };
 global.confirm = () => true;
 global.setTimeout = () => 0;
 global.clearTimeout = () => {};
 global.fetch = async () => { throw new Error('no network in harness'); };
 const el = (s) => els[s] || (els[s] = makeEl());
-function resetDom() { for (const k of Object.keys(els)) delete els[k]; }
+function resetDom() { for (const k of Object.keys(els)) delete els[k]; window.scrollY=0; window.scrollCalls=[]; }
 
 /* ---------- load the real app script ---------- */
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
@@ -1106,7 +1106,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.1','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.09.2','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1930,20 +1930,27 @@ async function main() {
   newGame();
   sb.S.home.pool=[{name:'Player First Arm',num:'77',pos:'7'}];
   sb.openSubstitutionLineup();
+  window.scrollY=1324;
+  const rosterSelectJumps=el('#homeLineupArea').scrollCount||0;
   sb.selectIncomingSub('home',sb.S.home.pool[0]);
+  eq(window.scrollY,1324,'S3a: selecting a roster player preserves exact scroll position');
+  eq(el('#homeLineupArea').scrollCount||0,rosterSelectJumps,
+    'S3a: selecting roster player never jumps to lineup');
   ok(sb.subIncoming&&sb.subIncoming.player.name==='Player First Arm',
     'S3a: live substitution selects the incoming roster player first');
   eq(sb.S.home.lineup[8].name,'Rival9',
     'S3a: selecting incoming player does not remove the outgoing lineup player yet');
   const defenderRosterScrollBefore=el('#homeRosterArea').scrollCount||0;
   const defenderLineupScrollBefore=el('#homeLineupArea').scrollCount||0;
+  window.scrollY=1490;
   sb.applyIncomingLineupSub('home',8);
+  eq(window.scrollY,1490,'S3a: tapping outgoing player preserves exact lineup scroll position');
   eq(sb.S.home.lineup[8].pos,'1',
     'S3a: replacement retains the outgoing pitcher position, not incoming roster position');
   eq(el('#homeRosterArea').scrollCount||0,defenderRosterScrollBefore,
     'S3a: completing defense substitution does not jump back to roster');
-  ok((el('#homeLineupArea').scrollCount||0)>defenderLineupScrollBefore,
-    'S3a: completing defense substitution leaves lineup in view');
+  eq(el('#homeLineupArea').scrollCount||0,defenderLineupScrollBefore,
+    'S3a: completing defensive substitution does not jump to lineup start');
   eq(sb.S.home.lineup[8].name,'Player First Arm',
     'S3a: tapping the lineup spot second completes the defensive substitution');
   ok(sb.S.subLog.some(x=>x.old==='Rival9'&&x.new==='Player First Arm'),
@@ -1958,13 +1965,15 @@ async function main() {
     'S3b: selecting a pinch hitter first leaves the current batter untouched until target tap');
   const hitterRosterScrollBefore=el('#awayRosterArea').scrollCount||0;
   const hitterLineupScrollBefore=el('#awayLineupArea').scrollCount||0;
+  window.scrollY=1680;
   sb.applyIncomingOffensiveSub('away','PH',2,null);
+  eq(window.scrollY,1680,'S3b: pinch-hit substitution preserves scroll position');
   eq(sb.S.away.lineup[2].pos,'3',
     'S3b: pinch hitter retains lineup position instead of roster position');
   eq(el('#awayRosterArea').scrollCount||0,hitterRosterScrollBefore,
     'S3b: pinch hitter substitution does not jump back to roster');
-  ok((el('#awayLineupArea').scrollCount||0)>hitterLineupScrollBefore,
-    'S3b: pinch hitter substitution leaves lineup in view');
+  eq(el('#awayLineupArea').scrollCount||0,hitterLineupScrollBefore,
+    'S3b: pinch hitter substitution does not jump to lineup start');
   eq(sb.S.away.lineup[2].name,'Player First PH',
     'S3b: tapping Batter second completes player-first pinch-hit substitution');
   eq(sb.S.balls,2,'S3b: player-first pinch hitter inherits ball count');
@@ -1979,7 +1988,12 @@ async function main() {
     'S3c: selecting a pinch runner first leaves runner and batting slot intact until target tap');
   sb.ensureRunnerIdentity(sb.S.bases[1]);
   const prePrRid=sb.S.bases[1].rid;
+  window.scrollY=1850;
+  const runnerLineupJumps=el('#awayLineupArea').scrollCount||0;
   sb.applyIncomingOffensiveSub('away','PR',4,1);
+  eq(window.scrollY,1850,'S3c: pinch runner substitution preserves scroll position');
+  eq(el('#awayLineupArea').scrollCount||0,runnerLineupJumps,
+    'S3c: pinch runner substitution does not scroll to lineup');
   eq(sb.S.away.lineup[4].pos,'5',
     'S3c: pinch runner inherits replaced lineup position, not roster position');
   eq(sb.S.away.lineup[4].name,'Player First PR',

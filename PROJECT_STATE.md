@@ -987,3 +987,11 @@ replacing the "visco" app she currently uses.
   MLB roster position. The position dropdown remains editable for manual fielding
   changes. Applied consistently to defensive, PH, PR, and legacy substitution
   paths. App v2026.10.09.1. Worker unchanged; no Worker deployment required.
+
+- 2026-10-09: Substitution interactions no longer auto-scroll to either roster
+  or the top of the lineup. Player selection, cancellation, completed
+  defensive/pinch-hit/pinch-runner substitutions, and legacy substitution
+  flows redraw in place, retaining the viewport position or the same tapped
+  lineup row when roster length changes. Switching team tabs also does not
+  scroll. Explicit Roster/Lineup navigation buttons still work when tapped.
+  App v2026.10.09.2. Worker unchanged; no Worker deployment required.

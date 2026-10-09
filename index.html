@@ -619,7 +619,7 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.1';
+const APP_VERSION='2026.10.09.2';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -961,23 +961,38 @@ function showSetupTeam(team,jump){
     if(target&&target.scrollIntoView)target.scrollIntoView({behavior:'smooth',block:'start'});
   }
 }
+// Keep the same spot on screen when a roster/lineup redraw shifts its height.
+function renderSubstitutionInPlace(anchorSelector){
+  const originalY=window.scrollY;
+  const before=anchorSelector?$(anchorSelector):null;
+  const beforeTop=before&&before.getBoundingClientRect?before.getBoundingClientRect().top:null;
+  renderSetup();
+  if(!Number.isFinite(originalY)||!window.scrollTo)return;
+  const after=anchorSelector?$(anchorSelector):null;
+  const afterTop=after&&after.getBoundingClientRect?after.getBoundingClientRect().top:null;
+  // A lineup row may move when the selected player disappears from the roster above it.
+  // Preserve that row's viewport position, rather than merely the page's pixel offset.
+  const anchored=Number.isFinite(beforeTop)&&Number.isFinite(afterTop);
+  const destination=anchored?window.scrollY+afterTop-beforeTop:originalY;
+  if(Math.abs(window.scrollY-destination)>1)window.scrollTo(0,Math.max(0,destination));
+}
 function selectIncomingSub(team,p){
   if(!substitutionMode||!p||!p.name)return false;
   if(S[team].lineup.some(x=>x&&x.name===p.name)){poolMsg(team,p.name+' is already in the lineup.');return false;}
   subIncoming={team,player:{name:p.name,num:p.num||'',pos:p.pos||''}};
   S.selSlot=null;pendingSub=null;
   poolMsg(team,'');
-  renderSetup();showSetupTeam(team,'lineup');return true;
+  renderSubstitutionInPlace();return true;
 }
 function cancelIncomingSub(){
   if(!subIncoming)return;
   const team=subIncoming.team;
   subIncoming=null;S.selSlot=null;
-  renderSetup();showSetupTeam(team,'roster');
+  renderSubstitutionInPlace();
 }
 function applyIncomingLineupSub(team,slot){
   const inc=subIncoming;if(!substitutionMode||!inc||inc.team!==team){
-    toast('Tap the incoming roster player first.');showSetupTeam(team,'roster');return false;
+    toast('Tap the incoming roster player first.');return false;
   }
   const p=inc.player,T=S[team],old=T.lineup[slot];
   if(!old){toast('That lineup spot is unavailable.');return false;}
@@ -994,11 +1009,11 @@ function applyIncomingLineupSub(team,slot){
     S.subLog.push({inn:S.inning,half:S.half,team,slot,type,old:oldName,new:p.name});
   }
   subIncoming=null;pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
-  save();renderSetup();showSetupTeam(team,'lineup');return true;
+  save();renderSubstitutionInPlace('#'+team+'LU [data-subslot="'+team+'"][data-i="'+slot+'"]');return true;
 }
 function applyIncomingOffensiveSub(team,kind,slot,base){
   const inc=subIncoming;if(!substitutionMode||!inc||inc.team!==team||team!==S.bat){
-    toast('Tap the incoming roster player first.');showSetupTeam(team,'roster');return false;
+    toast('Tap the incoming roster player first.');return false;
   }
   const p=inc.player,T=S[team];
   let targetSlot=slot,old=null,runner=null;
@@ -1024,7 +1039,8 @@ function applyIncomingOffensiveSub(team,kind,slot,base){
   if(S.pa.length)ev('r',msg);
   S.subLog.push({inn:S.inning,half:S.half,team,slot:targetSlot,type:kind,old:old.name,new:p.name,...(kind==='PR'?{base:base+1}:{})});
   subIncoming=null;pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
-  save();renderSetup();showSetupTeam(team,'lineup');return true;
+  const targetSelector='#'+team+'LU [data-offsub="'+kind+'"]'+(kind==='PR'?'[data-base="'+base+'"]':'');
+  save();renderSubstitutionInPlace(targetSelector);return true;
 }
 function beginLineupSub(team,slot){
   if(!substitutionMode)return;
@@ -1033,13 +1049,13 @@ function beginLineupSub(team,slot){
     toast('Choose a replacement or cancel the current substitution first.');return;
   }
   const T=S[team],old=T.lineup[slot];
-  if(!old||!old.name){S.selSlot={t:team,i:slot};renderSetup();showSetupTeam(team,'roster');return;}
+  if(!old||!old.name){S.selSlot={t:team,i:slot};renderSubstitutionInPlace();return;}
   snap();
   pendingSub={team,slot,old:JSON.parse(JSON.stringify(old)),kind:'DEF'};
   T.lineup[slot]=(slot===9&&T.dh)?{name:'',num:'',pos:'1',nb:true}:{name:'',num:'',pos:old.pos||''};
   S.selSlot={t:team,i:slot};
   syncPitcherFromLineup(team);
-  renderSetup();showSetupTeam(team,'roster');
+  renderSubstitutionInPlace('#'+team+'LU [data-subslot="'+team+'"][data-i="'+slot+'"]');
 }
 function beginOffensiveSub(team,kind,slot,base){
   if(!substitutionMode||team!==S.bat)return;
@@ -1062,7 +1078,7 @@ function beginOffensiveSub(team,kind,slot,base){
     S.bases[base]=null;
     S.selSlot={t:team,i:rs};syncPitcherFromLineup(team);
   }
-  renderSetup();showSetupTeam(team,'roster');
+  renderSubstitutionInPlace();
 }
 function completeOffensiveSub(team,p){
   const ctx=pendingSub;if(!ctx||ctx.team!==team||(ctx.kind!=='PH'&&ctx.kind!=='PR'))return false;
@@ -1081,7 +1097,7 @@ function completeOffensiveSub(team,p){
   if(S.pa.length)ev('r',msg);
   S.subLog.push({inn:S.inning,half:S.half,team,slot,type:ctx.kind,old:old.name,new:p.name,...(ctx.kind==='PR'?{base:ctx.base+1}:{})});
   pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
-  save();renderSetup();showSetupTeam(team,'lineup');return true;
+  save();renderSubstitutionInPlace();return true;
 }
 function cancelPendingSub(){
   if(!pendingSub)return;
@@ -1089,7 +1105,7 @@ function cancelPendingSub(){
   T.lineup[slot]=old;
   if(ctx.kind==='PR'&&ctx.base!=null&&ctx.oldRunner)S.bases[ctx.base]=ctx.oldRunner;
   pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
-  renderSetup();showSetupTeam(team,'lineup');
+  renderSubstitutionInPlace();
 }
 function completeLineupSub(team,slot,p){
   const T=S[team],ctx=pendingSub&&pendingSub.team===team&&pendingSub.slot===slot?pendingSub:null;
@@ -1106,7 +1122,7 @@ function completeLineupSub(team,slot,p){
     S.subLog.push({inn:S.inning,half:S.half,team,slot,type,old:oldName,new:p.name});
   }
   pendingSub=null;S.selSlot=null;syncPitcherFromLineup(team);
-  save();renderSetup();showSetupTeam(team,'lineup');
+  save();renderSubstitutionInPlace();
 }
 function openSubstitutionLineup(){
   if(viewing)return;
@@ -3654,8 +3670,8 @@ function init(){
       const c=e.target.closest('[data-pool]');if(c)tapPoolPlayer(c.dataset.pool,+c.dataset.pi);
     });
   });
-  $('#setupAwayTab').onclick=()=>showSetupTeam('away',substitutionMode&&subIncoming&&subIncoming.team==='away'?'lineup':substitutionMode?'roster':undefined);
-  $('#setupHomeTab').onclick=()=>showSetupTeam('home',substitutionMode&&subIncoming&&subIncoming.team==='home'?'lineup':substitutionMode?'roster':undefined);
+  $('#setupAwayTab').onclick=()=>showSetupTeam('away');
+  $('#setupHomeTab').onclick=()=>showSetupTeam('home');
   document.querySelectorAll('[data-setupjump]').forEach(b=>b.onclick=()=>showSetupTeam(setupTeam,b.dataset.setupjump));
   const startScoring=()=>{if(substitutionMode){finishSubstitutionMode();return;}S.started=true;save();renderAll();showView('score');};
   $('#demoBtn').onclick=demoLineups;
