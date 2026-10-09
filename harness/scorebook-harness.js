@@ -949,8 +949,8 @@ async function main() {
   sb.S.runs.away=[3];sb.S.runs.home=[2];
   sb.S.half=1;sb.S.inning=5;
   sb.renderScore();
-  eq(el('#sAway').textContent,3,'HDR: away score appears in large score display');
-  eq(el('#sHome').textContent,2,'HDR: home score appears in large score display');
+  eq(el('#sAway').textContent,'3','HDR: away score appears in large score display');
+  eq(el('#sHome').textContent,'2','HDR: home score appears in large score display');
   ok(el('#hInn').innerHTML.includes('▼ 5'),'HDR: inning remains next to score');
   eq((el('#hChalAway').innerHTML.match(/challenge-dot available/g)||[]).length,1,
     'HDR: one away challenge is a single filled dot');
