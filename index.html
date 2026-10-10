@@ -855,7 +855,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.09.15';
+const APP_VERSION='2026.10.10.1';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2639,7 +2639,8 @@ function placementReview(movers,code,text,alreadySnapped,details){
   const draw=()=>{
     const lp=code==='BB'?lastPitch():null;
     const canChallenge=!!(lp&&lp.live&&lp.evts[lp.idx]&&lp.evts[lp.idx].text==='Ball'&&!lp.evts[lp.idx].ch);
-    $('#sheet').innerHTML=`<h2>${text}</h2><p class="sub">Confirm where everyone ends up.</p>`+
+    const fcDoublePlay=code==='FC'&&movers.filter(m=>m.who==='R'&&m.out).length===2&&movers.some(m=>m.who==='BR'&&!m.out);
+    $('#sheet').innerHTML=`<h2>${text}${fcDoublePlay&&!/double play/i.test(text)?' · double play':''}</h2><p class="sub">Confirm where everyone ends up.</p>`+
       (canChallenge?`<button class="med" id="plChallenge" style="width:100%;margin-bottom:8px">Challenge last pitch</button>`:'')+
       movers.map((m,i)=>`<div class="mover"><div class="nm">${m.label}${m.adv==='SB'?' · <span class="sub">SB</span>':m.adv==='tag'?' · <span class="sub">tagged up</span>':m.adv==='throw'?' · <span class="sub">on throw</span>':m.adv==='other'?' · <span class="sub">extra advance</span>':''}${m.out?' — <span style="color:var(--out)">OUT ('+m.out.f+')</span>':''}</div>
         ${code==='FC'&&m.who==='BR'&&!m.out
@@ -2687,7 +2688,8 @@ function placementReview(movers,code,text,alreadySnapped,details){
     // A DP producing the inning's third out is a timing play if another
     // runner crosses home. Only a run preceding a non-force final out counts.
     // Never auto-credit it merely because the runner was moved to Home.
-    const inningEndingDP=code==='DP'&&S.outs+movers.filter(m=>m.out).length>=3;
+    const isDP=code==='DP'||(code==='FC'&&movers.filter(m=>m.who==='R'&&m.out).length===2&&movers.some(m=>m.who==='BR'&&!m.out));
+    const inningEndingDP=isDP&&S.outs+movers.filter(m=>m.out).length>=3;
     const scoringOnDP=inningEndingDP&&movers.some(m=>m.who==='R'&&!m.out&&m.to===4);
     if(scoringOnDP&&!details?.timingConfirmed){
       openModal('<h2>Run on an inning-ending DP?</h2>'+
@@ -2708,6 +2710,10 @@ function placementReview(movers,code,text,alreadySnapped,details){
       return;
     }
     if(!alreadySnapped)snap();
+    if(code==='FC'&&isDP){
+      const fcEvent=S.pa.find(e=>e.t==='o'&&/^Fielder's choice/.test(e.text||''));
+      if(fcEvent&&!/double play/i.test(fcEvent.text))fcEvent.text+=' — double play';
+    }
     const nb=[null,null,null],originIdx=S.pas.length;
     movers.forEach(m=>{
       if(m.out){
@@ -2740,6 +2746,12 @@ function placementReview(movers,code,text,alreadySnapped,details){
       if(batter&&batter.reachErr)committed.reachError=String(batter.reachErr);
       if(details&&details.fcFielders)committed.fcFielders=String(details.fcFielders);
       if(details&&details.fcContact)committed.fcContact=String(details.fcContact);
+       if(isDP){
+         committed.fcDP=true;
+         committed.fcDPOuts=movers.filter(m=>m.who==='R'&&m.out)
+           .sort((a,b)=>(a.out.order||99)-(b.out.order||99))
+           .map(m=>({rid:m.r&&m.r.rid||null,from:m.from,fielders:String(m.out.f||'')}));
+       }
     }
     const br=movers.find(m=>m.who==='BR'&&m.r);
     if(br&&S.pas[S.pas.length-1])S.pas[S.pas.length-1].runnerId=br.r.rid;
@@ -2750,7 +2762,7 @@ function placementReview(movers,code,text,alreadySnapped,details){
   // a runner may score BEFORE the final tag out even though the inning ends.
   // Other third-out plays retain their established fast-commit behavior.
   const endsHalf=S.outs+movers.filter(m=>m.out).length>=3;
-  const dpWithLiveRunners=code==='DP'&&movers.some(m=>m.who==='R'&&!m.out);
+  const dpWithLiveRunners=(code==='DP'||(code==='FC'&&movers.filter(m=>m.who==='R'&&m.out).length===2))&&movers.some(m=>m.who==='R'&&!m.out);
   if(endsHalf&&!dpWithLiveRunners){applyPlacement(movers,code);return;}
   draw();$('#modal').classList.add('on');
 }
@@ -3035,7 +3047,18 @@ function paResultDisplay(pa,longForm){
     return (f.catcher?'SF'+f.catcher:'SF')+'-DP'+(f.runnerOut?' '+f.runnerOut:'');
   }
   if(pa&&pa.result==='TP')return triplePlayDisplay(pa,!!longForm);
-  if(pa&&pa.result==='FC'&&pa.fcFielders)return 'FC'+pa.fcFielders;
+  if(pa&&pa.result==='FC'){
+    const runnerOutEvents=(pa.events||[]).filter(e=>e.t==='o'&&/^Runner out /.test(e.text||''));
+    if(pa.fcDP||runnerOutEvents.length===2){
+      const sequences=(Array.isArray(pa.fcDPOuts)&&pa.fcDPOuts.length
+        ?pa.fcDPOuts.map(x=>x.fielders)
+        :runnerOutEvents.map(e=>(e.text||'').replace(/^Runner out /,''))).filter(Boolean);
+      const fielders=sequences.length?sequences.join(' / '):String(pa.fcFielders||'');
+      return longForm?"Fielder's choice double play"+(fielders?' · '+fielders:'')
+        :'FC'+(fielders||'')+'-DP';
+    }
+    if(pa.fcFielders)return 'FC'+pa.fcFielders;
+  }
   if(pa&&pa.result==='GRD')return longForm?'Ground-rule double':'GRD';
   return pa&&pa.result||'';
 }
