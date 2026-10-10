@@ -429,12 +429,16 @@ table.book th{background:rgba(255,255,255,.06); font-size:11px;}
   padding:7px;background:rgba(23,16,33,.97);border:1px solid var(--line);border-radius:14px;
   box-shadow:0 10px 30px rgba(0,0,0,.38);pointer-events:none;}
 #doubleHoldMenu.on{display:grid;}
+#popOutHoldMenu{position:fixed;z-index:96;display:none;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);grid-template-columns:1fr;width:min(320px,86vw);padding:7px;background:rgba(23,16,33,.97);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.38);pointer-events:none;}
+#popOutHoldMenu.on{display:grid;}
+#popOutHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);border:1px solid transparent;}
+#popOutHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
 #doubleHoldMenu span{padding:10px 8px;border-radius:10px;text-align:center;font-size:13px;font-weight:800;color:var(--dim);
   border:1px solid transparent;}
 #doubleHoldMenu span.sel{color:#fff;background:rgba(201,160,232,.22);border-color:var(--plum);}
-.pitch[data-hold-wppb],.pitch[data-hold-down],#buntOutBtn,#foulOutBtn,#doubleBtn,
-#pitchHoldMenu,#buntHoldMenu,#foulOutHoldMenu,#doubleHoldMenu,
-#pitchHoldMenu span,#buntHoldMenu span,#foulOutHoldMenu span,#doubleHoldMenu span{
+.pitch[data-hold-wppb],.pitch[data-hold-down],#buntOutBtn,#foulOutBtn,#doubleBtn,#popOutBtn,
+#pitchHoldMenu,#buntHoldMenu,#foulOutHoldMenu,#doubleHoldMenu,#popOutHoldMenu,
+#pitchHoldMenu span,#buntHoldMenu span,#foulOutHoldMenu span,#doubleHoldMenu span,#popOutHoldMenu span{
   touch-action:none;
   -webkit-user-select:none;
   user-select:none;
@@ -573,10 +577,10 @@ input::placeholder,textarea::placeholder{color:#867a93;}
 .codebox{background:#eadcf3;color:var(--ink);}
 #toast{background:#63437e;color:#fff;}
 #pullRefresh{background:rgba(255,251,255,.96);box-shadow:0 4px 15px rgba(77,56,105,.1);}
-#pitchHoldMenu,#buntHoldMenu,#foulOutHoldMenu,#doubleHoldMenu{
+#pitchHoldMenu,#buntHoldMenu,#foulOutHoldMenu,#doubleHoldMenu,#popOutHoldMenu{
   background:rgba(255,251,255,.98);box-shadow:0 10px 30px rgba(92,69,116,.18);
 }
-#pitchHoldMenu span.sel,#buntHoldMenu span.sel,#foulOutHoldMenu span.sel,#doubleHoldMenu span.sel{
+#pitchHoldMenu span.sel,#buntHoldMenu span.sel,#foulOutHoldMenu span.sel,#doubleHoldMenu span.sel,#popOutHoldMenu span.sel{
   background:#e9dbf4;color:var(--plum-deep);border-color:var(--plum);
 }
 table.book:not(.scorecard) th{background:#eee4f6;color:#4b365c;}
@@ -847,6 +851,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <div id="buntHoldMenu" aria-hidden="true"><span data-bunt="BGO">← Ground Out</span><span data-bunt="BPOP">Pop Out →</span></div>
 <div id="foulOutHoldMenu" aria-hidden="true"><span data-foulout="FFLY">← Fly</span><span data-foulout="FPOP">Pop Up →</span></div>
 <div id="doubleHoldMenu" aria-hidden="true"><span data-double="GRD">↓ Ground-rule Double</span></div>
+<div id="popOutHoldMenu" aria-hidden="true"><span data-popout="IF">↓ Infield Fly</span></div>
 <div id="pullRefresh">↓ Pull to refresh</div>
 <div id="appVersion" class="appver"></div>
 
@@ -855,7 +860,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.10.2';
+const APP_VERSION='2026.10.10.3';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2013,7 +2018,7 @@ function outcomeModal(){
         <button class="med" data-o="GO">Groundout</button>
         <button class="med" data-o="LO">Lineout</button>
         <button class="med" data-o="FO">Fly out</button>
-        <button class="med" data-o="POP">Pop fly</button>
+        <button class="med" id="popOutBtn" type="button" aria-label="Pop out. Hold and swipe down for Infield Fly.">Pop out</button>
         <button class="med" id="buntOutBtn" type="button">Bunt</button>
         <button class="med" id="foulOutBtn" type="button">Foul out</button>
         <button class="med" data-o="DP">Double Play</button>
@@ -2025,6 +2030,7 @@ function outcomeModal(){
   $('#sheet').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>handleOutcome(b.dataset.o));
   bindBuntOutGesture();
   bindFoulOutGesture();
+  bindPopOutGesture();
   bindDoubleGesture();
 }
 function hitMovers(n){
