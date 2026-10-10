@@ -929,7 +929,7 @@ function snap(state){if(viewing)return;const copy=state||S;
    Never include that provisional note in an Undo snapshot: reverting the play
    must restore the earlier pitches/count, not leave a phantom PA result. */
 function isInPlayResultNote(e){
-  return !!(e&&e.t==='o'&&/^(?:Singled\b|Doubled\b|Tripled\b|Ground-rule double\b|Home run\b|Fielder's choice\b|Grounded\b|Flied\b|Lined\b|Popped\b|Bunt\b|Foul (?:pop|fly)\b|Reached on (?:error|catcher's interference)\b|Sac (?:bunt|fly)\b|Struck out (?:looking|swinging), caught stealing\b)/.test(e.text||''));
+  return !!(e&&e.t==='o'&&/^(?:Singled\b|Doubled\b|Tripled\b|Ground-rule double\b|Home run\b|Fielder's choice\b|Infield fly\b|Grounded\b|Flied\b|Lined\b|Popped\b|Bunt\b|Foul (?:pop|fly)\b|Reached on (?:error|catcher's interference)\b|Sac (?:bunt|fly)\b|Struck out (?:looking|swinging), caught stealing\b)/.test(e.text||''));
 }
 function snapBeforeInPlayResult(){
   const last=S.pa[S.pa.length-1];
@@ -1013,7 +1013,7 @@ function pitchCountsAsThrown(e){
 function contactPitchBonus(result){
   if(!result)return 0;
   if(result==='HBP'||result==='CI')return 1;
-  if(/^(1B|2B|3B|GRD|HR|E\d+|FC|SAC|SF|BGO|BPO|DP|TP)/.test(result))return 1;
+  if(/^(1B|2B|3B|GRD|HR|E\d+|FC|SAC|SF|BGO|BPO|DP|TP|IFU?[1-9])/.test(result))return 1;
   if(/^fP\d/.test(result)||/^[FfLP]\d/.test(result)||/^\d/.test(result))return 1;
   return 0;
 }
@@ -2414,6 +2414,68 @@ function bindBuntOutGesture(){
   btn.addEventListener('contextmenu',e=>e.preventDefault());
   btn.addEventListener('click',e=>{if(suppressClick)e.preventDefault();});
 }
+/* An infield fly is an automatic batter out on a fair, routinely catchable fly,
+   with runners at first and second (or loaded) and fewer than two outs. */
+function infieldFlyEligible(){return S.outs<2&&!!S.bases[0]&&!!S.bases[1];}
+function infieldFlyNotation(f,caught){
+  return{code:(caught?'IF':'IFU')+f,
+    text:'Infield fly rule — batter out, '+(caught?'caught by ':'not caught near ')+(POS[f]||'fielder')+' ('+f+')'};
+}
+function scoreInfieldFly(){
+  if(!infieldFlyEligible()){
+    toast('Infield fly needs runners on 1st and 2nd (or bases loaded), with fewer than 2 outs.');
+    return;
+  }
+  fielderSingle(f=>{
+    openModal('<h2>Infield fly</h2><p class="sub">Batter out either way. Was the ball caught?</p>'+
+      '<div class="grid2"><button class="med accent" id="ifCaught">Caught</button>'+
+      '<button class="med" id="ifUncaught">Not caught</button></div>'+
+      '<button class="sml ghost" id="ifBack" style="width:100%;margin-top:8px">Back</button>');
+    const commit=caught=>{
+      const n=infieldFlyNotation(f,caught);
+      const mv=[{who:'BR',label:pname({t:S.bat,i:curIdx()})+' (batter)',from:0,to:0,out:{f:n.code}},...holdMovers()];
+      ev('o',n.text);
+      placementReview(mv,n.code,n.text,false,{infieldFlyCaught:caught,infieldFlyFielder:f});
+    };
+    $('#ifCaught').onclick=()=>commit(true);
+    $('#ifUncaught').onclick=()=>commit(false);
+    $('#ifBack').onclick=scoreInfieldFly;
+  },'Infield fly — catching or nearest fielder');
+}
+function bindPopOutGesture(){
+  const btn=$('#popOutBtn'),menu=$('#popOutHoldMenu');if(!btn||!menu)return;
+  const down=menu.querySelector('[data-popout="IF"]');
+  let timer=null,held=false,choice=null,startX=0,startY=0,suppressClick=false;
+  const paint=()=>{if(down)down.classList.toggle('sel',choice==='IF');};
+  const hide=()=>{menu.classList.remove('on');menu.setAttribute&&menu.setAttribute('aria-hidden','true');choice=null;paint();};
+  btn.addEventListener('pointerdown',e=>{
+    if(e.button!=null&&e.button!==0)return;
+    held=false;choice=null;startX=e.clientX;startY=e.clientY;paint();
+    if(e.cancelable)e.preventDefault();
+    timer=setTimeout(()=>{held=true;menu.classList.add('on');menu.setAttribute&&menu.setAttribute('aria-hidden','false');
+      if(btn.setPointerCapture)try{btn.setPointerCapture(e.pointerId);}catch(_){}
+    },480);
+  });
+  btn.addEventListener('pointermove',e=>{
+    if(!held)return;
+    const dx=e.clientX-startX,dy=e.clientY-startY;
+    choice=dy>12&&dy>Math.abs(dx)?'IF':null;paint();
+    if(e.cancelable)e.preventDefault();
+  });
+  btn.addEventListener('pointerup',e=>{
+    clearTimeout(timer);timer=null;suppressClick=true;
+    if(held){const c=choice;hide();if(c==='IF')scoreInfieldFly();
+      else toast('Hold Pop out, then slide down for Infield Fly.');
+    }else handleOutcome('POP');
+    setTimeout(()=>{suppressClick=false;},0);
+  });
+  btn.addEventListener('pointercancel',()=>{clearTimeout(timer);timer=null;held=false;hide();});
+  btn.addEventListener('contextmenu',e=>e.preventDefault());
+  btn.addEventListener('click',e=>{
+    if(suppressClick){e.preventDefault();return;}
+    if(e.detail===0)handleOutcome('POP');
+  });
+}
 function foulOutNotation(kind,f){
   if(kind==='FPOP')return{code:'fP'+f,text:'Foul pop out P'+f};
   return{code:'f'+f,text:'Foul fly out to '+f};
@@ -2460,6 +2522,7 @@ function bindFoulOutGesture(){
 function handleOutcome(kind){
   const HN={'1B':1,'2B':2,'3B':3,'HR':4};
   if(kind==='DP'){dpModal();return;}
+  if(kind==='IF'){scoreInfieldFly();return;}
   if(kind==='TP'){triplePlayModal();return;}
   if(kind==='HR'){homeRunLocation();return;}
   if(HN[kind]){hitDetail(HN[kind],kind,{1:'Singled',2:'Doubled',3:'Tripled'}[HN[kind]]);return;}
@@ -2639,6 +2702,7 @@ function advanceReasonChoices(playCode){
   const c=String(playCode||'');
   const caught=
     c==='SF' ||
+    /^IF[1-9]$/.test(c) ||
     /^F[0-9]+$/.test(c) ||
     /^L[0-9]+$/.test(c) ||
     /^P[0-9]+$/.test(c) ||
@@ -2802,6 +2866,10 @@ function placementReview(movers,code,text,alreadySnapped,details){
       committed.dpTiming={finalOut:details.finalOut,runBeforeFinalOut:true,
         scoringRunnerIds:movers.filter(m=>m.who==='R'&&!m.out&&m.to===4)
           .map(m=>m.r&&m.r.rid).filter(Boolean)};
+    }
+    if(committed&&/^IFU?[1-9]$/.test(code)){
+      committed.infieldFlyCaught=details&&details.infieldFlyCaught!==false;
+      committed.infieldFlyFielder=details&&details.infieldFlyFielder||code.replace(/^IFU?/,'');
     }
     if(committed&&code==='FC'){
       const batter=movers.find(m=>m.who==='BR'&&!m.out);
@@ -3090,7 +3158,7 @@ function subModal(){
 function pasAt(t,i,n){const half=t==='away'?0:1;return S.pas.filter(p=>p.team===t&&p.b===i&&p.inning===n&&p.half===half);}
 function paAt(t,i,n){return pasAt(t,i,n)[0]||null;}
 function clsOf(r){if(!r)return'';if(/^(1B|2B|3B|GRD|HR)$/.test(r))return'hit';
-  if(/^(BGO|BPO)/.test(r)||/^(K|ꓘ)$/.test(r)||/^(SAC|SF|DP|TP)$/.test(r)||/^[FLPf]/.test(r)||/^\d/.test(r))return'out';return'';}
+  if(/^(BGO|BPO|IFU?[1-9])/.test(r)||/^(K|ꓘ)$/.test(r)||/^(SAC|SF|DP|TP)$/.test(r)||/^[FLPf]/.test(r)||/^\d/.test(r))return'out';return'';}
 function isSacrificeDoublePlay(pa){
   return !!(pa&&pa.result==='SF'&&(pa.sacDP||(pa.events||[]).some(e=>e.t==='o'&&/^Runner out /.test(e.text||''))));
 }
@@ -3107,6 +3175,11 @@ function paResultDisplay(pa,longForm){
     const f=sacrificeDoublePlayFielding(pa);
     if(longForm)return 'Sacrifice double play'+(f.catcher?' · SF'+f.catcher:'')+(f.runnerOut?' · '+f.runnerOut+' DP':'');
     return (f.catcher?'SF'+f.catcher:'SF')+'-DP'+(f.runnerOut?' '+f.runnerOut:'');
+  }
+  if(pa&&/^IFU?[1-9]$/.test(pa.result)){
+    const f=String(pa.infieldFlyFielder||pa.result.replace(/^IFU?/,'')),caught=pa.infieldFlyCaught!==false&&!pa.result.startsWith('IFU');
+    return longForm?'Infield fly · '+(caught?'caught by ':'not caught near ')+(POS[f]||'fielder')+' ('+f+')'
+      :'IF'+f+(caught?'':'*');
   }
   if(pa&&pa.result==='TP')return triplePlayDisplay(pa,!!longForm);
   if(pa&&pa.result==='FC'){
@@ -3519,6 +3592,7 @@ function paKind(r){
   if(/^[Ff]\d/.test(r))return 'FO';
   if(/^L\d/.test(r))return 'LO';
   if(/^P\d/.test(r))return 'POP';
+  if(/^IFU?[1-9]$/.test(r))return r.startsWith('IFU')?'IFU':'IF';
   if(/^BGO/.test(r))return 'BGO';
   if(/^BPOF/.test(r))return 'BFPOP';
   if(/^BPO/.test(r))return 'BPOP';
@@ -3538,6 +3612,7 @@ function applyNotationFix(kind,ht,f,wasFoul){
   if(kind==='FO')return wasFoul?{result:'f'+f,text:'Foul fly out to '+f}:{result:'F'+f,text:'Flied out to '+f};
   if(kind==='FPOP')return{result:'fP'+f,text:'Foul pop out P'+f};
   if(kind==='POP')return{result:'P'+f,text:'Popped out P'+f};
+  if(kind==='IF'||kind==='IFU'){const n=infieldFlyNotation(f,kind==='IF');return{result:n.code,text:n.text};}
   if(kind==='BGO'){const n=buntOutNotation('BGO',f);return{result:n.code,text:n.text};}
   if(kind==='BPOP'){const n=buntOutNotation('BPOP',f);return{result:n.code,text:n.text};}
   if(kind==='BFPOP'){const n=buntOutNotation('BFPOP',f);return{result:n.code,text:n.text};}
@@ -3600,7 +3675,7 @@ function fixNotation(idx){
       <label>Play text</label><input id="fxText" value="${esc(fxT)}" maxlength="90">
       ${kind==='1B'||kind==='2B'||kind==='3B'||kind==='GRD'
         ?'<button class="med" id="fxHit" style="width:100%;margin-top:8px">Re-pick hit type + fielder</button>'
-        :['GO','FO','FPOP','POP','BGO','BPOP','LO','E','FC','SAC','SF'].includes(kind)
+        :['GO','FO','FPOP','POP','IF','IFU','BGO','BPOP','LO','E','FC','SAC','SF'].includes(kind)
         ?`<button class="med" id="fxF" style="width:100%;margin-top:8px">${kind==='FC'?'Re-pick contact type + fielders':'Re-pick fielders'}</button>`:''}
       <button class="med accent" id="fxSave" style="width:100%;margin-top:10px">Save notation</button>
       <div style="margin-top:8px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`;
