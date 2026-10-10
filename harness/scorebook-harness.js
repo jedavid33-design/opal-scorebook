@@ -176,6 +176,68 @@ async function main() {
   ok(!sb.S.bases[0] && !!sb.S.bases[1], 'defensive indifference advances the runner');
   eq(sb.S.pas.length, 0, 'DI does not end the PA');
 
+  /* ===== Undo of an in-play result returns to LIVE PA, no leftover outcome ===== */
+  newGame();
+  sb.doPitch('ball');sb.doPitch('cstr');
+  const inPlayBefore=JSON.stringify(sb.S.pa),inPlayUndoCount=sb.undoStack.length;
+  sb.ev('o','Grounded out 6-3');
+  sb.placementReview([{who:'BR',label:'Batter',from:0,to:0,out:{f:'6-3'}}],'6-3','Grounded out 6-3');
+  el('#plDone').onclick();
+  eq(sb.S.pas.length,1,'UNDO-IP1: groundout commits a PA before undo');
+  eq(sb.undoStack.length,inPlayUndoCount+1,'UNDO-IP1: in-play completion takes exactly one undo snapshot');
+  sb.undo();
+  eq(sb.S.pas.length,0,'UNDO-IP1: completed in-play PA removed');
+  eq(sb.S.outs,0,'UNDO-IP1: out removed');
+  eq(sb.S.order.away,0,'UNDO-IP1: original batter stays up');
+  eq(sb.S.balls,1,'UNDO-IP1: pre-play ball count retained');
+  eq(sb.S.strikes,1,'UNDO-IP1: pre-play strike count retained');
+  eq(JSON.stringify(sb.S.pa),inPlayBefore,
+    'UNDO-IP1: only the canceled result is removed; earlier pitches retained');
+  ok(!el('#hEvents').innerHTML.includes('Grounded out')&&
+    el('#hEvents').innerHTML.includes('Ball')&&el('#hEvents').innerHTML.includes('Called'),
+    'UNDO-IP1: header shows prior pitches without reverted result');
+  sb.ev('o','Singled on a line drive to CF');
+  sb.placementReview(sb.hitMovers(1),'1B','Singled on a line drive to CF');
+  el('#plDone').onclick();
+  sb.undo();
+  eq(JSON.stringify(sb.S.pa),inPlayBefore,
+    'UNDO-IP1: re-scoring same PA with a hit undoes cleanly again');
+
+  /* Prior version (10.10.1) took snapshot AFTER result event: repair when
+     undo is tapped on a game already in progress before this update. */
+  newGame();
+  sb.doPitch('ball');
+  sb.ev('o','PH Batter X for Batter Y');
+  const legacyBefore=JSON.stringify(sb.S.pa);
+  sb.ev('o','Fielder\'s choice on a ground ball 8-6-2');
+  const legacySnap=JSON.stringify(sb.S);
+  sb.S.bases[1]={t:'away',i:2,rid:'legacy-second'};
+  sb.S.bases[2]={t:'away',i:3,rid:'legacy-third'};
+  const legacyFc=sb.fielderChoiceDpMovers(2,1,'8-6-2','2-5');
+  sb.placementReview(legacyFc,'FC',"Fielder's choice on a ground ball 8-6-2",
+    false,{fcFielders:'8-6-2',fcContact:'ground ball'});
+  el('#plDone').onclick();
+  const legacyDone=sb.S.pas[0];
+  ok(legacyDone.fcDP,'UNDO-IP2: previous-version FC double play is saved');
+  sb.undoStack[sb.undoStack.length-1]=legacySnap;
+  sb.undo();
+  eq(sb.S.pas.length,0,'UNDO-IP2: old snapshot removes completed FC-DP');
+  eq(JSON.stringify(sb.S.pa),legacyBefore,
+    'UNDO-IP2: old snapshot strips result, preserving earlier substitution note and pitch');
+  eq(sb.S.balls,1,'UNDO-IP2: old snapshot preserves original count');
+
+  newGame();
+  sb.doPitch('ball');sb.doPitch('ball');sb.doPitch('ball');
+  sb.doPitch('ball');el('#plDone').onclick();
+  sb.undo();
+  eq(sb.S.balls,3,'UNDO-IP3: undoing ball-four retains count at three balls');
+  eq(sb.S.pa.filter(e=>e.t==='p').length,3,
+    'UNDO-IP3: undoing ball-four retains first three pitches');
+
+  newGame();
+  sb.doPitch('hbp');el('#plDone').onclick();sb.undo();
+  eq(sb.S.pa.length,0,'UNDO-IP3: undo HBP does not leave a result note');
+
   /* ===== runner actions live on base diamonds ===== */
   newGame();
   sb.S.bases[1]={t:'away',i:2};
@@ -1466,7 +1528,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.10.1','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.10.2','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
