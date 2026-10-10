@@ -396,6 +396,69 @@ async function main() {
   ok(fcout.some(m=>m.who==='R'&&m.from===1&&m.out&&m.out.f==='6-4'),
     'FCNO1: existing FC-with-out path still marks selected runner out');
 
+  /* ===== Runner-only DP: two baserunners out, batter safe at first ===== */
+  newGame();
+  sb.S.bases[1]={t:'away',i:1,rid:'fc-dp-second'};
+  sb.S.bases[2]={t:'away',i:2,rid:'fc-dp-third'};
+  sb.dpModal();
+  ok(el('#sheet').innerHTML.includes('id="dpR"'),
+    'FCDP1: double-play menu offers two runners out with batter safe');
+  const fcdp=sb.fielderChoiceDpMovers(2,1,'8-6-2','2-5');
+  ok(fcdp&&fcdp.filter(m=>m.out).length===2&&fcdp[0].who==='BR'&&!fcdp[0].out&&fcdp[0].to===1,
+    'FCDP1: two runners retired without retiring batter');
+  eq(fcdp.find(m=>m.from===3).out.f,'8-6-2',
+    'FCDP1: lead runner first out preserves first fielding route');
+  eq(fcdp.find(m=>m.from===2).out.f,'2-5',
+    'FCDP1: trailing runner second out preserves independent route');
+  eq(sb.fielderChoiceDpMovers(2,2,'8-6-2','2-5'),null,
+    'FCDP1: same runner cannot be retired twice');
+  sb.ev('o',"Fielder's choice on a ground ball 8-6-2 — double play");
+  sb.placementReview(fcdp,'FC',"Fielder's choice on a ground ball 8-6-2 — double play",
+    false,{fcFielders:'8-6-2',fcContact:'ground ball'});
+  el('#plDone').onclick();
+  eq(sb.S.pas.length,1,'FCDP1: play commits as exactly one PA');
+  eq(sb.S.outs,2,'FCDP1: exactly two outs credited');
+  eq(sb.S.pas[0].result,'FC','FCDP1: batter result is fielder\'s choice, not an out');
+  ok(sb.S.pas[0].fcDP,'FCDP1: double-play marker stored on FC result');
+  eq(sb.S.pas[0].fcDPOuts.map(x=>x.fielders).join(' / '),'8-6-2 / 2-5',
+    'FCDP1: official two-out fielding order stored');
+  eq(sb.paResultDisplay(sb.S.pas[0]),'FC8-6-2 / 2-5-DP',
+    'FCDP1: book uses FC / DP notation with both fielder sequences');
+  eq(sb.paResultDisplay(sb.S.pas[0],true),"Fielder's choice double play · 8-6-2 / 2-5",
+    'FCDP1: play feed identifies runner-only double play');
+  ok(!sb.paBatterIsOut(sb.S.pas[0]),'FCDP1: batter is not charged with an out');
+  eq(sb.S.bases[0].rid,sb.S.pas[0].runnerId,
+    'FCDP1: batter remains on first as real baserunner');
+  eq(sb.paBookJourney(sb.S.pas[0]).status,'onbase',
+    'FCDP1: scorebook basepath traces first base');
+  eq(sb.runnerEndFor('fc-dp-second').status,'out',
+    'FCDP1: second-base runner recorded out');
+  eq(sb.runnerEndFor('fc-dp-third').status,'out',
+    'FCDP1: third-base runner recorded out');
+  eq(sb.paPitchAudit(sb.S.pas[0]).credited,1,
+    'FCDP1: completed FC double play counts exactly one in-play pitch');
+  eq(sb.teamHits('away'),0,
+    'FCDP1: FC double play does not count as a base hit');
+
+  /* A second out chosen inside the ordinary FC placement screen must also
+     acquire DP notation automatically. */
+  newGame();
+  sb.S.bases[1]={t:'away',i:1,rid:'fc-dp-manual2'};
+  sb.S.bases[2]={t:'away',i:2,rid:'fc-dp-manual3'};
+  const manualFc=sb.fielderChoiceMovers(2,'8-6-2');
+  manualFc.find(m=>m.from===2).out={f:'2-5'};
+  sb.ev('o',"Fielder's choice on a ground ball 8-6-2");
+  sb.placementReview(manualFc,'FC',"Fielder's choice on a ground ball 8-6-2",
+    false,{fcFielders:'8-6-2',fcContact:'ground ball'});
+  ok(el('#sheet').innerHTML.includes('double play'),
+    'FCDP2: FC placement preview indicates double play');
+  el('#plDone').onclick();
+  ok(sb.S.pas[0].fcDP,'FCDP2: FC runner outs auto-promoted to double play');
+  ok(sb.S.pas[0].events.some(e=>/Fielder's choice.*double play/.test(e.text||'')),
+    'FCDP2: outcome event is corrected to double play');
+  eq(sb.paResultDisplay(sb.S.pas[0]),'FC8-6-2 / 2-5-DP',
+    'FCDP2: automatically identified double play shown in book');
+
   /* ===== Inning-ending DP timing: Sogard scores before final 6-3-5 tag ===== */
   newGame();
   sb.S.bat='away';sb.S.half=0;sb.S.inning=9;sb.S.outs=1;
@@ -1403,7 +1466,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.09.15','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.10.1','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
