@@ -1730,8 +1730,9 @@ function fielderSingle(cb,title,onCancel){
   $('#fs1ok').onclick=()=>{if(!f)return;closeModal();cb(String(f));};
   $('#fs1cx').onclick=()=>{closeModal();if(onCancel)onCancel();};
 }
-function pickRunner(cb,title){
-  const occ=[0,1,2].filter(i=>S.bases[i]);
+function pickRunner(cb,title,excludedBases){
+  const excluded=new Set(excludedBases||[]);
+  const occ=[0,1,2].filter(i=>S.bases[i]&&!excluded.has(i));
   if(!occ.length){return;}
   openModal(`<h2>${title||'Which runner?'}</h2><div class="grid3">`+
     occ.map(i=>`<button class="med" data-b="${i}">${pname(S.bases[i])}<br><small>on ${baseName(i+1)}</small></button>`).join('')+
@@ -1862,6 +1863,18 @@ function fielderChoiceMovers(outBase,f){
     const isOut=i===outBase;
     mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:isOut?{f}:null});
   }});
+  return mv;
+}
+/* A runner-only FC double play keeps the batter on first.
+   Fielding routes remain independent and ordered by the two outs. */
+function fielderChoiceDpMovers(firstBase,secondBase,firstFielders,secondFielders){
+  if(firstBase===secondBase||!S.bases[firstBase]||!S.bases[secondBase])return null;
+  const mv=fielderChoiceMovers(null,firstFielders);
+  for(const m of mv){
+    if(m.who!=='R')continue;
+    if(m.from===firstBase+1){m.out={f:firstFielders,order:1};m.to=0;}
+    else if(m.from===secondBase+1){m.out={f:secondFielders,order:2};m.to=0;}
+  }
   return mv;
 }
 function doWalk(code,text,alreadySnapped){
@@ -2042,6 +2055,20 @@ function fcPlayText(ht,f,noOut){
   const contact=ht==='unspecified'?' (contact not specified)':' on a '+ht;
   return "Fielder's choice"+(ht==='unspecified'?' '+f+contact:contact+' '+f)+(noOut?' — no out':'');
 }
+function fielderChoiceDoublePlay(ht,firstFielders){
+  if(S.bases.filter(Boolean).length<2){toast('Two runners are needed for a batter-safe double play.');return;}
+  pickRunner(firstBase=>{
+    pickRunner(secondBase=>{
+      fielderPad(secondFielders=>{
+        const movers=fielderChoiceDpMovers(firstBase,secondBase,firstFielders,secondFielders);
+        if(!movers)return;
+        const txt=fcPlayText(ht,firstFielders,false)+' — double play';
+        ev('o',txt);
+        placementReview(movers,'FC',txt,false,{fcFielders:firstFielders,fcContact:ht});
+      },'DP — second out fielders');
+    },'DP — second runner out',[firstBase]);
+  },'DP — first runner out');
+}
 function fielderChoicePicker(cb){
   let ht=null,taps=[],stage='type';
   const types=[
@@ -2138,10 +2165,14 @@ function dpModal(){
     <button class="med" id="dpG">Ground ball<br><small>e.g. 6-4-3</small></button>
     <button class="med" id="dpL">Line drive<br><small>runner doubled off</small></button>
     <button class="med" id="dpK">Strikeout +<br><small>throw 'em out</small></button>
+     ${S.bases.filter(Boolean).length>=2?'<button class="med" id="dpR">Two runners out<br><small>batter safe at 1st</small></button>':''}
     <button class="med ghost" onclick="closeModal()">Cancel</button></div>`);
   const brLabel=pname({t:S.bat,i:curIdx()})+' (batter)';
   const othersOut=bi=>{const mv=[];[2,1,0].forEach(i=>{if(S.bases[i]&&i!==bi)
     mv.push({who:'R',r:S.bases[i],label:pname(S.bases[i]),from:i+1,to:i+1,out:null});});return mv;};
+  const twoRunnerBtn=$('#dpR');
+  if(S.bases.filter(Boolean).length>=2&&twoRunnerBtn)twoRunnerBtn.onclick=()=>
+    fielderChoicePicker((ht,f)=>fielderChoiceDoublePlay(ht,f));
   $('#dpG').onclick=()=>fielderPad(f=>{
     ev('o','Grounded into double play '+f);
     pickRunner((bi,r)=>{
@@ -2426,13 +2457,16 @@ function handleOutcome(kind){
     if(!S.bases.some(Boolean)){toast("Fielder's choice needs a runner on base.");return;}
     fielderChoicePicker((ht,f)=>{
       openModal(`<h2>${fcPlayText(ht,f)}</h2><p class="sub">Was an out recorded on the play?</p>
-        <div class="grid2"><button class="med" id="fcOut">Out recorded</button><button class="med accent" id="fcNoOut">No out</button></div>
+        <div class="grid2"><button class="med" id="fcOut">One runner out</button><button class="med accent" id="fcNoOut">No out</button>
+        ${S.bases.filter(Boolean).length>=2?'<button class="med" id="fcDp">Two runners out · DP</button>':''}</div>
         <div style="margin-top:10px"><button class="sml ghost" id="fcCancel" style="width:100%">Cancel</button></div>`);
       $('#fcOut').onclick=()=>pickRunner((bi,r)=>{
         const txt=fcPlayText(ht,f,false);
         ev('o',txt);
         placementReview(fielderChoiceMovers(bi,f),'FC',txt,false,{fcFielders:f,fcContact:ht});
       },"Fielder's choice — runner out");
+      const fcDp=$('#fcDp');
+      if(S.bases.filter(Boolean).length>=2&&fcDp)fcDp.onclick=()=>fielderChoiceDoublePlay(ht,f);
       $('#fcNoOut').onclick=()=>{
         const txt=fcPlayText(ht,f,true);
         ev('o',txt);
