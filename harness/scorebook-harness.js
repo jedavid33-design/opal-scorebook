@@ -90,7 +90,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,selectIncomingSub,cancelIncomingSub,applyIncomingLineupSub,applyIncomingOffensiveSub,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,tapPoolPlayer,` +
   `renderScore,openModal,closeModal,baseName,` +
   `endHalfCheck,errPositions,fielderName,stripDupErr,commitPA,` +
-  `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,fielderChoiceMovers,doWalk,` +
+  `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,fielderChoiceMovers,fielderChoiceDpMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,fcPlayText,fielderChoicePicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,placementErrorInstances,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
