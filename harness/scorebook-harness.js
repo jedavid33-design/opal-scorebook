@@ -1822,13 +1822,13 @@ async function main() {
   popBtn._handlers.pointermove({clientX:40,clientY:96,cancelable:true,preventDefault(){}});
   ok(el('#popOutHoldMenu').classList.contains('on'),
     'IF2: Pop Out long-press opens the swipe overlay');
+  const fakeIFNode={dataset:{n:'6'},onclick:null};
+  const ifPicker=el('#fs1');
+  ifPicker.querySelectorAll=selector=>selector==='.fnode'?[fakeIFNode]:[];
   popBtn._handlers.pointerup({});
   global.setTimeout=originalTimeout;
   ok(el('#sheet').innerHTML.includes('Infield fly — catching or nearest fielder'),
     'IF2: held downward swipe opens infield fly fielding picker');
-  const fakeIFNode={dataset:{n:'6'},onclick:null};
-  const ifPicker=el('#fs1'),oldIFQuery=ifPicker.querySelectorAll;
-  ifPicker.querySelectorAll=selector=>selector==='.fnode'?[fakeIFNode]:[];
   fakeIFNode.onclick();
   el('#fs1ok').onclick();
   ok(el('#sheet').innerHTML.includes('id="ifCaught"')&&el('#sheet').innerHTML.includes('id="ifUncaught"'),
@@ -1860,9 +1860,10 @@ async function main() {
   newGame();
   sb.S.bases[0]={t:'away',i:0,rid:'ifu-first'};
   sb.S.bases[1]={t:'away',i:1,rid:'ifu-second'};
-  sb.scoreInfieldFly();
   const uncaughtNode={dataset:{n:'5'},onclick:null};
-  ifPicker.querySelectorAll=selector=>selector==='.fnode'?[uncaughtNode]:[];
+  const uncaughtPicker=el('#fs1');
+  uncaughtPicker.querySelectorAll=selector=>selector==='.fnode'?[uncaughtNode]:[];
+  sb.scoreInfieldFly();
   uncaughtNode.onclick();el('#fs1ok').onclick();
   el('#ifUncaught').onclick();
   el('#plDone').onclick();
@@ -1879,7 +1880,7 @@ async function main() {
   eq(sb.paKind('IFU5'),'IFU','IF3: edit recognition preserves uncaught infield fly');
   eq(sb.applyNotationFix('IFU',null,'6').result,'IFU6',
     'IF3: fix-notation keeps uncaught distinction');
-  ifPicker.querySelectorAll=oldIFQuery;
+  
 
   /* Ordinary tap must still use original pop-out picker. */
   newGame();
