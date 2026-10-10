@@ -855,7 +855,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.10.1';
+const APP_VERSION='2026.10.10.2';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -917,8 +917,28 @@ function ensureShape(){
   if(typeof S.serverUpdatedAt!=='number')S.serverUpdatedAt=0;
   if(S.bat!=='away'&&S.bat!=='home')S.bat='away'; // A15: corrupt bat value -> white screen
 }
-function snap(){if(viewing)return;undoStack.push(JSON.stringify(S));undoMeta.push([S.pas.length,S.pa.length]);
+function snap(state){if(viewing)return;const copy=state||S;
+  undoStack.push(JSON.stringify(copy));undoMeta.push([copy.pas.length,copy.pa.length]);
   if(undoStack.length>80){undoStack.shift();undoMeta.shift();}persistUndo();}
+/* In-play pickers record the provisional outcome before their placement review.
+   Never include that provisional note in an Undo snapshot: reverting the play
+   must restore the earlier pitches/count, not leave a phantom PA result. */
+function isInPlayResultNote(e){
+  return !!(e&&e.t==='o'&&/^(?:Singled\b|Doubled\b|Tripled\b|Ground-rule double\b|Home run\b|Fielder's choice\b|Grounded\b|Flied\b|Lined\b|Popped\b|Bunt\b|Foul (?:pop|fly)\b|Reached on (?:error|catcher's interference)\b|Sac (?:bunt|fly)\b|Struck out (?:looking|swinging), caught stealing\b)/.test(e.text||''));
+}
+function snapBeforeInPlayResult(){
+  const last=S.pa[S.pa.length-1];
+  snap(isInPlayResultNote(last)?{...S,pa:S.pa.slice(0,-1)}:S);
+}
+/* Repair old undo snapshots, which already contained the in-play result.
+   Match the recorded PA's earlier events before dropping only its outcome
+   note; never erase an earlier pitch, runner action, or substitution. */
+function removeLegacyUndoneResult(next,completedPA){
+  const events=completedPA&&completedPA.events||[],notes=next.pa||[],last=notes[notes.length-1];
+  if(!isInPlayResultNote(last)||notes.length>events.length)return;
+  const prior=notes.slice(0,-1);
+  if(prior.every((e,i)=>JSON.stringify(e)===JSON.stringify(events[i])))notes.pop();
+}
 // undoMeta[i] = [pas.length, pa.length] for undoStack[i] — lets Re-score check
 // the target is reachable before popping (A4), without parsing 80 snapshots.
 function persistUndo(){try{localStorage.setItem('osb1-undo',JSON.stringify({s:undoStack,m:undoMeta}));}catch(e){}}
@@ -946,6 +966,8 @@ function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}c
 function undo(){if(!undoStack.length)return;
   const raw=undoStack[undoStack.length-1];
   let next;try{next=JSON.parse(raw);}catch(e){toast("Couldn't undo that step");return;} // A14
+  const justUndonePA=S.pas.length===next.pas.length+1?S.pas[S.pas.length-1]:null;
+  if(justUndonePA)removeLegacyUndoneResult(next,justUndonePA);
   undoStack.pop();undoMeta.pop();
   // rev tracks server lineage, not local content — undo must not manufacture a conflict
   const keepRev=S.rev,keepTs=S.serverUpdatedAt;
@@ -2743,7 +2765,7 @@ function placementReview(movers,code,text,alreadySnapped,details){
       $('#dpRunBack').onclick=draw;
       return;
     }
-    if(!alreadySnapped)snap();
+    if(!alreadySnapped)snapBeforeInPlayResult();
     if(code==='FC'&&isDP){
       const fcEvent=S.pa.find(e=>e.t==='o'&&/^Fielder's choice/.test(e.text||''));
       if(fcEvent&&!/double play/i.test(fcEvent.text))fcEvent.text+=' — double play';
