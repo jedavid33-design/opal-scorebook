@@ -27,7 +27,7 @@ function makeEl() {
       contains(name) { return classes.has(name); },
     },
     style: {}, dataset: {},
-    addEventListener() {}, removeEventListener() {},
+    addEventListener(type,fn) { if(!this._handlers)this._handlers={};this._handlers[type]=fn; }, removeEventListener() {},
     setAttribute() {}, removeAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; },
     querySelector() { return makeEl(); },
     querySelectorAll() { return []; },
@@ -93,7 +93,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `doPitch,doPitchWPPB,addCountBall,addCountStrike,strikeoutReview,calledStrikeoutReview,swingingStrikeoutReview,commitCaughtStrikeout,commitBuntStrikeout,uncaughtThirdStrike,walkMovers,fielderChoiceMovers,fielderChoiceDpMovers,doWalk,` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
-  `outcomeModal,handleOutcome,hitPicker,fcPlayText,fielderChoicePicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,placementErrorInstances,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
+  `outcomeModal,handleOutcome,hitPicker,fcPlayText,fielderChoicePicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,infieldFlyEligible,infieldFlyNotation,scoreInfieldFly,bindPopOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,placementErrorInstances,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
   `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actError,scoreRunnerErrorAdvance,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookAdvanceBatterSlot,bookAdvanceLabel,bookAdvanceLabelPos,bookDiamondHTML,teamHits,paErrDisp,teamErrs,liveBallErrors,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderBook,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
@@ -1528,7 +1528,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.10.2','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.10.3','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
@@ -1667,7 +1667,7 @@ async function main() {
     'data-o="GO">Groundout</button>',
     'data-o="LO">Lineout</button>',
     'data-o="FO">Fly out</button>',
-    'data-o="POP">Pop fly</button>',
+    'id="popOutBtn" type="button" aria-label="Pop out. Hold and swipe down for Infield Fly.">Pop out</button>',
     'id="buntOutBtn" type="button">Bunt</button>',
     'id="foulOutBtn" type="button">Foul out</button>',
     'data-o="DP">Double Play</button>'
@@ -1788,6 +1788,109 @@ async function main() {
     'V4: second and third pitch rows share a consistent text size');
   ok(html.indexOf('#v-score .pitchstack .ps-hbp{font-size:14px;}')>=0,
     'V4: fourth pitch row is slightly smaller');
+
+  /* ===== Pop Out held + downward swipe => infield fly ===== */
+  newGame();
+  sb.outcomeModal();
+  ok(el('#sheet').innerHTML.includes('id="popOutBtn"')&&
+     html.includes('id="popOutHoldMenu"')&&html.includes('↓ Infield Fly'),
+    'IF1: Pop Out has the downward infield-fly gesture and overlay');
+  ok(typeof el('#popOutBtn')._handlers?.pointerdown==='function'&&
+     typeof el('#popOutBtn')._handlers?.pointermove==='function'&&
+     typeof el('#popOutBtn')._handlers?.pointerup==='function',
+    'IF1: Pop Out pointer handlers are attached');
+  ok(!sb.infieldFlyEligible(),'IF1: empty bases do not permit infield fly');
+  sb.S.bases[0]={t:'away',i:0,rid:'if-first'};
+  ok(!sb.infieldFlyEligible(),'IF1: runner only at first does not permit infield fly');
+  sb.S.bases[1]={t:'away',i:1,rid:'if-second'};
+  ok(sb.infieldFlyEligible(),'IF1: first and second with no outs permit infield fly');
+  sb.S.outs=1;
+  ok(sb.infieldFlyEligible(),'IF1: first and second with one out permit infield fly');
+  sb.S.outs=2;
+  ok(!sb.infieldFlyEligible(),'IF1: infield fly is unavailable with two outs');
+  sb.S.outs=0;sb.S.bases[2]={t:'away',i:2,rid:'if-third'};
+  ok(sb.infieldFlyEligible(),'IF1: bases loaded qualifies');
+  sb.S.bases[2]=null;
+
+  const originalTimeout=global.setTimeout;
+  let popHoldCallback=null;
+  global.setTimeout=(fn,delay)=>{if(delay===480)popHoldCallback=fn;return 1;};
+  const popBtn=el('#popOutBtn');
+  popBtn._handlers.pointerdown({button:0,clientX:40,clientY:60,cancelable:true,preventDefault(){}});
+  ok(typeof popHoldCallback==='function','IF2: Pop Out hold schedules long-press');
+  popHoldCallback();
+  popBtn._handlers.pointermove({clientX:40,clientY:96,cancelable:true,preventDefault(){}});
+  ok(el('#popOutHoldMenu').classList.contains('on'),
+    'IF2: Pop Out long-press opens the swipe overlay');
+  popBtn._handlers.pointerup({});
+  global.setTimeout=originalTimeout;
+  ok(el('#sheet').innerHTML.includes('Infield fly — catching or nearest fielder'),
+    'IF2: held downward swipe opens infield fly fielding picker');
+  const fakeIFNode={dataset:{n:'6'},onclick:null};
+  const ifPicker=el('#fs1'),oldIFQuery=ifPicker.querySelectorAll;
+  ifPicker.querySelectorAll=selector=>selector==='.fnode'?[fakeIFNode]:[];
+  fakeIFNode.onclick();
+  el('#fs1ok').onclick();
+  ok(el('#sheet').innerHTML.includes('id="ifCaught"')&&el('#sheet').innerHTML.includes('id="ifUncaught"'),
+    'IF2: scorer chooses caught versus uncaught');
+  el('#ifCaught').onclick();
+  ok(el('#sheet').innerHTML.includes('Confirm where everyone ends up.'),
+    'IF2: runner placement is available for caught infield fly');
+  el('#plDone').onclick();
+  eq(sb.S.pas.length,1,'IF2: infield fly commits one PA');
+  eq(sb.S.pas[0].result,'IF6','IF2: caught infield fly has distinct IF6 code');
+  eq(sb.S.outs,1,'IF2: batter automatically retired, one out');
+  eq(sb.S.bases[0].rid,'if-first','IF2: first-base runner remains on first');
+  eq(sb.S.bases[1].rid,'if-second','IF2: second-base runner remains on second');
+  eq(sb.S.pas[0].infieldFlyCaught,true,'IF2: caught status is persisted');
+  eq(sb.teamHits('away'),0,'IF2: infield fly is not a hit');
+  eq(sb.contactPitchBonus('IF6'),1,'IF2: infield fly credits terminal pitch');
+  eq(sb.paPitchAudit(sb.S.pas[0]).credited,1,'IF2: pitch audit credits terminal ball-in-play pitch');
+  eq(sb.clsOf('IF6'),'out','IF2: infield fly renders as out in book');
+  ok(sb.paBatterIsOut(sb.S.pas[0]),'IF2: infield fly marks batter out');
+  eq(sb.paResultDisplay(sb.S.pas[0]),'IF6','IF2: book diamond displays IF6');
+  ok(sb.paResultDisplay(sb.S.pas[0],true).includes('Infield fly'),
+    'IF2: play feed identifies infield fly');
+  ok(sb.advanceReasonChoices('IF6').tag,'IF2: caught infield fly permits tagged-up advances');
+  sb.undo();
+  eq(sb.S.pas.length,0,'IF2: undo removes infield fly PA');
+  ok(!sb.S.pa.some(e=>/Infield fly/.test(e.text||'')),
+    'IF2: undo removes provisional infield fly event');
+
+  newGame();
+  sb.S.bases[0]={t:'away',i:0,rid:'ifu-first'};
+  sb.S.bases[1]={t:'away',i:1,rid:'ifu-second'};
+  sb.scoreInfieldFly();
+  const uncaughtNode={dataset:{n:'5'},onclick:null};
+  ifPicker.querySelectorAll=selector=>selector==='.fnode'?[uncaughtNode]:[];
+  uncaughtNode.onclick();el('#fs1ok').onclick();
+  el('#ifUncaught').onclick();
+  el('#plDone').onclick();
+  eq(sb.S.pas[0].result,'IFU5','IF3: uncaught infield fly has distinct result code');
+  eq(sb.S.pas[0].infieldFlyCaught,false,'IF3: not-caught status persisted');
+  eq(sb.S.outs,1,'IF3: uncaught infield fly still retires batter');
+  eq(sb.paResultDisplay(sb.S.pas[0]),'IF5*',
+    'IF3: scorecard notes uncaught infield fly without implying a caught pop');
+  ok(!sb.advanceReasonChoices('IFU5').tag,
+    'IF3: uncaught infield fly does not suggest tagging up');
+  eq(sb.contactPitchBonus('IFU5'),1,
+    'IF3: uncaught infield fly still counts pitch');
+  eq(sb.paKind('IF6'),'IF','IF3: edit recognition preserves caught infield fly');
+  eq(sb.paKind('IFU5'),'IFU','IF3: edit recognition preserves uncaught infield fly');
+  eq(sb.applyNotationFix('IFU',null,'6').result,'IFU6',
+    'IF3: fix-notation keeps uncaught distinction');
+  ifPicker.querySelectorAll=oldIFQuery;
+
+  /* Ordinary tap must still use original pop-out picker. */
+  newGame();
+  sb.outcomeModal();
+  el('#popOutBtn')._handlers.pointerdown({button:0,clientX:5,clientY:5,cancelable:true,preventDefault(){}});
+  el('#popOutBtn')._handlers.pointerup({});
+  ok(el('#sheet').innerHTML.includes('Pop fly — fielder'),
+    'IF4: normal Pop Out tap stays a standard pop fly');
+  newGame();
+  sb.scoreInfieldFly();
+  eq(sb.S.pas.length,0,'IF4: ineligible infield fly never commits a play');
 
   /* ===== bunt out slide selector ===== */
   newGame();
