@@ -860,7 +860,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.10.3';
+const APP_VERSION='2026.10.16.1';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -2922,6 +2922,139 @@ function runnerActionCollision(changes){
 }
 function runnerCollisionToast(b){toast(baseName(b)+' is occupied — move the lead runner first.');}
 
+/* A caught stealing / pickoff may move OTHER runners too. Review all positions
+   BEFORE recording the out so the entire live-ball play is one Undo step. */
+function outPlayMovers(baseIndex){
+  return [0,1,2].filter(i=>i!==baseIndex&&S.bases[i]).map(i=>({
+    r:S.bases[i],from:i+1,to:i+1,reason:'play',out:null,f:null
+  }));
+}
+function outPlayCollision(movers){
+  const bases=new Set();
+  for(const m of movers){
+    if(m.out||m.to>=4)continue;
+    if(m.to<1||bases.has(m.to))return m.to;
+    bases.add(m.to);
+  }
+  return 0;
+}
+function commitRunnerOutPlacement(text,r,from,movers,runTimingConfirmed){
+  const collision=outPlayCollision(movers);
+  if(collision){toast("Two runners can't end on "+baseName(collision)+'.');return false;}
+  const nOut=1+movers.filter(m=>m.out).length;
+  if(S.outs+nOut>3){toast('Too many outs on this play. Check runner placement.');return false;}
+  // A run on a third-out CS/pickoff may count only if it crossed first
+  // and the third out was not a force out. Require an explicit ruling.
+  if(S.outs+nOut>=3&&movers.some(m=>!m.out&&m.to===4)&&!runTimingConfirmed)return 'timing';
+  snap();
+  ensureRunnerIdentity(r);
+  S.bases=[null,null,null];
+  setRunnerEnd(r,'out',from,{text});
+  ev('o',{text,runnerEnd:{rid:r.rid,status:'out',base:from}});
+  S.outs++;
+  for(const m of movers){
+    ensureRunnerIdentity(m.r);
+    if(m.out){
+      const f=String(m.out);
+      setRunnerEnd(m.r,'out',m.from,{fielders:f});
+      ev('o',{text:'Runner out '+f+' — '+pname(m.r),
+        runnerEnd:{rid:m.r.rid,status:'out',base:m.from,fielders:f}});
+      S.outs++;
+      continue;
+    }
+    if(m.to!==m.from){
+      const name=pname(m.r),dest=m.to===4?'home':baseName(m.to);
+      const kind=m.reason||'play',pos=m.f||'';
+      const suffix=kind==='SB'?' steals '+dest:
+        kind==='throw'?' advances to '+dest+' on throw':
+        kind==='DI'?' advances to '+dest+' on defensive indifference':
+        kind==='error'?' advances to '+dest+' on error E'+pos:
+        ' advances to '+dest+' on the play';
+      const extra=kind==='error'?{fielder:String(pos),
+        fieldingError:{team:fieldingTeam(),position:String(pos),
+          player:fielderName(fieldingTeam(),pos)||''}}:{};
+      ev('r',runnerAdvanceEvent(m.r,name+suffix,m.from,m.to,kind,extra));
+    }
+    if(m.to===4){setRunnerEnd(m.r,'scored',4);scoreRun(S.bat);}
+    else S.bases[m.to-1]=m.r;
+  }
+  endHalfCheck();
+  closeModal();save();renderAll();
+  return true;
+}
+function runnerOutPlacement(text,r,baseIndex){
+  const others=outPlayMovers(baseIndex),from=baseIndex+1;
+  if(!others.length){
+    snap();S.bases[baseIndex]=null;recordRunnerOut(text,r,from);
+    return;
+  }
+  const drawReason=(m,draw)=>{
+    openModal('<h2>Advancement reason</h2><p class="sub">'+esc(pname(m.r))+
+      ' from '+baseName(m.from)+' to '+baseName(m.to)+
+      '. No stolen base is awarded automatically.</p>'+
+      '<div class="grid2">'+
+      '<button class="med" id="roPlay">On play · no SB</button>'+
+      '<button class="med" id="roSB">Stolen base</button>'+
+      '<button class="med" id="roThrow">On throw</button>'+
+      '<button class="med" id="roDI">Def. indifference</button>'+
+      '<button class="med" id="roError">On error</button></div>'+
+      '<button class="sml ghost" id="roReasonBack" style="width:100%;margin-top:8px">Back</button>');
+    const set=(kind,pos)=>{m.reason=kind;m.f=pos||null;draw();};
+    $('#roPlay').onclick=()=>set('play');
+    $('#roSB').onclick=()=>set('SB');
+    $('#roThrow').onclick=()=>set('throw');
+    $('#roDI').onclick=()=>set('DI');
+    $('#roError').onclick=()=>fielderSingle(f=>set('error',f),'Error by which fielder?',draw);
+    $('#roReasonBack').onclick=draw;
+  };
+  const draw=()=>{
+    const buttons=(m,i)=>[1,2,3,4].filter(n=>n>=m.from).map(n=>
+      '<button data-ro-m="'+i+'" data-ro-to="'+n+'" class="'+(!m.out&&m.to===n?'sel':'')+'">'+
+      (n===4?'Home':baseName(n))+'</button>').join('')+
+      '<button data-ro-m="'+i+'" data-ro-to="out" class="'+(m.out?'sel':'')+'">Out</button>';
+    openModal('<h2>Runner placement</h2><p class="sub">'+esc(text)+
+      '. Confirm where the other runners ended up.</p>'+
+      '<p class="sub">Advances on this play do not automatically count as stolen bases.</p>'+
+      others.map((m,i)=>'<div class="mover"><div class="nm">'+esc(pname(m.r))+
+        ' · from '+baseName(m.from)+(m.out?' · OUT ('+esc(m.out)+')':'')+
+        '</div><div class="dest">'+buttons(m,i)+'</div>'+
+        (!m.out&&m.to!==m.from?'<button class="sml ghost" data-ro-reason="'+i+
+          '" style="width:100%;margin-top:6px">Reason: '+
+          ({play:'On play · no SB',SB:'Stolen base',throw:'On throw',
+            DI:'Def. indifference',error:'Error E'+(m.f||'')}[m.reason||'play'])+
+          ' · Change</button>':'')+'</div>').join('')+
+      '<button class="med accent" id="roDone" style="width:100%;margin-top:8px">Done</button>'+
+      '<button class="sml ghost" id="roCancel" style="width:100%;margin-top:8px">Cancel</button>');
+    $('#sheet').querySelectorAll('[data-ro-m]').forEach(b=>b.onclick=()=>{
+      const m=others[+b.dataset.roM],to=b.dataset.roTo;
+      if(to==='out'){
+        fielderPad(f=>{m.out=f;m.to=0;m.reason='play';m.f=null;draw();},
+          'Other runner out — fielders');
+      }else{
+        m.to=+to;m.out=null;
+        if(m.to===m.from){m.reason='play';m.f=null;}
+        draw();
+      }
+    });
+    $('#sheet').querySelectorAll('[data-ro-reason]').forEach(b=>b.onclick=>
+      drawReason(others[+b.dataset.roReason],draw));
+    $('#roDone').onclick=()=>{
+      const commit=commitRunnerOutPlacement(text,r,from,others,false);
+      if(commit!=='timing')return;
+      openModal('<h2>Did the run count?</h2>'+
+        '<p class="sub">On an inning-ending caught stealing or pickoff, a runner must score BEFORE the third out, and the third out cannot be a force out.</p>'+
+        '<button class="med accent" id="roRunFirst" style="width:100%;margin-bottom:8px">Run scored first · counts</button>'+
+        '<button class="med" id="roNoRun" style="width:100%;margin-bottom:8px">No run · change placement</button>'+
+        '<button class="sml ghost" id="roTimingBack" style="width:100%">Back</button>');
+      $('#roRunFirst').onclick=()=>commitRunnerOutPlacement(text,r,from,others,true);
+      $('#roNoRun').onclick=()=>{toast('Move the runner off Home to remove the run.');draw();};
+      $('#roTimingBack').onclick=draw;
+    };
+    $('#roCancel').onclick=closeModal;
+  };
+  draw();
+}
+
 function recordRunnerOut(text,r,from){
   if(r){
     ensureRunnerIdentity(r);
@@ -2963,8 +3096,7 @@ function actSteal(baseIndex){
         if(d>=4){setRunnerEnd(r,'scored',4);scoreRun(S.bat);ev('r',runnerAdvanceEvent(r,pname(r)+' steals home! Scores',bi+1,d,'SB'));}
         else{S.bases[d-1]=r;ev('r',runnerAdvanceEvent(r,pname(r)+' steals '+baseName(d),bi+1,d,'SB'));}
         closeModal();save();renderAll();});};
-    $('#stOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;
-      recordRunnerOut('Caught stealing '+f+' — '+pname(r),r,bi+1);},'CS — fielders (e.g. 2-6)');
+    $('#stOut').onclick=()=>fielderPad(f=>runnerOutPlacement('Caught stealing '+f+' — '+pname(r),r,bi),'CS — fielders (e.g. 2-6)');
   };
   if(Number.isInteger(baseIndex)){const r=runnerAtBase(baseIndex);if(r)go(baseIndex,r);return;}
   if(!S.bases.some(Boolean))return;
@@ -3017,8 +3149,7 @@ function actPick(baseIndex){
   const go=(bi,r)=>{openModal(`<h2>Pickoff — ${pname(r)}</h2><div class="grid2">
     <button class="med" id="pkOut">Out</button><button class="med accent" id="pkSafe">Safe</button></div>
     <div style="margin-top:10px"><button class="sml ghost" style="width:100%" onclick="closeModal()">Cancel</button></div>`);
-    $('#pkOut').onclick=()=>fielderPad(f=>{snap();S.bases[bi]=null;
-      recordRunnerOut('Picked off '+f+' — '+pname(r),r,bi+1);},'Pickoff — fielders');
+    $('#pkOut').onclick=()=>fielderPad(f=>runnerOutPlacement('Picked off '+f+' — '+pname(r),r,bi),'Pickoff — fielders');
     $('#pkSafe').onclick=()=>{snap();ev('r','Pickoff attempt — '+pname(r)+' back safely');closeModal();save();renderAll();};
   };
   if(Number.isInteger(baseIndex)){const r=runnerAtBase(baseIndex);if(r)go(baseIndex,r);return;}
