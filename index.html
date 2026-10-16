@@ -1021,15 +1021,20 @@ function recoveryCandidates(){
 function restoreRecoveryCandidate(raw){
   let st;try{st=JSON.parse(raw);}catch(e){return false;}
   if(!S||!st||st.gid!==S.gid||!gameStarted(st))return false;
-  saveRecoverySnapshot(S,'Before recovery restore');
+  const current=S;
+  saveRecoverySnapshot(current,'Before recovery restore');
   const keepRev=S.rev,keepServerTs=S.serverUpdatedAt;
   snap();S=st;ensureShape();
   // Preserve the current cloud lineage to avoid treating an old snapshot as
   // permission to bypass revision conflict checks.
   S.rev=keepRev;S.serverUpdatedAt=keepServerTs;
-  const ok=persistLocal();
-  if(ok){queuePush();renderAll();renderGames();closeModal();showView('score');}
-  return ok;
+  if(!persistLocal()){
+    // A failed restore must never discard the live in-memory game either.
+    S=current;undoStack.pop();undoMeta.pop();persistUndo();
+    renderAll();return false;
+  }
+  queuePush();renderAll();renderGames();closeModal();showView('score');
+  return true;
 }
 function recoveryModal(){
   const candidates=recoveryCandidates();
@@ -4267,12 +4272,13 @@ async function loadRemoteGame(g,silent){
     if(!r.ok)throw new Error('http '+r.status);
     const full=await r.json();
     const st=typeof full.state==='string'?JSON.parse(full.state):full.state;
-    saveRecoverySnapshot(S,'Before cloud load');
+    const prior=S;
+    saveRecoverySnapshot(prior,'Before cloud load');
     st.gid=g.id;S=st;ensureShape();
     if(typeof full.rev==='number')S.rev=full.rev;
     S.serverUpdatedAt=typeof full.updated_at==='number'?full.updated_at:(typeof g.updated_at==='number'?g.updated_at:0);
+    if(!persistLocal()){S=prior;toast('Cloud game could not be saved locally. Kept current game.');return;}
     undoStack.length=0;undoMeta.length=0;persistUndo(); // snapshots don't sync — A4/A17 explains this
-    persistLocal();
     pendingRemote=null;markGamesTab();
     renderSetup();renderAll();renderGames();showView('score');
     if(!silent)toast('Loaded game from '+(g.device||'other device'));
