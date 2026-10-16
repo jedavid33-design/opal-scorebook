@@ -740,6 +740,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 </div>
 
 <div id="v-score" class="view">
+  <div id="saveAlert" class="viewbanner" role="alert" hidden></div>
   <div id="scoreScaleStage"><div id="scoreScaleCanvas">
   <div id="scoreBanner" class="viewbanner" hidden></div>
   <div class="card">
@@ -831,6 +832,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
   <h1>Games</h1>
   <p class="sub">Past games &amp; sync between devices</p>
   <div id="pendingCard"></div>
+  <div id="recoveryCard"></div>
   <div class="card" id="syncCard"></div>
   <div class="sect">Past games</div>
   <div id="pastList"></div>
@@ -860,7 +862,7 @@ table.book.scorecard .interruptedCell{background:#f3e8fb;color:#694a87;border-co
 <script>
 "use strict";
 /* ================= state ================= */
-const APP_VERSION='2026.10.16.1';
+const APP_VERSION='2026.10.16.2';
 const $=s=>document.querySelector(s);
 let S=null; const undoStack=[]; const undoMeta=[];
 const POS={1:'P',2:'C',3:'1B',4:'2B',5:'3B',6:'SS',7:'LF',8:'CF',9:'RF',10:'DH'};
@@ -922,9 +924,145 @@ function ensureShape(){
   if(typeof S.serverUpdatedAt!=='number')S.serverUpdatedAt=0;
   if(S.bat!=='away'&&S.bat!=='home')S.bat='away'; // A15: corrupt bat value -> white screen
 }
+/* iOS browser storage can fill up with full-game Undo snapshots.
+   Prioritize the live game; bound history by TOTAL size, not just entry count. */
+const UNDO_LIMIT_CHARS=700000;
+const RECOVERY_LIMIT_CHARS=500000;
+let storageSaveError=false, lastRecoveryAt=0;
+function trimUndoHistory(){
+  let size=undoStack.reduce((n,s)=>n+s.length,0);
+  while(undoStack.length>60||(size>UNDO_LIMIT_CHARS&&undoStack.length>1)){
+    size-=undoStack[0].length;undoStack.shift();undoMeta.shift();
+  }
+  if(size>UNDO_LIMIT_CHARS&&undoStack.length===1){undoStack.length=0;undoMeta.length=0;}
+}
+function persistUndo(){
+  trimUndoHistory();
+  while(true){
+    try{localStorage.setItem('osb1-undo',JSON.stringify({s:undoStack,m:undoMeta}));return true;}
+    catch(e){
+      if(!undoStack.length){
+        try{localStorage.removeItem('osb1-undo');}catch(_){}
+        return false;
+      }
+      undoStack.shift();undoMeta.shift();
+    }
+  }
+}
+function releaseUndoSpace(){
+  if(!undoStack.length){
+    try{localStorage.removeItem('osb1-undo');}catch(e){}
+    return false;
+  }
+  const count=Math.max(1,Math.ceil(undoStack.length/3));
+  undoStack.splice(0,count);undoMeta.splice(0,count);
+  persistUndo();return true;
+}
+function renderSaveAlert(){
+  const e=$('#saveAlert');if(!e)return;
+  e.hidden=!storageSaveError;
+  e.textContent=storageSaveError?'⚠️ NOT SAVED on this device. Keep Scorebook open and check Games → Sync before leaving. Storage may be full.':'';
+}
+function gameProgress(st){
+  if(!st)return 0;
+  return (st.pas||[]).length*100000+(st.interruptedPAs||[]).length*10000+
+    (st.inning||0)*1000+(st.half||0)*500+(st.outs||0)*100+(st.pa||[]).length;
+}
+function recoveryInfo(st){
+  return (st.half?'▼':'▲')+' '+(st.inning||1)+
+    ' · '+(st.outs||0)+' outs · '+(st.pas||[]).length+' PAs · '+
+    (st.pa||[]).length+' events in current PA';
+}
+function getRecoveryHistory(){
+  try{
+    const d=JSON.parse(localStorage.getItem('osb1-recovery')||'[]');
+    return Array.isArray(d)?d.filter(x=>x&&typeof x.state==='string'):[];
+  }catch(e){return[];}
+}
+function releaseRecoverySpace(){
+  const a=getRecoveryHistory();
+  if(!a.length)return false;
+  a.pop();
+  try{
+    if(a.length)localStorage.setItem('osb1-recovery',JSON.stringify(a));
+    else localStorage.removeItem('osb1-recovery');
+  }catch(e){try{localStorage.removeItem('osb1-recovery');}catch(_){}}
+  return true;
+}
+function saveRecoverySnapshot(st,why){
+  if(!st||!gameStarted(st))return false;
+  let raw;try{raw=JSON.stringify(st);}catch(e){return false;}
+  if(raw.length>RECOVERY_LIMIT_CHARS)return false;
+  const when=Date.now(),arr=getRecoveryHistory();
+  if(arr.some(x=>x.state===raw))return true;
+  arr.unshift({state:raw,at:when,why:why||'Checkpoint'});
+  while(arr.length>6||JSON.stringify(arr).length>RECOVERY_LIMIT_CHARS)arr.pop();
+  while(arr.length){
+    try{localStorage.setItem('osb1-recovery',JSON.stringify(arr));return true;}
+    catch(e){arr.pop();}
+  }
+  return false;
+}
+function recoveryCandidates(){
+  const list=[],now=JSON.stringify(S||{}),seen=new Set([now]);
+  const add=(raw,why,at)=>{
+    if(typeof raw!=='string'||seen.has(raw))return;
+    let st;try{st=JSON.parse(raw);}catch(e){return;}
+    if(!st||!S||st.gid!==S.gid||!gameStarted(st))return;
+    seen.add(raw);
+    list.push({state:raw,why,at:at||0,progress:gameProgress(st),info:recoveryInfo(st)});
+  };
+  getRecoveryHistory().forEach(x=>add(x.state,x.why,x.at));
+  // Older Undo snapshots may contain progress ahead of the current state
+  // after a failed local save or an accidental Undo.
+  undoStack.forEach((raw,i)=>add(raw,'Undo history',i));
+  return list.sort((a,b)=>b.progress-a.progress||b.at-a.at).slice(0,8);
+}
+function restoreRecoveryCandidate(raw){
+  let st;try{st=JSON.parse(raw);}catch(e){return false;}
+  if(!S||!st||st.gid!==S.gid||!gameStarted(st))return false;
+  saveRecoverySnapshot(S,'Before recovery restore');
+  const keepRev=S.rev,keepServerTs=S.serverUpdatedAt;
+  snap();S=st;ensureShape();
+  // Preserve the current cloud lineage to avoid treating an old snapshot as
+  // permission to bypass revision conflict checks.
+  S.rev=keepRev;S.serverUpdatedAt=keepServerTs;
+  const ok=persistLocal();
+  if(ok){queuePush();renderAll();renderGames();closeModal();showView('score');}
+  return ok;
+}
+function recoveryModal(){
+  const candidates=recoveryCandidates();
+  openModal('<h2>Recover saved progress</h2>'+
+    '<p class="sub">Review earlier local checkpoints and Undo history. These are not guaranteed to contain missing plays. Restoring replaces the current game, but keeps a recovery copy first.</p>'+
+    (candidates.length?candidates.map((x,i)=>
+      '<button class="med" id="recovery'+i+'" style="width:100%;margin-bottom:7px;text-align:left">'+
+      esc(x.info)+'<br><small>'+esc(x.why)+
+      (x.at>1e10?' · '+new Date(x.at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'')+
+      (x.progress>gameProgress(S)?' · MORE PROGRESS':'')+'</small></button>').join(''):
+      '<p class="sub">No other local states found.</p>')+
+    '<button class="sml ghost" id="recoveryClose" style="width:100%">Close</button>');
+  candidates.forEach((x,i)=>{$('#recovery'+i).onclick=()=>{
+    openModal('<h2>Restore this checkpoint?</h2><p class="sub">'+esc(x.info)+
+      '. This changes your current scorecard, so confirm only if it has the correct plays.</p>'+
+      '<button class="med accent" id="recoveryConfirm" style="width:100%;margin-bottom:8px">Restore</button>'+
+      '<button class="med ghost" id="recoveryBack" style="width:100%">Back</button>');
+    $('#recoveryConfirm').onclick=()=>{if(!restoreRecoveryCandidate(x.state))toast('Could not save the restore. Current game was protected.');};
+    $('#recoveryBack').onclick=recoveryModal;
+  };});
+  $('#recoveryClose').onclick=closeModal;
+}
+function renderRecoveryCard(){
+  const e=$('#recoveryCard');if(!e)return;
+  const n=recoveryCandidates().length;
+  e.innerHTML='<div class="card"><div class="sect" style="margin-top:0">Game recovery</div>'+
+    '<p class="sub">Find previous scoring states stored on this device. The app will never auto-replace your game with a checkpoint.</p>'+
+    '<button class="med" id="recoveryOpen" style="width:100%">Review saved states'+(n?' ('+n+')':'')+'</button></div>';
+  $('#recoveryOpen').onclick=recoveryModal;
+}
 function snap(state){if(viewing)return;const copy=state||S;
   undoStack.push(JSON.stringify(copy));undoMeta.push([copy.pas.length,copy.pa.length]);
-  if(undoStack.length>80){undoStack.shift();undoMeta.shift();}persistUndo();}
+  persistUndo();}
 /* In-play pickers record the provisional outcome before their placement review.
    Never include that provisional note in an Undo snapshot: reverting the play
    must restore the earlier pitches/count, not leave a phantom PA result. */
@@ -944,20 +1082,48 @@ function removeLegacyUndoneResult(next,completedPA){
   const prior=notes.slice(0,-1);
   if(prior.every((e,i)=>JSON.stringify(e)===JSON.stringify(events[i])))notes.pop();
 }
-// undoMeta[i] = [pas.length, pa.length] for undoStack[i] — lets Re-score check
-// the target is reachable before popping (A4), without parsing 80 snapshots.
-function persistUndo(){try{localStorage.setItem('osb1-undo',JSON.stringify({s:undoStack,m:undoMeta}));}catch(e){}}
-function rebuildUndoMeta(){ // for pre-fix undo stores (plain arrays); bounded, one-time
+// undoMeta[i] = [pas.length, pa.length] for undoStack[i].
+function rebuildUndoMeta(){
   undoMeta.length=0;
   for(const s of undoStack){try{const o=JSON.parse(s);undoMeta.push([o.pas?o.pas.length:0,o.pa?o.pa.length:0]);}
     catch(e){undoMeta.push([-1,-1]);}}
-  persistUndo();}
+  persistUndo();
+}
+function persistLocal(){
+  let raw;try{raw=JSON.stringify(S);}catch(e){storageSaveError=true;renderSaveAlert();return false;}
+  let prior=null;try{prior=localStorage.getItem('osb1');}catch(e){}
+  let ok=false;
+  for(let attempt=0;attempt<24;attempt++){
+    try{localStorage.setItem('osb1',raw);ok=true;break;}
+    catch(e){
+      // A full Undo log must never block the current game's save.
+      if(releaseUndoSpace())continue;
+      if(releaseRecoverySpace())continue;
+      break;
+    }
+  }
+  storageSaveError=!ok;renderSaveAlert();
+  if(!ok)return false;
+  localSavedAt=Date.now();
+  try{localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}
+  // Checkpoint BEFORE the current state when the game crosses a PA/half-inning,
+  // or periodically (at most once per minute) during long plate appearances.
+  if(prior&&prior!==raw){
+    try{
+      const old=JSON.parse(prior),milestone=old.gid===S.gid&&
+        ((old.pas||[]).length!==(S.pas||[]).length||old.inning!==S.inning||old.half!==S.half);
+      if(old.gid===S.gid&&(milestone||Date.now()-lastRecoveryAt>60000)){
+        if(saveRecoverySnapshot(old,milestone?'Before next PA / inning':'Earlier scoring'))lastRecoveryAt=Date.now();
+      }
+    }catch(e){}
+  }
+  return true;
+}
 function save(){
   if(viewing){if(viewing.editing)persistViewedGameEdit();return;}
-  try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();try{localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}}catch(e){}
+  persistLocal();
   queuePush();
 }
-function persistLocal(){try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();try{localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}}catch(e){}}
 let corruptStashed=false; // A13: damaged osb1 is stashed + reported, never silently dropped
 function load(){try{const r=localStorage.getItem('osb1');if(r)S=JSON.parse(r);}catch(e){
     try{localStorage.setItem('osb1-corrupt-'+Date.now(),localStorage.getItem('osb1')||'');}catch(e2){}
@@ -973,6 +1139,7 @@ function undo(){if(!undoStack.length)return;
   let next;try{next=JSON.parse(raw);}catch(e){toast("Couldn't undo that step");return;} // A14
   const justUndonePA=S.pas.length===next.pas.length+1?S.pas[S.pas.length-1]:null;
   if(justUndonePA)removeLegacyUndoneResult(next,justUndonePA);
+  saveRecoverySnapshot(S,'Before Undo');
   undoStack.pop();undoMeta.pop();
   // rev tracks server lineage, not local content — undo must not manufacture a conflict
   const keepRev=S.rev,keepTs=S.serverUpdatedAt;
@@ -4100,11 +4267,12 @@ async function loadRemoteGame(g,silent){
     if(!r.ok)throw new Error('http '+r.status);
     const full=await r.json();
     const st=typeof full.state==='string'?JSON.parse(full.state):full.state;
+    saveRecoverySnapshot(S,'Before cloud load');
     st.gid=g.id;S=st;ensureShape();
     if(typeof full.rev==='number')S.rev=full.rev;
     S.serverUpdatedAt=typeof full.updated_at==='number'?full.updated_at:(typeof g.updated_at==='number'?g.updated_at:0);
     undoStack.length=0;undoMeta.length=0;persistUndo(); // snapshots don't sync — A4/A17 explains this
-    try{localStorage.setItem('osb1',JSON.stringify(S));localSavedAt=Date.now();localStorage.setItem('osb1-ts',String(localSavedAt));}catch(e){}
+    persistLocal();
     pendingRemote=null;markGamesTab();
     renderSetup();renderAll();renderGames();showView('score');
     if(!silent)toast('Loaded game from '+(g.device||'other device'));
@@ -4146,7 +4314,7 @@ async function deletePastGame(gid,remote){
 }
 
 /* ================= games tab UI ================= */
-function renderGames(){renderPendingCard();renderSyncCard();renderPastList();}
+function renderGames(){renderPendingCard();renderRecoveryCard();renderSyncCard();renderPastList();}
 function archiveCurrentGame(){ // A10: the outgoing local game is real — keep it, don't drop it
   if(!gameStarted())return;
   addToArchive({gid:S.gid,name:gameName(),score:gameScore(),date:Date.now(),gameDate:S.gameDate||'',state:JSON.parse(JSON.stringify(S))});
@@ -4381,7 +4549,7 @@ function init(){
     marker.addEventListener('click',e=>{e.stopPropagation();chalStepper();});
     marker.addEventListener('keydown',e=>e.stopPropagation());
   });
-  renderSetup();renderAll();renderGames();showView(S.started?'score':'setup');
+  renderSetup();renderAll();renderGames();renderSaveAlert();showView(S.started?'score':'setup');
   if(corruptStashed)toast('Saved game looked damaged — started fresh (old data kept for recovery)');
   if(syncCfg())pullOnStart(false);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&syncCfg()&&!viewing)pullOnStart(true);});
