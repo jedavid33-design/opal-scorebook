@@ -85,6 +85,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `get substitutionMode(){return substitutionMode;},get pendingSub(){return pendingSub;},get subIncoming(){return subIncoming;},` +
   `get viewing(){return viewing;},set viewing(v){viewing=v;},` +
   `APP_VERSION,blank,blankTeam,localISODate,displayGameDate,ensureShape,snap,persistUndo,rebuildUndoMeta,save,persistLocal,load,undo,` +
+  `getRecoveryHistory,saveRecoverySnapshot,recoveryCandidates,recoveryModal,renderRecoveryCard,restoreRecoveryCandidate,gameProgress,trimUndoHistory,releaseUndoSpace,renderSaveAlert,` +
   `batTeam,curBatter,pname,ev,innRuns,scoreRun,syncPitcherFromLineup,fieldingTeam,activePitcherLabel,pitchCountsAsThrown,contactPitchBonus,pitcherAppearanceOrder,pitcherPitchSummary,pitcherPitchCount,` +
   `demoLineups,rosterPoolSort,rosterToPool,transactionQuery,transactionPlayersToPool,mergeRosterPool,rosterQuery,clearSlot,scoreTeamAbbr,duplicatePositions,renderPositionWarning,renderSetup,applySetupTeam,showSetupTeam,` +
   `runnerLineupSlot,offensiveSubTargets,offensiveSubHTML,selectIncomingSub,cancelIncomingSub,applyIncomingLineupSub,applyIncomingOffensiveSub,beginLineupSub,beginOffensiveSub,cancelPendingSub,completeLineupSub,completeOffensiveSub,openSubstitutionLineup,finishSubstitutionMode,tapPoolPlayer,` +
@@ -201,6 +202,63 @@ async function main() {
   sb.commitRunnerOutPlacement('Caught stealing 2-5 — '+sb.pname(cs),cs,2,explicit,false);
   ok(sb.S.pa.some(e=>e.advance&&e.advance.reason==='SB'),
     'ROP4: explicitly selected stolen base retains SB credit');
+
+  /* ===== SAVE1: local storage durability + accidental Undo recovery ===== */
+  newGame();
+  sb.S.inning=5;sb.S.outs=1;
+  sb.save();
+  sb.snap();
+  sb.S.inning=6;sb.S.outs=0;
+  sb.save();
+  eq(JSON.parse(store['osb1']).inning,6,'SAVE1: saved game advances to new inning');
+  sb.undo();
+  eq(sb.S.inning,5,'SAVE1: accidental Undo moves one action back');
+  const recovered=sb.recoveryCandidates().find(x=>JSON.parse(x.state).inning===6);
+  ok(!!recovered,'SAVE1: checkpoint includes later state even after accidental Undo');
+  eq(sb.restoreRecoveryCandidate(recovered.state),true,'SAVE1: user can restore later game state');
+  eq(sb.S.inning,6,'SAVE1: restored state brings scoring forward');
+  eq(JSON.parse(store['osb1']).inning,6,'SAVE1: restored state persisted on device');
+  ok(sb.getRecoveryHistory().some(x=>JSON.parse(x.state).inning===5),
+    'SAVE1: restore retains backup of previous state');
+
+  /* ===== SAVE2: huge Undo histories can't crowd out live game writes ===== */
+  newGame();
+  sb.S.pa=[{t:'r',text:'x'.repeat(22000)}];
+  for(let i=0;i<75;i++){sb.S.balls=i%4;sb.snap();}
+  const log=JSON.parse(store['osb1-undo']);
+  ok(log.s.reduce((n,s)=>n+s.length,0)<=700000,
+    'SAVE2: persisted Undo history obeys total-size budget');
+  eq(log.s.length,sb.undoStack.length,
+    'SAVE2: persisted Undo history matches in-memory history after trimming');
+  sb.S.inning=7;sb.save();
+  eq(JSON.parse(store['osb1']).inning,7,
+    'SAVE2: live game still persists with a large Undo history');
+
+  /* ===== SAVE3: retry after quota; visible error if storage cannot save ===== */
+  newGame();
+  sb.S.pa=[{t:'p',text:'a'.repeat(4200)}];
+  for(let i=0;i<8;i++){sb.S.outs=i%3;sb.snap();}
+  const saveOriginal=global.localStorage.setItem;
+  global.localStorage.setItem=(k,v)=>{
+    const other=Object.entries(store).reduce((n,[name,val])=>n+(name===k?0:val.length),0);
+    if(other+String(v).length>14000)throw new Error('QuotaExceededError');
+    return saveOriginal(k,v);
+  };
+  sb.S.inning=8;sb.save();
+  eq(JSON.parse(store['osb1']).inning,8,
+    'SAVE3: live game save retries after trimming Undo snapshots');
+  ok(sb.undoStack.length<8,'SAVE3: old Undo entries were dropped to allow save');
+  global.localStorage.setItem=(k,v)=>{
+    if(k==='osb1')throw new Error('QuotaExceededError');
+    return saveOriginal(k,v);
+  };
+  sb.S.inning=9;sb.save();
+  eq(el('#saveAlert').hidden,false,'SAVE3: failing save displays persistent red flag');
+  eq(JSON.parse(store['osb1']).inning,8,'SAVE3: unsaved inning not falsely written');
+  global.localStorage.setItem=saveOriginal;
+  sb.save();
+  eq(el('#saveAlert').hidden,true,'SAVE3: warning clears after successful retry');
+  eq(JSON.parse(store['osb1']).inning,9,'SAVE3: save succeeds again once quota clears');
 
   /* ===== regression: core scoring (the original 22-check areas) ===== */
   newGame();
@@ -1596,7 +1654,7 @@ async function main() {
      liveEvents.indexOf('class="pn">2</span><span>Called</span>')>=0,
     'U2: pitch chips number only pitches while WP remains a compact note');
 
-  eq(sb.APP_VERSION,'2026.10.16.1','U3: discreet build version is explicit');
+  eq(sb.APP_VERSION,'2026.10.16.2','U3: discreet build version is explicit');
   ok(typeof sb.initPullToRefresh==='function' &&
      html.indexOf("touchstart")>=0 && html.indexOf("location.reload()")>=0,
     'U4: pull-to-refresh gesture is wired to reload the saved app');
