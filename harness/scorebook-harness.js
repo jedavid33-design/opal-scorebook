@@ -255,6 +255,10 @@ async function main() {
   sb.S.inning=9;sb.save();
   eq(el('#saveAlert').hidden,false,'SAVE3: failing save displays persistent red flag');
   eq(JSON.parse(store['osb1']).inning,8,'SAVE3: unsaved inning not falsely written');
+  const failedRestore=JSON.stringify({...sb.S,inning:10});
+  eq(sb.restoreRecoveryCandidate(failedRestore),false,
+    'SAVE3: unavailable storage rejects checkpoint restore');
+  eq(sb.S.inning,9,'SAVE3: failed checkpoint restore preserves in-memory game');
   global.localStorage.setItem=saveOriginal;
   sb.save();
   eq(el('#saveAlert').hidden,true,'SAVE3: warning clears after successful retry');
