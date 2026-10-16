@@ -3036,7 +3036,7 @@ function runnerOutPlacement(text,r,baseIndex){
         draw();
       }
     });
-    $('#sheet').querySelectorAll('[data-ro-reason]').forEach(b=>b.onclick=>
+    $('#sheet').querySelectorAll('[data-ro-reason]').forEach(b=>b.onclick=()=>
       drawReason(others[+b.dataset.roReason],draw));
     $('#roDone').onclick=()=>{
       const commit=commitRunnerOutPlacement(text,r,from,others,false);
