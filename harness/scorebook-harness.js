@@ -94,7 +94,7 @@ const exportLine = `;globalThis.__sb=(()=>({` +
   `lastPitchEv,lastPitch,challengeTeamFor,chalTeamName,countAfterPitch,recountCount,` +
   `challengeSheet,doChallenge,chalStepper,` +
   `outcomeModal,handleOutcome,hitPicker,fcPlayText,fielderChoicePicker,groundRuleDouble,bindDoubleGesture,dpModal,triplePlayEligible,triplePlayCandidates,triplePlayDisplay,commitTriplePlay,triplePlayModal,buntOutNotation,scoreBuntOut,bindBuntOutGesture,infieldFlyEligible,infieldFlyNotation,scoreInfieldFly,bindPopOutGesture,foulOutNotation,scoreFoulOut,bindFoulOutGesture,homeRunText,homeRunLocation,hitMovers,holdMovers,sacrificeMovers,resultAwardBase,ensureRunnerIdentity,runnerAdvanceData,runnerAdvanceEvent,setRunnerEnd,runnerEndFor,currentRunnerBase,runnerPathById,moveRunnerEvents,placementErrorInstances,paErrTag,placementCollision,needsAdvanceReason,advanceReasonChoices,extraAdvanceReason,placementReview,advanceAll,` +
-  `recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actError,scoreRunnerErrorAdvance,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
+  `outPlayMovers,outPlayCollision,commitRunnerOutPlacement,runnerOutPlacement,recordRunnerOut,runnerAtBase,runnerActionMenu,actSteal,actPick,actError,scoreRunnerErrorAdvance,actWPPB,actBalk,actDI,runnerActionCollision,applySub,` +
   `paAt,pasAt,clsOf,isSacrificeDoublePlay,sacrificeDoublePlayFielding,paResultDisplay,paBatterIsOut,paInningEnded,legacyRunnerNamedOut,legacyRunnerAnonymousOutPossible,paBookJourney,bookAdvanceBatterSlot,bookAdvanceLabel,bookAdvanceLabelPos,bookDiamondHTML,teamHits,paErrDisp,teamErrs,liveBallErrors,playerErrs,renderFielding,bookTable,renderDecisions,renderBookBanner,renderBook,renderPbp,terminalPitchLabel,paPitchAudit,beginPastEditIfNeeded,deleteStoredPitch,deletePitchPicker,auditEditPA,pitchAuditModal,` +
   `editRescoreReachable,confirmEditPA,outcomeIdx,describePA,paKind,applyNotationFix,applyFixNotation,editPA,fixNotation,officialRuling,` +
   `pitchCounts,tryAddPitch,addPitchPA,teamRunTotal,cleanPitcherName,pitcherCandidates,decisionList,decisionInputRow,decisionPitcherPicker,gamePitchingCheckHTML,gameDecisionSheet,persistViewedGameEdit,startPastGameEdit,finishPastGameEdit,` +
@@ -133,6 +133,74 @@ function newGame() {
 function strikeout() { sb.doPitch('cstr'); sb.doPitch('cstr'); sb.doPitch('cstr'); }
 
 async function main() {
+
+  /* ===== runner-out placement: caught stealing / pickoff with live runners ===== */
+  newGame();
+  sb.S.outs=1;sb.S.pa=[{t:'p',text:'Ball'}];
+  const runnerA={t:'away',i:0,rid:'ro-first'},runnerB={t:'away',i:1,rid:'ro-second'};
+  sb.S.bases=[runnerA,runnerB,null];
+  sb.runnerOutPlacement('Caught stealing 2-5 — '+sb.pname(runnerB),runnerB,1);
+  ok(el('#sheet').innerHTML.includes('Runner placement')&&
+    el('#sheet').innerHTML.includes('On play · no SB')===false &&
+    el('#sheet').innerHTML.includes('do not automatically count as stolen bases'),
+    'ROP1: CS with another runner opens placement without assigning SB');
+  eq(sb.S.outs,1,'ROP1: preview has not yet recorded an out');
+  const movers=sb.outPlayMovers(1);
+  eq(movers.length,1,'ROP1: only surviving runners enter placement');
+  movers[0].to=2;
+  eq(sb.commitRunnerOutPlacement('Caught stealing 2-5 — '+sb.pname(runnerB),
+    runnerB,2,movers,false),true,'ROP1: confirm commits CS and remaining runner movement');
+  eq(sb.S.outs,2,'ROP1: CS increments outs once');
+  eq(sb.S.bases[1].rid,'ro-first','ROP1: other runner placed on second');
+  ok(sb.S.pa.some(e=>e.advance&&e.advance.rid==='ro-first'&&
+    e.advance.from===1&&e.advance.to===2&&e.advance.reason==='play'),
+    'ROP1: other advance retains runner identity and is not a stolen base');
+  eq(sb.S.pa.filter(e=>e.advance&&e.advance.reason==='SB').length,0,
+    'ROP1: no stolen-base credit from default placement');
+  eq(sb.undoStack.length,1,'ROP1: one undo snapshot for out and runner advance');
+  sb.undo();
+  eq(sb.S.outs,1,'ROP1: undo restores original outs');
+  eq(sb.S.bases[0].rid,'ro-first','ROP1: undo restores runner on first');
+  eq(sb.S.bases[1].rid,'ro-second','ROP1: undo restores caught runner on second');
+  eq(sb.S.pa.length,1,'ROP1: undo restores unfinished PA pitches');
+
+  newGame();
+  sb.S.bases=[{t:'away',i:0,rid:'ro-a'},{t:'away',i:1,rid:'ro-b'},null];
+  const collision=sb.outPlayMovers(1);collision[0].to=2;
+  eq(sb.outPlayCollision(collision),0,'ROP2: removed runner frees destination base');
+  const hold=sb.outPlayMovers(0);hold[0].to=2;
+  eq(sb.outPlayCollision(hold),0,'ROP2: a surviving runner may hold');
+  const both=[{r:{rid:'x'},from:1,to:2},{r:{rid:'y'},from:2,to:2}];
+  eq(sb.outPlayCollision(both),2,'ROP2: collision check rejects duplicate ending base');
+
+  newGame();
+  sb.S.inning=8;sb.S.half=0;sb.S.outs=2;sb.S.order.away=4;
+  sb.S.pa=[{t:'p',text:'Ball'}];
+  const pick={t:'away',i:2,rid:'ro-pick'},score={t:'away',i:3,rid:'ro-score'};
+  sb.S.bases=[pick,null,score];
+  const scoring=sb.outPlayMovers(0);scoring[0].to=4;
+  eq(sb.commitRunnerOutPlacement('Picked off 1-3 — '+sb.pname(pick),
+    pick,1,scoring,false),'timing','ROP3: inning-ending run requires timing confirmation');
+  eq(sb.S.outs,2,'ROP3: unresolved timing leaves inning unchanged');
+  eq(sb.commitRunnerOutPlacement('Picked off 1-3 — '+sb.pname(pick),
+    pick,1,scoring,true),true,'ROP3: confirmed run commits before third out');
+  eq(sb.S.runs.away[7],1,'ROP3: run scored before inning-ending pickoff counts');
+  eq(sb.S.half,1,'ROP3: third out advances half inning');
+  eq(sb.S.order.away,4,'ROP3: batter stays due after interrupted PA');
+  eq(sb.S.interruptedPAs.length,1,'ROP3: inning-ending pickoff preserves unfinished PA');
+  ok(sb.S.interruptedPAs[0].events.some(e=>e.advance&&e.advance.to===4),
+    'ROP3: interrupted PA retains scored runner path');
+  sb.undo();
+  eq(sb.S.runs.away[7]||0,0,'ROP3: undo restores score before pickoff');
+  eq(sb.S.bases[2].rid,'ro-score','ROP3: undo restores scoring runner');
+
+  newGame();
+  const st={t:'away',i:0,rid:'ro-st'},cs={t:'away',i:1,rid:'ro-cs'};
+  sb.S.bases=[st,cs,null];
+  const explicit=sb.outPlayMovers(1);explicit[0].to=2;explicit[0].reason='SB';
+  sb.commitRunnerOutPlacement('Caught stealing 2-5 — '+sb.pname(cs),cs,2,explicit,false);
+  ok(sb.S.pa.some(e=>e.advance&&e.advance.reason==='SB'),
+    'ROP4: explicitly selected stolen base retains SB credit');
 
   /* ===== regression: core scoring (the original 22-check areas) ===== */
   newGame();
